@@ -10,6 +10,9 @@ class AppSettings {
   final bool timerSpeakOn;
   final int timerAnnounceEvery;
   final bool timerNoiseOn;
+  final bool fullscreenDarkTheme;
+  final bool fullscreenDimBrightness;
+  final bool fullscreenStartLandscape;
   final String voiceListMode;
   final String? favoriteVoiceName;
   final String? favoriteVoiceLocale;
@@ -26,6 +29,9 @@ class AppSettings {
     required this.timerSpeakOn,
     required this.timerAnnounceEvery,
     required this.timerNoiseOn,
+    required this.fullscreenDarkTheme,
+    required this.fullscreenDimBrightness,
+    required this.fullscreenStartLandscape,
     required this.voiceListMode,
     required this.favoriteVoiceName,
     required this.favoriteVoiceLocale,

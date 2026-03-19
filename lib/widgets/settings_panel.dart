@@ -7,6 +7,9 @@ class SettingsPanel extends StatelessWidget {
   final String soundChosen;
   final double noiseVolume;
   final double speakVolume;
+  final bool fullscreenDarkTheme;
+  final bool fullscreenDimBrightness;
+  final bool fullscreenStartLandscape;
   final List<SoundOption> soundList;
   final List<double> volumeLists;
   final bool isSpeechActive;
@@ -18,6 +21,9 @@ class SettingsPanel extends StatelessWidget {
   final ValueChanged<String?> onSoundChanged;
   final ValueChanged<double?> onNoiseVolumeChanged;
   final ValueChanged<double?> onSpeakVolumeChanged;
+  final ValueChanged<bool?> onFullscreenDarkThemeChanged;
+  final ValueChanged<bool?> onFullscreenDimBrightnessChanged;
+  final ValueChanged<bool?> onFullscreenStartLandscapeChanged;
   final ValueChanged<String?> onVoiceListModeChanged;
   final ValueChanged<String?> onFavoriteVoiceChanged;
 
@@ -26,6 +32,9 @@ class SettingsPanel extends StatelessWidget {
     required this.soundChosen,
     required this.noiseVolume,
     required this.speakVolume,
+    required this.fullscreenDarkTheme,
+    required this.fullscreenDimBrightness,
+    required this.fullscreenStartLandscape,
     required this.soundList,
     required this.volumeLists,
     required this.isSpeechActive,
@@ -37,6 +46,9 @@ class SettingsPanel extends StatelessWidget {
     required this.onSoundChanged,
     required this.onNoiseVolumeChanged,
     required this.onSpeakVolumeChanged,
+    required this.onFullscreenDarkThemeChanged,
+    required this.onFullscreenDimBrightnessChanged,
+    required this.onFullscreenStartLandscapeChanged,
     required this.onVoiceListModeChanged,
     required this.onFavoriteVoiceChanged,
   });
@@ -118,6 +130,46 @@ class SettingsPanel extends StatelessWidget {
               )).toList(),
               onChanged: onSpeakVolumeChanged,
             ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Checkbox(
+                value: fullscreenDarkTheme,
+                activeColor: palette.primary,
+                checkColor: palette.accent,
+                onChanged: onFullscreenDarkThemeChanged,
+              ),
+              Expanded(
+                child: sectionLabel('Use dark theme in fullscreen by default'),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              Checkbox(
+                value: fullscreenDimBrightness,
+                activeColor: palette.primary,
+                checkColor: palette.accent,
+                onChanged: onFullscreenDimBrightnessChanged,
+              ),
+              Expanded(
+                child: sectionLabel('Dim screen brightness in fullscreen'),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              Checkbox(
+                value: fullscreenStartLandscape,
+                activeColor: palette.primary,
+                checkColor: palette.accent,
+                onChanged: onFullscreenStartLandscapeChanged,
+              ),
+              Expanded(
+                child: sectionLabel('Start fullscreen in horizontal orientation'),
+              ),
+            ],
           ),
           sectionLabel("Voice list"),
           Container(

@@ -80,36 +80,42 @@ class ClockPanel extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            mainTime,
-                            style: TextStyle(
-                              fontSize: 44,
-                              height: 1,
-                              fontWeight: FontWeight.w800,
-                              color: palette.primary,
-                              letterSpacing: 1.4,
-                              fontFeatures: const [FontFeature.tabularFigures()],
-                            ),
-                          ),
-                        ),
-                        if (millis != null)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: Text(
-                              '.$millis',
+                    SizedBox(
+                      width: double.infinity,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              mainTime,
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: palette.primary.withAlpha(170),
+                                fontSize: 44,
+                                height: 1,
+                                fontWeight: FontWeight.w800,
+                                color: palette.primary,
+                                letterSpacing: 1.4,
                                 fontFeatures: const [FontFeature.tabularFigures()],
                               ),
                             ),
-                          ),
-                      ],
+                            if (millis != null)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Text(
+                                  '.$millis',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: palette.primary.withAlpha(170),
+                                    fontFeatures: const [FontFeature.tabularFigures()],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),

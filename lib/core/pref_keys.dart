@@ -10,6 +10,9 @@ class PrefKeys {
   static const timerSpeakOn = 'TimerSpeakOn';
   static const timerAnnounceEvery = 'TimerAnnounceEvery';
   static const timerNoiseOn = 'TimerNoiseOn';
+  static const fullscreenDarkTheme = 'FullscreenDarkTheme';
+  static const fullscreenDimBrightness = 'FullscreenDimBrightness';
+  static const fullscreenStartLandscape = 'FullscreenStartLandscape';
   static const voiceListMode = 'VoiceListMode';
   static const favoriteVoiceName = 'FavoriteVoiceName';
   static const favoriteVoiceLocale = 'FavoriteVoiceLocale';

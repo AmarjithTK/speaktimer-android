@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
@@ -136,6 +137,9 @@ class _MainScreenState extends State<MainScreen> {
   String motivationCategory = 'General';
   int motivationDelaySeconds = 10;
   bool timerNoiseOn = true;
+  bool fullscreenDarkTheme = true;
+  bool fullscreenDimBrightness = false;
+  bool fullscreenStartLandscape = false;
   bool timerSpeakOn = true;
   int timerAnnounceEvery = 1;
   bool chainModeOn = false;
@@ -356,12 +360,56 @@ class _MainScreenState extends State<MainScreen> {
       MaterialPageRoute(
         builder: (_) => FullscreenFocusView(
           startInTimerMode: startInTimer,
+          initialDarkTheme: fullscreenDarkTheme,
+          initialDimBrightness: fullscreenDimBrightness,
+          initialForceLandscape: fullscreenStartLandscape,
+          onThemeChanged: (isDark) {
+            if (!mounted) return;
+            setState(() {
+              fullscreenDarkTheme = isDark;
+              _lsSave();
+            });
+          },
+          onDimBrightnessChanged: (isDimmed) {
+            if (!mounted) return;
+            setState(() {
+              fullscreenDimBrightness = isDimmed;
+              _lsSave();
+            });
+          },
+          onForceLandscapeChanged: (isLandscape) {
+            if (!mounted) return;
+            setState(() {
+              fullscreenStartLandscape = isLandscape;
+              _lsSave();
+            });
+          },
           clockTextBuilder: () => currentTimeDisplay,
           timerTextBuilder: () => timerValue,
           isTimerRunningBuilder: () => timerInterval != null,
         ),
       ),
     );
+    await SystemChrome.setPreferredOrientations([]);
+  }
+
+  Future<void> _exitAppFully() async {
+    try {
+      stopClock();
+      stopTimer();
+      speechQueue.clear();
+      await flutterTts.stop();
+      await _audioService.stopBackground();
+      await FlutterForegroundTask.stopService();
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    if (Platform.isAndroid || Platform.isIOS) {
+      await SystemNavigator.pop();
+      return;
+    }
+    exit(0);
   }
 
   void _onReceiveTaskData(Object data) {
@@ -387,8 +435,7 @@ class _MainScreenState extends State<MainScreen> {
           _syncForegroundNotification(force: true);
           break;
         case 'btn_exit':
-          stopTimer();
-          FlutterForegroundTask.stopService();
+          unawaited(_exitAppFully());
           break;
       }
     }
@@ -397,6 +444,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(SystemChrome.setPreferredOrientations([]));
     _initForegroundTask();
     _initPrefs();
     _initAudio();
@@ -436,6 +484,9 @@ class _MainScreenState extends State<MainScreen> {
       timerSpeakOn = settings.timerSpeakOn;
       timerAnnounceEvery = settings.timerAnnounceEvery;
       timerNoiseOn = settings.timerNoiseOn;
+      fullscreenDarkTheme = settings.fullscreenDarkTheme;
+      fullscreenDimBrightness = settings.fullscreenDimBrightness;
+      fullscreenStartLandscape = settings.fullscreenStartLandscape;
       voiceListMode = settings.voiceListMode;
       favoriteVoiceName = settings.favoriteVoiceName;
       favoriteVoiceLocale = settings.favoriteVoiceLocale;
@@ -467,6 +518,9 @@ class _MainScreenState extends State<MainScreen> {
       timerSpeakOn: timerSpeakOn,
       timerAnnounceEvery: timerAnnounceEvery,
       timerNoiseOn: timerNoiseOn,
+      fullscreenDarkTheme: fullscreenDarkTheme,
+      fullscreenDimBrightness: fullscreenDimBrightness,
+      fullscreenStartLandscape: fullscreenStartLandscape,
       voiceListMode: voiceListMode,
       favoriteVoiceName: favoriteVoiceName,
       favoriteVoiceLocale: favoriteVoiceLocale,
@@ -878,6 +932,9 @@ class _MainScreenState extends State<MainScreen> {
               soundChosen: soundChosen,
               noiseVolume: noiseVolume,
               speakVolume: speakVolume,
+              fullscreenDarkTheme: fullscreenDarkTheme,
+              fullscreenDimBrightness: fullscreenDimBrightness,
+              fullscreenStartLandscape: fullscreenStartLandscape,
               soundList: soundList,
               volumeLists: volumeLists,
               isSpeechActive: isSpeechActive,
@@ -903,6 +960,24 @@ class _MainScreenState extends State<MainScreen> {
               onSpeakVolumeChanged: (val) {
                 setState(() {
                   speakVolume = val!;
+                  _lsSave();
+                });
+              },
+              onFullscreenDarkThemeChanged: (val) {
+                setState(() {
+                  fullscreenDarkTheme = val ?? true;
+                  _lsSave();
+                });
+              },
+              onFullscreenDimBrightnessChanged: (val) {
+                setState(() {
+                  fullscreenDimBrightness = val ?? false;
+                  _lsSave();
+                });
+              },
+              onFullscreenStartLandscapeChanged: (val) {
+                setState(() {
+                  fullscreenStartLandscape = val ?? false;
                   _lsSave();
                 });
               },
@@ -968,6 +1043,11 @@ class _MainScreenState extends State<MainScreen> {
             ],
           ),
           actions: [
+            IconButton(
+              onPressed: () => unawaited(_exitAppFully()),
+              tooltip: 'Exit App',
+              icon: Icon(Icons.power_settings_new, color: palette.primary),
+            ),
             IconButton(
               onPressed: _openFullscreenFocus,
               tooltip: 'Fullscreen Focus',

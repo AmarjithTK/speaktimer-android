@@ -24,6 +24,9 @@ class SettingsService {
       timerSpeakOn: prefs.getBool(PrefKeys.timerSpeakOn) ?? true,
       timerAnnounceEvery: prefs.getInt(PrefKeys.timerAnnounceEvery) ?? 1,
       timerNoiseOn: prefs.getBool(PrefKeys.timerNoiseOn) ?? true,
+      fullscreenDarkTheme: prefs.getBool(PrefKeys.fullscreenDarkTheme) ?? true,
+      fullscreenDimBrightness: prefs.getBool(PrefKeys.fullscreenDimBrightness) ?? false,
+      fullscreenStartLandscape: prefs.getBool(PrefKeys.fullscreenStartLandscape) ?? false,
       voiceListMode: prefs.getString(PrefKeys.voiceListMode) ?? 'pleasant',
       favoriteVoiceName: prefs.getString(PrefKeys.favoriteVoiceName),
       favoriteVoiceLocale: prefs.getString(PrefKeys.favoriteVoiceLocale),
@@ -44,6 +47,9 @@ class SettingsService {
     await prefs.setBool(PrefKeys.timerSpeakOn, settings.timerSpeakOn);
     await prefs.setInt(PrefKeys.timerAnnounceEvery, settings.timerAnnounceEvery);
     await prefs.setBool(PrefKeys.timerNoiseOn, settings.timerNoiseOn);
+    await prefs.setBool(PrefKeys.fullscreenDarkTheme, settings.fullscreenDarkTheme);
+    await prefs.setBool(PrefKeys.fullscreenDimBrightness, settings.fullscreenDimBrightness);
+    await prefs.setBool(PrefKeys.fullscreenStartLandscape, settings.fullscreenStartLandscape);
     await prefs.setString(PrefKeys.voiceListMode, settings.voiceListMode);
 
     if (settings.favoriteVoiceName != null) {

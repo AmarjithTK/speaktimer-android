@@ -90,37 +90,43 @@ class TimerPanel extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    RichText(
-                      textAlign: TextAlign.center,
-                      text: TextSpan(
-                        style: TextStyle(
-                          color: palette.primary,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                        children: [
-                          TextSpan(
-                            text: minutes,
-                            style: const TextStyle(
-                              fontSize: 46,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          TextSpan(
-                            text: ':',
+                    SizedBox(
+                      width: double.infinity,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: RichText(
+                          textAlign: TextAlign.center,
+                          text: TextSpan(
                             style: TextStyle(
-                              fontSize: 38,
-                              fontWeight: FontWeight.w700,
-                              color: palette.primary.withAlpha(180),
+                              color: palette.primary,
+                              fontFeatures: const [FontFeature.tabularFigures()],
                             ),
+                            children: [
+                              TextSpan(
+                                text: minutes,
+                                style: const TextStyle(
+                                  fontSize: 46,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              TextSpan(
+                                text: ':',
+                                style: TextStyle(
+                                  fontSize: 38,
+                                  fontWeight: FontWeight.w700,
+                                  color: palette.primary.withAlpha(180),
+                                ),
+                              ),
+                              TextSpan(
+                                text: seconds,
+                                style: const TextStyle(
+                                  fontSize: 46,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
                           ),
-                          TextSpan(
-                            text: seconds,
-                            style: const TextStyle(
-                              fontSize: 46,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ],
