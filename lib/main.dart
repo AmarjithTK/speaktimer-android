@@ -103,6 +103,7 @@ class _MainScreenState extends State<MainScreen> {
   Timer? clockTimer;
   Timer? displayTick;
   String currentTimeDisplay = "";
+  int lastNotificationSyncMs = 0;
 
   // 10s Gap enforcement
   int lastClockSpoke = 0;
@@ -193,9 +194,103 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  String _formatCurrentTime(DateTime now) {
+    final h = now.hour;
+    final m = now.minute.toString().padLeft(2, '0');
+    final s = now.second.toString().padLeft(2, '0');
+    final ms = now.millisecond.toString().padLeft(3, '0');
+    final ampm = h >= 12 ? 'PM' : 'AM';
+    final h12 = h % 12 == 0 ? 12 : h % 12;
+    final hStr = h12.toString().padLeft(2, '0');
+    return "$hStr:$m:$s.$ms $ampm";
+  }
+
+  String _notificationTitle() {
+    return timerInterval != null
+        ? 'Speaktimer (Timer Running)'
+        : 'Speaktimer (Clock Mode)';
+  }
+
+  String _notificationText() {
+    if (timerInterval != null) {
+      return 'Time remaining: $timerValue';
+    }
+
+    final idleTime = currentTimeDisplay.isNotEmpty
+        ? currentTimeDisplay
+        : _formatCurrentTime(DateTime.now());
+    return 'Current time: $idleTime';
+  }
+
+  List<NotificationButton> _buildNotificationButtons() {
+    if (timerInterval != null) {
+      return [
+        const NotificationButton(id: 'btn_timer_toggle', text: 'Stop Timer'),
+        NotificationButton(
+          id: 'btn_clock_speech',
+          text: clockOn ? 'Clock Speech ON' : 'Clock Speech OFF',
+        ),
+        const NotificationButton(id: 'btn_exit', text: 'Exit'),
+      ];
+    }
+
+    return [
+      NotificationButton(
+        id: 'btn_clock_speech',
+        text: clockOn ? 'Clock Speech ON' : 'Clock Speech OFF',
+      ),
+      const NotificationButton(id: 'btn_exit', text: 'Exit'),
+    ];
+  }
+
+  Future<void> _syncForegroundNotification({bool force = false}) async {
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    if (!force && nowMs - lastNotificationSyncMs < 100) {
+      return;
+    }
+
+    if (await FlutterForegroundTask.isRunningService) {
+      lastNotificationSyncMs = nowMs;
+      await FlutterForegroundTask.updateService(
+        notificationTitle: _notificationTitle(),
+        notificationText: _notificationText(),
+        notificationButtons: _buildNotificationButtons(),
+      );
+    }
+  }
+
+  Future<void> _ensureForegroundServiceRunning() async {
+    if (!await FlutterForegroundTask.isRunningService) {
+      await FlutterForegroundTask.startService(
+        notificationTitle: _notificationTitle(),
+        notificationText: _notificationText(),
+        notificationIcon: const NotificationIcon(
+          metaDataName: 'com.example.speakertimer.service.NOTIFICATION_ICON',
+        ),
+        notificationButtons: _buildNotificationButtons(),
+        callback: startCallback,
+      );
+      return;
+    }
+
+    await _syncForegroundNotification(force: true);
+  }
+
+  Future<void> _initializeForegroundNotification() async {
+    await _requestPermissions();
+    await _ensureForegroundServiceRunning();
+  }
+
   void _onReceiveTaskData(Object data) {
     if (data is String) {
       switch (data) {
+        case 'btn_timer_toggle':
+          if (timerInterval != null) {
+            stopTimer();
+          } else {
+            startTimer();
+          }
+          break;
         case 'btn_clock_speech':
           setState(() {
             clockOn = !clockOn;
@@ -206,6 +301,11 @@ class _MainScreenState extends State<MainScreen> {
               stopClock();
             }
           });
+          _syncForegroundNotification(force: true);
+          break;
+        case 'btn_exit':
+          stopTimer();
+          FlutterForegroundTask.stopService();
           break;
       }
     }
@@ -214,28 +314,26 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    _requestPermissions();
     _initForegroundTask();
     _initPrefs();
-  _initAudio();
+    _initAudio();
     _initTts();
+    _initializeForegroundNotification();
 
     // Add callback to handle notification button presses
     FlutterForegroundTask.addTaskDataCallback(_onReceiveTaskData);
 
     displayTick = Timer.periodic(const Duration(milliseconds: 30), (timer) {
       final now = DateTime.now();
-      final h = now.hour;
-      final m = now.minute.toString().padLeft(2, '0');
-      final s = now.second.toString().padLeft(2, '0');
-      final ms = now.millisecond.toString().padLeft(3, '0');
-      final ampm = h >= 12 ? 'PM' : 'AM';
-      final h12 = h % 12 == 0 ? 12 : h % 12;
-      final hStr = h12.toString().padLeft(2, '0');
+      final display = _formatCurrentTime(now);
       if (mounted) {
         setState(() {
-          currentTimeDisplay = "$hStr:$m:$s.$ms $ampm";
+          currentTimeDisplay = display;
         });
+      }
+
+      if (timerInterval == null) {
+        _syncForegroundNotification();
       }
     });
   }
@@ -454,8 +552,9 @@ class _MainScreenState extends State<MainScreen> {
       timerValue = "$mStr:$sStr";
 
       FlutterForegroundTask.updateService(
-        notificationTitle: "Speaktimer (Speech ${timerSpeakOn ? 'ON' : 'OFF'})",
-        notificationText: "Time remaining: $timerValue",
+        notificationTitle: _notificationTitle(),
+        notificationText: _notificationText(),
+        notificationButtons: _buildNotificationButtons(),
       );
 
       if (secs == 0 &&
@@ -492,21 +591,9 @@ class _MainScreenState extends State<MainScreen> {
     if (timerInterval != null) return;
 
     try {
-      if (!await FlutterForegroundTask.isRunningService) {
-        await FlutterForegroundTask.startService(
-          notificationTitle: "Speaktimer (Speech \${timerSpeakOn ? 'ON' : 'OFF'})",
-          notificationText: "Time remaining: \$timerValue",
-          notificationIcon: const NotificationIcon(
-            metaDataName: 'com.example.speakertimer.service.NOTIFICATION_ICON',
-          ),
-          notificationButtons: [
-            const NotificationButton(id: 'btn_clock_speech', text: 'Clock Speech'),
-          ],
-          callback: startCallback,
-        );
-      }
+      await _ensureForegroundServiceRunning();
     } catch (e) {
-      debugPrint("FOREGROUND TASK ERROR: \$e");
+      debugPrint('FOREGROUND TASK ERROR: $e');
     }
 
     setState(() {
@@ -514,6 +601,7 @@ class _MainScreenState extends State<MainScreen> {
       audioPlaying = true;
     });
     _applyAudioSettings();
+    _syncForegroundNotification(force: true);
   }
 
   void stopTimer() {
@@ -523,6 +611,7 @@ class _MainScreenState extends State<MainScreen> {
       audioPlaying = false;
     });
     bgPlayer.pause();
+    _syncForegroundNotification(force: true);
   }
 
   void resetTimer() {
