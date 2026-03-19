@@ -109,9 +109,8 @@ class _MainScreenState extends State<MainScreen> {
   int lastTimerSpoke = 0;
 
   // Prefs state variables
-  String soundChosen =
-      "https://cdn.freesound.org/previews/242/242889_4047489-lq.mp3";
-  double noiseVolume = 0.2;
+  String soundChosen = "audio/rain.mp3";
+  double noiseVolume = 0.6;
   double speakVolume = 0.8;
   bool clockOn = false;
   int clockIntervalMins = 30;
@@ -119,25 +118,12 @@ class _MainScreenState extends State<MainScreen> {
   bool timerSpeakOn = true;
   int timerAnnounceEvery = 1;
 
-  final String notifySound =
-      "https://cdn.freesound.org/previews/369/369880_1480854-lq.mp3";
+  final String notifySound = "audio/notify.mp3";
   final List<SoundOption> soundList = [
-    SoundOption(
-      "https://cdn.freesound.org/previews/242/242889_4047489-lq.mp3",
-      "Rain",
-    ),
-    SoundOption(
-      "https://cdn.freesound.org/previews/215/215711_4034520-lq.mp3",
-      "Waterfall",
-    ),
-    SoundOption(
-      "https://cdn.freesound.org/previews/650/650574_9782868-lq.mp3",
-      "Fire",
-    ),
-    SoundOption(
-      "https://cdn.freesound.org/previews/690/690215_9250976-lq.mp3",
-      "Stream",
-    ),
+    SoundOption("audio/rain.mp3", "Rain"),
+    SoundOption("audio/waterfall.mp3", "Waterfall"),
+    SoundOption("audio/fire.mp3", "Fire"),
+    SoundOption("audio/stream.mp3", "Stream"),
   ];
 
   final List<double> volumeLists = [0.1, 0.2, 0.6, 0.8, 1.0];
@@ -207,14 +193,35 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  void _onReceiveTaskData(Object data) {
+    if (data is String) {
+      switch (data) {
+        case 'btn_clock_speech':
+          setState(() {
+            clockOn = !clockOn;
+            _lsSave();
+            if (clockOn) {
+              startClock();
+            } else {
+              stopClock();
+            }
+          });
+          break;
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _requestPermissions();
     _initForegroundTask();
     _initPrefs();
-    _initAudio();
+  _initAudio();
     _initTts();
+
+    // Add callback to handle notification button presses
+    FlutterForegroundTask.addTaskDataCallback(_onReceiveTaskData);
 
     displayTick = Timer.periodic(const Duration(milliseconds: 30), (timer) {
       final now = DateTime.now();
@@ -236,8 +243,13 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _initPrefs() async {
     prefs = await SharedPreferences.getInstance();
     setState(() {
-      soundChosen = prefs?.getString("SoundChosen") ?? soundList.first.link;
-      noiseVolume = prefs?.getDouble("NoiseVolume") ?? 0.2;
+      String savedSound = prefs?.getString("SoundChosen") ?? soundList.first.link;
+      // Normalize path: remove 'assets/' prefix if present from old saves
+      if (savedSound.startsWith('assets/')) {
+        savedSound = savedSound.replaceFirst('assets/', '');
+      }
+      soundChosen = savedSound;
+      noiseVolume = prefs?.getDouble("NoiseVolume") ?? 0.6;
       speakVolume = prefs?.getDouble("SpeakVolume") ?? 0.8;
       clockOn = prefs?.getBool("ClockOn") ?? false;
       clockIntervalMins = prefs?.getInt("ClockIntervalMins") ?? 30;
@@ -269,10 +281,13 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _applyAudioSettings() {
-    bgPlayer.setSourceUrl(soundChosen);
-    bgPlayer.setVolume(noiseVolume);
     if (audioPlaying) {
-      bgPlayer.resume();
+      try {
+        bgPlayer.play(AssetSource(soundChosen));
+        bgPlayer.setVolume(noiseVolume);
+      } catch (e) {
+        debugPrint('Audio play error: $e');
+      }
     }
   }
 
@@ -461,8 +476,7 @@ class _MainScreenState extends State<MainScreen> {
             FlutterRingtonePlayer().stop();
           });
         } else {
-          notifyPlayer.setSourceUrl(notifySound);
-          notifyPlayer.resume();
+          notifyPlayer.play(AssetSource(notifySound));
           Future.delayed(const Duration(seconds: 10), () {
             notifyPlayer.pause();
             notifyPlayer.seek(Duration.zero);
@@ -482,10 +496,11 @@ class _MainScreenState extends State<MainScreen> {
         await FlutterForegroundTask.startService(
           notificationTitle: "Speaktimer (Speech \${timerSpeakOn ? 'ON' : 'OFF'})",
           notificationText: "Time remaining: \$timerValue",
+          notificationIcon: const NotificationIcon(
+            metaDataName: 'com.example.speakertimer.service.NOTIFICATION_ICON',
+          ),
           notificationButtons: [
-            const NotificationButton(id: 'btn_play_pause', text: 'Play/Pause'),
-            const NotificationButton(id: 'btn_speech', text: 'Speech ON/OFF'),
-            const NotificationButton(id: 'btn_exit', text: 'Exit'),
+            const NotificationButton(id: 'btn_clock_speech', text: 'Clock Speech'),
           ],
           callback: startCallback,
         );
@@ -533,6 +548,8 @@ class _MainScreenState extends State<MainScreen> {
     displayTick?.cancel();
     bgPlayer.dispose();
     notifyPlayer.dispose();
+    // Remove callback to avoid memory leaks
+    FlutterForegroundTask.removeTaskDataCallback(_onReceiveTaskData);
     super.dispose();
   }
 
@@ -547,10 +564,8 @@ class _MainScreenState extends State<MainScreen> {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.speaker_notes, size: 20, color: palette.primary),
-              const SizedBox(width: 8),
               Text(
-                'Speaktimer',
+                'lifer',
                 style: TextStyle(
                   color: palette.primary,
                   fontSize: 18,
