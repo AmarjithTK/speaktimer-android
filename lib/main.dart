@@ -2,17 +2,23 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:io';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
 import 'theme/palette.dart';
+import 'models/app_settings.dart';
+import 'models/foreground_notification_state.dart';
 import 'models/speech_item.dart';
 import 'models/sound_option.dart';
+import 'services/audio_service.dart';
+import 'services/foreground_notification_service.dart';
+import 'services/settings_service.dart';
+import 'services/speech_service.dart';
+import 'services/timer_service.dart';
 import 'widgets/clock_panel.dart';
+import 'widgets/fullscreen_focus_view.dart';
 import 'widgets/timer_panel.dart';
 import 'widgets/presets_panel.dart';
 import 'widgets/settings_panel.dart';
@@ -78,8 +84,15 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  // SharedPreferences
-  SharedPreferences? prefs;
+  final AudioService _audioService = AudioService();
+  final SettingsService _settingsService = SettingsService();
+  final SpeechService _speechService = SpeechService();
+  final TimerService _timerService = TimerService();
+  final ForegroundNotificationService _foregroundNotificationService =
+      const ForegroundNotificationService(
+        notificationIconMetaDataName:
+            'com.example.speakertimer.service.NOTIFICATION_ICON',
+      );
 
   // TTS & Speech Queue
   FlutterTts flutterTts = FlutterTts();
@@ -91,9 +104,6 @@ class _MainScreenState extends State<MainScreen> {
   String? favoriteVoiceName;
   String? favoriteVoiceLocale;
 
-  // Audio Players
-  AudioPlayer bgPlayer = AudioPlayer();
-  AudioPlayer notifyPlayer = AudioPlayer();
   bool audioPlaying = false;
 
   // Timer State
@@ -122,6 +132,15 @@ class _MainScreenState extends State<MainScreen> {
   bool motivationOn = true;
   bool timerSpeakOn = true;
   int timerAnnounceEvery = 1;
+  bool chainModeOn = false;
+  String chainPresetKey = 'Pomodoro 25-5x4';
+  int chainIndex = 0;
+
+  final Map<String, List<int>> chainPresets = {
+    'Pomodoro 25-5x4': [25, 5, 25, 5, 25, 5, 25, 15],
+    'Sprint 50-10x2': [50, 10, 50, 10],
+    'Quick 15-3x3': [15, 3, 15, 3, 15, 3],
+  };
 
   final String notifySound = "audio/notify.mp3";
   final List<SoundOption> soundList = [
@@ -199,90 +218,54 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   String _formatCurrentTime(DateTime now) {
-    final h = now.hour;
-    final m = now.minute.toString().padLeft(2, '0');
-    final s = now.second.toString().padLeft(2, '0');
-    final ms = now.millisecond.toString().padLeft(3, '0');
-    final ampm = h >= 12 ? 'PM' : 'AM';
-    final h12 = h % 12 == 0 ? 12 : h % 12;
-    final hStr = h12.toString().padLeft(2, '0');
-    return "$hStr:$m:$s.$ms $ampm";
+    return _timerService.formatCurrentTime(now);
   }
 
-  String _notificationTitle() {
-    return timerInterval != null
-        ? 'Speaktimer (Timer Running)'
-        : 'Speaktimer (Clock Mode)';
-  }
-
-  String _notificationText() {
-    if (timerInterval != null) {
-      return 'Time remaining: $timerValue';
-    }
-
+  ForegroundNotificationState _foregroundState() {
     final idleTime = currentTimeDisplay.isNotEmpty
         ? currentTimeDisplay
         : _formatCurrentTime(DateTime.now());
-    return 'Current time: $idleTime';
-  }
 
-  List<NotificationButton> _buildNotificationButtons() {
-    if (timerInterval != null) {
-      return [
-        const NotificationButton(id: 'btn_timer_toggle', text: 'Stop Timer'),
-        NotificationButton(
-          id: 'btn_clock_speech',
-          text: clockOn ? 'Clock Speech ON' : 'Clock Speech OFF',
-        ),
-        const NotificationButton(id: 'btn_exit', text: 'Exit'),
-      ];
-    }
-
-    return [
-      NotificationButton(
-        id: 'btn_clock_speech',
-        text: clockOn ? 'Clock Speech ON' : 'Clock Speech OFF',
-      ),
-      const NotificationButton(id: 'btn_exit', text: 'Exit'),
-    ];
+    return ForegroundNotificationState(
+      isTimerRunning: timerInterval != null,
+      timerValue: timerValue,
+      currentTimeDisplay: idleTime,
+      clockSpeechOn: clockOn,
+    );
   }
 
   Future<void> _syncForegroundNotification({bool force = false}) async {
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    if (!force && nowMs - lastNotificationSyncMs < 100) {
-      return;
-    }
-
-    if (await FlutterForegroundTask.isRunningService) {
-      lastNotificationSyncMs = nowMs;
-      await FlutterForegroundTask.updateService(
-        notificationTitle: _notificationTitle(),
-        notificationText: _notificationText(),
-        notificationButtons: _buildNotificationButtons(),
-      );
-    }
+    lastNotificationSyncMs = await _foregroundNotificationService.sync(
+      state: _foregroundState(),
+      lastSyncMs: lastNotificationSyncMs,
+      force: force,
+    );
   }
 
   Future<void> _ensureForegroundServiceRunning() async {
-    if (!await FlutterForegroundTask.isRunningService) {
-      await FlutterForegroundTask.startService(
-        notificationTitle: _notificationTitle(),
-        notificationText: _notificationText(),
-        notificationIcon: const NotificationIcon(
-          metaDataName: 'com.example.speakertimer.service.NOTIFICATION_ICON',
-        ),
-        notificationButtons: _buildNotificationButtons(),
-        callback: startCallback,
-      );
-      return;
-    }
-
-    await _syncForegroundNotification(force: true);
+    await _foregroundNotificationService.ensureRunning(
+      state: _foregroundState(),
+      callback: startCallback,
+    );
   }
 
   Future<void> _initializeForegroundNotification() async {
     await _requestPermissions();
     await _ensureForegroundServiceRunning();
+  }
+
+  Future<void> _openFullscreenFocus() async {
+    final startInTimer = timerInterval != null || currentTabIndex == 1;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FullscreenFocusView(
+          startInTimerMode: startInTimer,
+          clockTextBuilder: () => currentTimeDisplay,
+          timerTextBuilder: () => timerValue,
+          isTimerRunningBuilder: () => timerInterval != null,
+        ),
+      ),
+    );
   }
 
   void _onReceiveTaskData(Object data) {
@@ -343,24 +326,19 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _initPrefs() async {
-    prefs = await SharedPreferences.getInstance();
+    final settings = await _settingsService.load(defaultSound: soundList.first.link);
     setState(() {
-      String savedSound = prefs?.getString("SoundChosen") ?? soundList.first.link;
-      // Normalize path: remove 'assets/' prefix if present from old saves
-      if (savedSound.startsWith('assets/')) {
-        savedSound = savedSound.replaceFirst('assets/', '');
-      }
-      soundChosen = savedSound;
-      noiseVolume = prefs?.getDouble("NoiseVolume") ?? 0.6;
-      speakVolume = prefs?.getDouble("SpeakVolume") ?? 0.8;
-      clockOn = prefs?.getBool("ClockOn") ?? false;
-      clockIntervalMins = prefs?.getInt("ClockIntervalMins") ?? 30;
-      motivationOn = prefs?.getBool("MotivationOn") ?? true;
-      timerSpeakOn = prefs?.getBool("TimerSpeakOn") ?? true;
-      timerAnnounceEvery = prefs?.getInt("TimerAnnounceEvery") ?? 1;
-      voiceListMode = prefs?.getString('VoiceListMode') ?? 'pleasant';
-      favoriteVoiceName = prefs?.getString('FavoriteVoiceName');
-      favoriteVoiceLocale = prefs?.getString('FavoriteVoiceLocale');
+      soundChosen = settings.soundChosen;
+      noiseVolume = settings.noiseVolume;
+      speakVolume = settings.speakVolume;
+      clockOn = settings.clockOn;
+      clockIntervalMins = settings.clockIntervalMins;
+      motivationOn = settings.motivationOn;
+      timerSpeakOn = settings.timerSpeakOn;
+      timerAnnounceEvery = settings.timerAnnounceEvery;
+      voiceListMode = settings.voiceListMode;
+      favoriteVoiceName = settings.favoriteVoiceName;
+      favoriteVoiceLocale = settings.favoriteVoiceLocale;
     });
 
     _applyAudioSettings();
@@ -369,50 +347,46 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  AppSettings _currentSettingsSnapshot() {
+    return AppSettings(
+      soundChosen: soundChosen,
+      noiseVolume: noiseVolume,
+      speakVolume: speakVolume,
+      clockOn: clockOn,
+      clockIntervalMins: clockIntervalMins,
+      motivationOn: motivationOn,
+      timerSpeakOn: timerSpeakOn,
+      timerAnnounceEvery: timerAnnounceEvery,
+      voiceListMode: voiceListMode,
+      favoriteVoiceName: favoriteVoiceName,
+      favoriteVoiceLocale: favoriteVoiceLocale,
+    );
+  }
+
   void _lsSave() {
-    if (prefs == null) return;
-    prefs!.setString("SoundChosen", soundChosen);
-    prefs!.setDouble("NoiseVolume", noiseVolume);
-    prefs!.setDouble("SpeakVolume", speakVolume);
-    prefs!.setBool("ClockOn", clockOn);
-    prefs!.setInt("ClockIntervalMins", clockIntervalMins);
-    prefs!.setBool("MotivationOn", motivationOn);
-    prefs!.setBool("TimerSpeakOn", timerSpeakOn);
-    prefs!.setInt("TimerAnnounceEvery", timerAnnounceEvery);
-    prefs!.setString('VoiceListMode', voiceListMode);
-    if (favoriteVoiceName != null) {
-      prefs!.setString('FavoriteVoiceName', favoriteVoiceName!);
-    } else {
-      prefs!.remove('FavoriteVoiceName');
-    }
-    if (favoriteVoiceLocale != null) {
-      prefs!.setString('FavoriteVoiceLocale', favoriteVoiceLocale!);
-    } else {
-      prefs!.remove('FavoriteVoiceLocale');
-    }
+    unawaited(_settingsService.save(_currentSettingsSnapshot()));
   }
 
   void _initAudio() {
-    bgPlayer.setReleaseMode(ReleaseMode.loop);
+    unawaited(_audioService.init());
   }
 
   void _applyAudioSettings() {
     if (audioPlaying) {
-      try {
-        bgPlayer.play(AssetSource(soundChosen));
-        bgPlayer.setVolume(noiseVolume);
-      } catch (e) {
-        debugPrint('Audio play error: $e');
-      }
+      unawaited(
+        _audioService.applyBackground(
+          shouldPlay: true,
+          assetPath: soundChosen,
+          volume: noiseVolume,
+        ),
+      );
     }
   }
 
   Future<void> _initTts() async {
     final v = await flutterTts.getVoices;
     if (v != null) {
-      final loadedVoices = List<Map<dynamic, dynamic>>.from(v)
-          .where((v) => v["locale"]?.toString().startsWith("en") ?? false)
-          .toList();
+      final loadedVoices = _speechService.parseEnglishVoices(v);
       if (mounted) {
         setState(() {
           voices = loadedVoices;
@@ -424,40 +398,20 @@ class _MainScreenState extends State<MainScreen> {
     await flutterTts.awaitSpeakCompletion(true);
   }
 
-  bool _isPleasantVoice(Map<dynamic, dynamic> voice) {
-    final name = voice['name']?.toString().toLowerCase() ?? '';
-    final locale = voice['locale']?.toString().toLowerCase() ?? '';
-    return name.contains('network') ||
-        name.contains('veena') ||
-        name.contains('rishi') ||
-        locale == 'en-in' ||
-        locale == 'en-us';
-  }
-
   List<Map<dynamic, dynamic>> _availableVoicesForSettings() {
-    if (voiceListMode == 'all') {
-      return voices;
-    }
-
-    final filtered = voices.where(_isPleasantVoice).toList();
-    return filtered.isNotEmpty ? filtered : voices;
+    return _speechService.availableVoicesForSettings(
+      voices: voices,
+      voiceListMode: voiceListMode,
+    );
   }
 
   Map<dynamic, dynamic>? getPreferredVoice() {
-    if (voices.isEmpty) return null;
-
-    if (favoriteVoiceName != null && favoriteVoiceLocale != null) {
-      try {
-        return voices.firstWhere(
-          (voice) =>
-              voice['name']?.toString() == favoriteVoiceName &&
-              voice['locale']?.toString() == favoriteVoiceLocale,
-        );
-      } catch (_) {}
-    }
-
-    final available = _availableVoicesForSettings();
-    return available.isNotEmpty ? available.first : voices.first;
+    return _speechService.preferredVoice(
+      voices: voices,
+      voiceListMode: voiceListMode,
+      favoriteVoiceName: favoriteVoiceName,
+      favoriteVoiceLocale: favoriteVoiceLocale,
+    );
   }
 
   Future<void> drainQueue() async {
@@ -473,22 +427,12 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     final pv = getPreferredVoice();
-    if (pv != null) {
-      await flutterTts.setVoice({"name": pv["name"], "locale": pv["locale"]});
-    }
-
-    if (item.isQuote) {
-      await flutterTts.setPitch(1.0); // 1.0 is natural pitch
-      await flutterTts.setSpeechRate(0.45); // slightly slower for quotes
-    } else {
-      await flutterTts.setPitch(
-        1.0,
-      ); // 1.0 is natural pitch (0.75 sounds robotic/distorted)
-      await flutterTts.setSpeechRate(0.5); // standard speed
-    }
-
-    await flutterTts.setVolume(speakVolume);
-    await flutterTts.speak(item.text);
+    await _speechService.speakItem(
+      flutterTts: flutterTts,
+      item: item,
+      speakVolume: speakVolume,
+      preferredVoice: pv,
+    );
 
     // Done speaking
     setState(() {
@@ -503,19 +447,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   String timeToWords() {
-    final now = DateTime.now();
-    final h = now.hour;
-    final m = now.minute;
-    var s = h == 0 ? "12" : (h > 12 ? (h - 12).toString() : h.toString());
-    if (m == 0) {
-      s += " o'clock";
-    } else if (m < 10) {
-      s += " oh $m";
-    } else {
-      s += " $m";
-    }
-    s += h < 12 ? " AM" : " PM";
-    return s;
+    return _timerService.timeToWords(DateTime.now());
   }
 
   void startClock() {
@@ -576,28 +508,41 @@ class _MainScreenState extends State<MainScreen> {
 
   void tick(Timer timer) {
     setState(() {
-      final mins = seconds ~/ 60;
-      final secs = seconds % 60;
-      seconds--;
-      final mStr = mins.toString().padLeft(2, '0');
-      final sStr = secs.toString().padLeft(2, '0');
-      timerValue = "$mStr:$sStr";
-
-      FlutterForegroundTask.updateService(
-        notificationTitle: _notificationTitle(),
-        notificationText: _notificationText(),
-        notificationButtons: _buildNotificationButtons(),
+      final tickResult = _timerService.tick(
+        seconds: seconds,
+        timerSpeakOn: timerSpeakOn,
+        timerAnnounceEvery: timerAnnounceEvery,
       );
 
-      if (secs == 0 &&
-          seconds != 0 &&
-          timerSpeakOn &&
-          mins > 0 &&
-          mins % timerAnnounceEvery == 0) {
+      seconds = tickResult.nextSeconds;
+      timerValue = tickResult.timerValue;
+
+      _syncForegroundNotification(force: true);
+
+      if (tickResult.shouldAnnounceRemaining) {
+        final mins = tickResult.announceMinutes;
         speakTimerMessage("$mins minute${mins != 1 ? 's' : ''} remaining");
       }
 
-      if (seconds == 0) {
+      if (tickResult.isFinished) {
+        if (chainModeOn) {
+          final sequence = chainPresets[chainPresetKey] ?? const [25];
+          if (chainIndex < sequence.length - 1) {
+            chainIndex++;
+            final nextMinutes = sequence[chainIndex];
+            seconds = nextMinutes * 60;
+            timerValue = '${nextMinutes.toString().padLeft(2, '0')}:00';
+            if (timerSpeakOn) {
+              speakTimerMessage(
+                'Starting next timer: $nextMinutes minute${nextMinutes != 1 ? 's' : ''}',
+              );
+            }
+            _syncForegroundNotification(force: true);
+            return;
+          }
+          chainIndex = 0;
+        }
+
         resetTimer();
         if (timerSpeakOn) speakTimerMessage("Timer finished");
 
@@ -607,11 +552,9 @@ class _MainScreenState extends State<MainScreen> {
             FlutterRingtonePlayer().stop();
           });
         } else {
-          notifyPlayer.play(AssetSource(notifySound));
-          Future.delayed(const Duration(seconds: 10), () {
-            notifyPlayer.pause();
-            notifyPlayer.seek(Duration.zero);
-          });
+          unawaited(
+            _audioService.playNotification(assetPath: notifySound),
+          );
         }
       }
     });
@@ -619,7 +562,17 @@ class _MainScreenState extends State<MainScreen> {
 
   void startTimer() async {
     _lsSave();
-    if (seconds == 0) seconds = sliderValue * 60;
+    if (seconds == 0) {
+      if (chainModeOn) {
+        final sequence = chainPresets[chainPresetKey] ?? const [25];
+        if (chainIndex >= sequence.length) {
+          chainIndex = 0;
+        }
+        seconds = sequence[chainIndex] * 60;
+      } else {
+        seconds = sliderValue * 60;
+      }
+    }
     if (timerInterval != null) return;
 
     try {
@@ -642,7 +595,7 @@ class _MainScreenState extends State<MainScreen> {
     setState(() {
       audioPlaying = false;
     });
-    bgPlayer.pause();
+    unawaited(_audioService.stopBackground());
     _syncForegroundNotification(force: true);
   }
 
@@ -651,6 +604,7 @@ class _MainScreenState extends State<MainScreen> {
     setState(() {
       seconds = 0;
       timerValue = "00:00";
+      chainIndex = 0;
     });
   }
 
@@ -708,6 +662,10 @@ class _MainScreenState extends State<MainScreen> {
               timerSpeakOn: timerSpeakOn,
               timerAnnounceEvery: timerAnnounceEvery,
               timerAnnounceOptions: timerAnnounceOptions,
+              chainModeOn: chainModeOn,
+              chainPresetKey: chainPresetKey,
+              chainPresets: chainPresets,
+              chainIndex: chainIndex,
               startTimer: startTimer,
               stopTimer: stopTimer,
               resetTimer: resetTimer,
@@ -726,6 +684,19 @@ class _MainScreenState extends State<MainScreen> {
                 setState(() {
                   timerAnnounceEvery = val!;
                   _lsSave();
+                });
+              },
+              onChainModeChanged: (val) {
+                setState(() {
+                  chainModeOn = val ?? false;
+                  chainIndex = 0;
+                });
+              },
+              onChainPresetChanged: (val) {
+                if (val == null) return;
+                setState(() {
+                  chainPresetKey = val;
+                  chainIndex = 0;
                 });
               },
             ),
@@ -814,8 +785,7 @@ class _MainScreenState extends State<MainScreen> {
     stopClock();
     stopTimer();
     displayTick?.cancel();
-    bgPlayer.dispose();
-    notifyPlayer.dispose();
+    unawaited(_audioService.dispose());
     // Remove callback to avoid memory leaks
     FlutterForegroundTask.removeTaskDataCallback(_onReceiveTaskData);
     super.dispose();
@@ -842,6 +812,13 @@ class _MainScreenState extends State<MainScreen> {
               ),
             ],
           ),
+          actions: [
+            IconButton(
+              onPressed: _openFullscreenFocus,
+              tooltip: 'Fullscreen Focus',
+              icon: Icon(Icons.fullscreen, color: palette.primary),
+            ),
+          ],
           centerTitle: true,
         ),
         body: currentTabIndex == 0
