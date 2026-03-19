@@ -662,7 +662,7 @@ class _MainScreenState extends State<MainScreen> {
     startTimer();
   }
 
-  Widget _buildHomeTab() {
+  Widget _buildSpeakClockTab() {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(8.0),
@@ -689,7 +689,18 @@ class _MainScreenState extends State<MainScreen> {
                 });
               },
             ),
-            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimerSetupTab() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: ListView(
+          children: [
             TimerPanel(
               timerValue: timerValue,
               sliderValue: sliderValue,
@@ -833,7 +844,9 @@ class _MainScreenState extends State<MainScreen> {
           ),
           centerTitle: true,
         ),
-        body: currentTabIndex == 0 ? _buildHomeTab() : _buildSettingsTab(),
+        body: currentTabIndex == 0
+            ? _buildSpeakClockTab()
+            : (currentTabIndex == 1 ? _buildTimerSetupTab() : _buildSettingsTab()),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: currentTabIndex,
           onTap: (index) {
@@ -843,9 +856,14 @@ class _MainScreenState extends State<MainScreen> {
           },
           items: const [
             BottomNavigationBarItem(
-              icon: Icon(Icons.timer_outlined),
-              activeIcon: Icon(Icons.timer),
-              label: 'Home',
+              icon: Icon(Icons.access_time_outlined),
+              activeIcon: Icon(Icons.access_time),
+              label: 'SpeakClock',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.tune_outlined),
+              activeIcon: Icon(Icons.tune),
+              label: 'Timer Setup',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.settings_outlined),

@@ -36,7 +36,7 @@ class ClockPanel extends StatelessWidget {
           Text(
             currentTimeDisplay,
             style: TextStyle(
-              fontSize: 28,
+              fontSize: 44,
               fontWeight: FontWeight.bold,
               color: palette.primary,
               letterSpacing: 1.2,
@@ -59,7 +59,7 @@ class ClockPanel extends StatelessWidget {
               dropdownColor: palette.accent,
               items: clockIntervalOptions.map((e) => DropdownMenuItem(
                 value: e,
-                child: Text("$e min", style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 12)),
+                child: Text("$e min", style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 14)),
               )).toList(),
               onChanged: onIntervalChanged,
             ),
@@ -82,10 +82,14 @@ class ClockPanel extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: clockOn ? palette.primary : palette.accent,
               foregroundColor: clockOn ? palette.accent : palette.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
               side: BorderSide(color: palette.primary, width: 2),
             ),
-            child: Text(clockOn ? "🔔 ON" : "🔕 OFF", style: const TextStyle(fontWeight: FontWeight.bold)),
+            child: Text(
+              clockOn ? "🔔 ON" : "🔕 OFF",
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
           ),
         ],
       )
