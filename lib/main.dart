@@ -1,46 +1,24 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:io' show Platform;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
+
+import 'theme/palette.dart';
+import 'models/speech_item.dart';
+import 'models/sound_option.dart';
+import 'widgets/clock_panel.dart';
+import 'widgets/timer_panel.dart';
+import 'widgets/presets_panel.dart';
+import 'widgets/settings_panel.dart';
 
 void main() {
   runApp(const SpeakTimerApp());
 }
-
-class Palette {
-  final Color primary;
-  final Color accent;
-  final Color bg;
-  const Palette(this.primary, this.accent, this.bg);
-}
-
-const List<Palette> palettes = [
-  Palette(Color(0xFF1A051D), Color(0xFFE5D4F5), Color(0xFFF4EFFF)),
-  Palette(Color(0xFF0A1824), Color(0xFFCDE8F5), Color(0xFFEAF6FF)),
-  Palette(Color(0xFF201004), Color(0xFFFCEFD4), Color(0xFFFFF8EA)),
-  Palette(Color(0xFF0D1E16), Color(0xFFC8F0DA), Color(0xFFEEFAF3)),
-  Palette(Color(0xFF2A0B0B), Color(0xFFF5DCD4), Color(0xFFFFF0EB)),
-  Palette(Color(0xFF0D0D2A), Color(0xFFD8DBF5), Color(0xFFF1F2FF)),
-  Palette(Color(0xFF210D2C), Color(0xFFEEDDF7), Color(0xFFF8F0FF)),
-  Palette(Color(0xFF051A1A), Color(0xFFC4EEEC), Color(0xFFEFFFFD)),
-  Palette(Color(0xFF2A1C00), Color(0xFFFAEFD4), Color(0xFFFFFBEA)),
-  Palette(Color(0xFF14051D), Color(0xFFE5D4F5), Color(0xFFF6EEFF)),
-  Palette(Color(0xFF200D00), Color(0xFFFFE8C8), Color(0xFFFFF4EA)),
-  Palette(Color(0xFF001E1E), Color(0xFFC0F5EE), Color(0xFFEAFFFC)),
-  Palette(Color(0xFF000000), Color(0xFFE0E0E0), Color(0xFFFFFFFF)),
-  Palette(Color(0xFF1C0017), Color(0xFFFAD4F2), Color(0xFFFFF0FA)),
-  Palette(Color(0xFF001C0C), Color(0xFFD4FAE0), Color(0xFFEEFFF3)),
-  Palette(Color(0xFF0B141C), Color(0xFFD4E0F5), Color(0xFFF0F5FF)),
-  Palette(Color(0xFF1A1A00), Color(0xFFF5F0C8), Color(0xFFFEFFEA)),
-  Palette(Color(0xFF25000F), Color(0xFFFAD4DC), Color(0xFFFFF0F4)),
-  Palette(Color(0xFF000B1C), Color(0xFFD4E4FA), Color(0xFFF0F6FF)),
-  Palette(Color(0xFF0B1C00), Color(0xFFDFF5C4), Color(0xFFF4FFEA)),
-];
-
-final Palette palette = palettes[Random().nextInt(palettes.length)];
 
 class SpeakTimerApp extends StatelessWidget {
   const SpeakTimerApp({super.key});
@@ -64,19 +42,6 @@ class SpeakTimerApp extends StatelessWidget {
       home: const MainScreen(),
     );
   }
-}
-
-class SpeechItem {
-  final String text;
-  final bool isQuote;
-  final int delayMs;
-  SpeechItem(this.text, {this.isQuote = false, this.delayMs = 0});
-}
-
-class SoundOption {
-  final String link;
-  final String title;
-  SoundOption(this.link, this.title);
 }
 
 class MainScreen extends StatefulWidget {
@@ -118,7 +83,7 @@ class _MainScreenState extends State<MainScreen> {
   int lastTimerSpoke = 0;
 
   // Prefs state variables
-  String soundChosen = "https://www.soundjay.com/nature/sounds/rain-04.mp3";
+  String soundChosen = "https://cdn.freesound.org/previews/242/242889_4047489-lq.mp3";
   double noiseVolume = 0.2;
   double speakVolume = 0.8;
   bool clockOn = false;
@@ -127,12 +92,12 @@ class _MainScreenState extends State<MainScreen> {
   bool timerSpeakOn = true;
   int timerAnnounceEvery = 1;
 
-  final String notifySound = "https://www.soundjay.com/clock/sounds/alarm-clock-01.mp3";
+  final String notifySound = "https://cdn.freesound.org/previews/369/369880_1480854-lq.mp3";
   final List<SoundOption> soundList = [
-    SoundOption("https://www.soundjay.com/nature/sounds/rain-04.mp3", "Rain"),
-    SoundOption("https://www.soundjay.com/nature/sounds/waterfall-1.mp3", "Waterfall"),
-    SoundOption("https://www.soundjay.com/nature/sounds/fire-1.mp3", "Fire"),
-    SoundOption("https://www.soundjay.com/nature/sounds/stream-3.mp3", "Stream"),
+    SoundOption("https://cdn.freesound.org/previews/242/242889_4047489-lq.mp3", "Rain"),
+    SoundOption("https://cdn.freesound.org/previews/215/215711_4034520-lq.mp3", "Waterfall"),
+    SoundOption("https://cdn.freesound.org/previews/650/650574_9782868-lq.mp3", "Fire"),
+    SoundOption("https://cdn.freesound.org/previews/690/690215_9250976-lq.mp3", "Stream"),
   ];
 
   final List<double> volumeLists = [0.1, 0.2, 0.6, 0.8, 1.0];
@@ -190,9 +155,11 @@ class _MainScreenState extends State<MainScreen> {
       final ampm = h >= 12 ? 'PM' : 'AM';
       final h12 = h % 12 == 0 ? 12 : h % 12;
       final hStr = h12.toString().padLeft(2, '0');
-      setState(() {
-        currentTimeDisplay = "$hStr:$m:$s.$ms $ampm";
-      });
+      if (mounted) {
+        setState(() {
+          currentTimeDisplay = "$hStr:$m:$s.$ms $ampm";
+        });
+      }
     });
   }
 
@@ -251,18 +218,25 @@ class _MainScreenState extends State<MainScreen> {
 
   Map<dynamic, dynamic>? getPleasantVoice() {
     if (voices.isEmpty) return null;
+    
+    // Try to find a high-quality Indian English voice
+    // "network" voices on Android sound the most human. "veena" and "rishi" are great on iOS.
     const pleasantNames = [
-      "google", "samantha", "karen", "victoria", "moira", "fiona",
-      "veena", "tessa", "allison", "ava", "susan", "zira",
+      "en-in-x-ahp-network", "en-in-x-cxx-network", "en-in-x-ene-network", 
+      "veena", "rishi", "en-in-x-ahp-local", "en-in",
+      // Fallbacks just in case
+      "en-us-x-sfg-network", "samantha", "en-us"
     ];
+    
     for (var name in pleasantNames) {
       try {
-        var v = voices.firstWhere((v) => v['name'].toString().toLowerCase().contains(name));
+        var v = voices.firstWhere((v) => v['name'].toString().toLowerCase().contains(name) || v['locale'].toString().toLowerCase() == name);
         return v;
       } catch (e) {
         // Not found, continue loop
       }
     }
+    // Return first english voice if no specific matches
     return voices.first;
   }
 
@@ -276,21 +250,18 @@ class _MainScreenState extends State<MainScreen> {
       await Future.delayed(Duration(milliseconds: item.delayMs));
     }
 
+    // Always use a pleasant voice, don't cycle through random/bad voices
+    final pv = getPleasantVoice();
+    if (pv != null) {
+      await flutterTts.setVoice({"name": pv["name"], "locale": pv["locale"]});
+    }
+
     if (item.isQuote) {
-      final pv = getPleasantVoice();
-      if (pv != null) {
-        await flutterTts.setVoice({"name": pv["name"], "locale": pv["locale"]});
-      }
-      await flutterTts.setPitch(1.05);
-      await flutterTts.setSpeechRate(0.5); // 0.5 is normally 1.0x in Flutter TTS
+      await flutterTts.setPitch(1.0); // 1.0 is natural pitch
+      await flutterTts.setSpeechRate(0.45); // slightly slower for quotes
     } else {
-      if (voices.isNotEmpty) {
-        final v = voices[voiceIndex % voices.length];
-        voiceIndex++;
-        await flutterTts.setVoice({"name": v["name"], "locale": v["locale"]});
-      }
-      await flutterTts.setPitch(0.75);
-      await flutterTts.setSpeechRate(0.5); 
+      await flutterTts.setPitch(1.0); // 1.0 is natural pitch (0.75 sounds robotic/distorted)
+      await flutterTts.setSpeechRate(0.5); // standard speed
     }
 
     await flutterTts.setVolume(speakVolume);
@@ -389,12 +360,19 @@ class _MainScreenState extends State<MainScreen> {
         resetTimer();
         if (timerSpeakOn) speakTimerMessage("Timer finished");
         
-        notifyPlayer.setSourceUrl(notifySound);
-        notifyPlayer.resume();
-        Future.delayed(const Duration(seconds: 10), () {
-          notifyPlayer.pause();
-          notifyPlayer.seek(Duration.zero);
-        });
+        if (Platform.isAndroid) {
+          FlutterRingtonePlayer().playAlarm(looping: true);
+          Future.delayed(const Duration(seconds: 10), () {
+            FlutterRingtonePlayer().stop();
+          });
+        } else {
+          notifyPlayer.setSourceUrl(notifySound);
+          notifyPlayer.resume();
+          Future.delayed(const Duration(seconds: 10), () {
+            notifyPlayer.pause();
+            notifyPlayer.seek(Duration.zero);
+          });
+        }
       }
     });
   }
@@ -446,412 +424,78 @@ class _MainScreenState extends State<MainScreen> {
     super.dispose();
   }
 
-  Widget _panelContainer({required Widget child, bool active = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-      decoration: BoxDecoration(
-        color: palette.bg,
-        border: Border.all(
-          color: palette.primary,
-          width: active ? 3 : 2,
-        ),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: child,
-    );
-  }
-
-  Widget _header(String title, String tag) {
-    return Row(
-      children: [
-        Text(title, style: TextStyle(color: palette.primary, fontWeight: FontWeight.bold, fontSize: 13)),
-        const SizedBox(width: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-          decoration: BoxDecoration(color: palette.primary, borderRadius: BorderRadius.circular(3)),
-          child: Text(tag, style: TextStyle(color: palette.accent, fontWeight: FontWeight.bold, fontSize: 9)),
-        )
-      ],
-    );
-  }
-
-  Widget _label(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 4),
-      child: Text(text, style: TextStyle(color: palette.primary.withAlpha(140), fontSize: 11, fontWeight: FontWeight.w500)),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 540;
-
     return Scaffold(
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(8.0),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              if (isMobile) {
-                return ListView(
-                  children: [
-                    _buildClockPanel(),
-                    const SizedBox(height: 8),
-                    _buildTimerPanel(),
-                    const SizedBox(height: 8),
-                    _buildPresetsPanel(),
-                    const SizedBox(height: 8),
-                    _buildSettingsPanel(),
-                  ],
-                );
-              } else {
-                return GridView.count(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                  childAspectRatio: (constraints.maxWidth / 2) / (constraints.maxHeight / 2),
-                  children: [
-                    _buildClockPanel(),
-                    _buildTimerPanel(),
-                    _buildPresetsPanel(),
-                    _buildSettingsPanel(),
-                  ],
-                );
-              }
-            },
+          child: ListView(
+            children: [
+              ClockPanel(
+                clockOn: clockOn,
+                currentTimeDisplay: currentTimeDisplay,
+                clockIntervalMins: clockIntervalMins,
+                motivationOn: motivationOn,
+                clockIntervalOptions: clockIntervalOptions,
+                toggleClock: toggleClock,
+                onIntervalChanged: (val) {
+                  setState(() { clockIntervalMins = val!; _lsSave(); });
+                  if (clockOn) startClock();
+                },
+                onMotivationChanged: (val) {
+                  setState(() { motivationOn = val!; _lsSave(); });
+                },
+              ),
+              const SizedBox(height: 8),
+              TimerPanel(
+                timerValue: timerValue,
+                sliderValue: sliderValue,
+                voicesCount: voices.length,
+                timerSpeakOn: timerSpeakOn,
+                timerAnnounceEvery: timerAnnounceEvery,
+                timerAnnounceOptions: timerAnnounceOptions,
+                startTimer: startTimer,
+                stopTimer: stopTimer,
+                resetTimer: resetTimer,
+                onSliderChanged: (val) {
+                  setState(() { sliderValue = val.toInt(); });
+                },
+                onTimerSpeakOnChanged: (val) {
+                  setState(() { timerSpeakOn = val!; _lsSave(); });
+                },
+                onTimerAnnounceEveryChanged: (val) {
+                  setState(() { timerAnnounceEvery = val!; _lsSave(); });
+                },
+              ),
+              const SizedBox(height: 8),
+              PresetsPanel(
+                presetValues: presetValues,
+                choosePreset: choosePreset,
+              ),
+              const SizedBox(height: 8),
+              SettingsPanel(
+                soundChosen: soundChosen,
+                noiseVolume: noiseVolume,
+                speakVolume: speakVolume,
+                soundList: soundList,
+                volumeLists: volumeLists,
+                isSpeechActive: isSpeechActive,
+                speechQueueLength: speechQueue.length,
+                onSoundChanged: (val) {
+                  setState(() { soundChosen = val!; _lsSave(); _applyAudioSettings(); });
+                },
+                onNoiseVolumeChanged: (val) {
+                  setState(() { noiseVolume = val!; _lsSave(); _applyAudioSettings(); });
+                },
+                onSpeakVolumeChanged: (val) {
+                  setState(() { speakVolume = val!; _lsSave(); });
+                },
+              ),
+            ],
           ),
         ),
       ),
     );
-  }
-
-  Widget _buildClockPanel() {
-    return _panelContainer(
-      active: clockOn,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _header("🕐 Speaking Clock", "A"),
-          const SizedBox(height: 8),
-          Text(
-            currentTimeDisplay,
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: palette.primary,
-              letterSpacing: 1.2,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-          _label("Announce every"),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: DropdownButton<int>(
-              value: clockIntervalMins,
-              isExpanded: true,
-              underline: const SizedBox(),
-              iconEnabledColor: palette.primary,
-              dropdownColor: palette.accent,
-              items: clockIntervalOptions.map((e) => DropdownMenuItem(
-                value: e,
-                child: Text("$e min", style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 12)),
-              )).toList(),
-              onChanged: (val) {
-                setState(() { clockIntervalMins = val!; _lsSave(); });
-                if (clockOn) startClock();
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Checkbox(
-                value: motivationOn,
-                activeColor: palette.primary,
-                checkColor: palette.accent,
-                onChanged: (val) {
-                  setState(() { motivationOn = val!; _lsSave(); });
-                },
-              ),
-              Expanded(child: _label("Speak motivational quote after time")),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ElevatedButton(
-            onPressed: toggleClock,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: clockOn ? palette.primary : palette.accent,
-              foregroundColor: clockOn ? palette.accent : palette.primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-              side: BorderSide(color: palette.primary, width: 2),
-            ),
-            child: Text(clockOn ? "🔔 ON" : "🔕 OFF", style: const TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      )
-    );
-  }
-
-  Widget _buildTimerPanel() {
-    return _panelContainer(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _header("⏱ Timer", "B"),
-          const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(5),
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: Text(
-              timerValue,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: palette.primary,
-                letterSpacing: 2,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _label("$sliderValue min"),
-                Text("${voices.length} voice${voices.length != 1 ? 's' : ''} loaded", style: TextStyle(fontSize: 10, color: palette.primary.withAlpha(140))),
-              ],
-            ),
-          ),
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              activeTrackColor: palette.accent,
-              inactiveTrackColor: palette.accent,
-              thumbColor: palette.accent,
-              trackHeight: 8,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-            ),
-            child: Slider(
-              value: sliderValue.toDouble(),
-              min: 1,
-              max: 120,
-              onChanged: (val) {
-                setState(() { sliderValue = val.toInt(); });
-              },
-            ),
-          ),
-          Row(
-            children: [
-              Expanded(child: _btn("▶ Start", startTimer)),
-              const SizedBox(width: 4),
-              Expanded(child: _btn("⏸ Stop", stopTimer)),
-              const SizedBox(width: 4),
-              Expanded(child: _btn("↺ Reset", resetTimer)),
-            ],
-          ),
-          Row(
-            children: [
-              Checkbox(
-                value: timerSpeakOn,
-                activeColor: palette.primary,
-                checkColor: palette.accent,
-                onChanged: (val) { setState(() { timerSpeakOn = val!; _lsSave(); }); },
-              ),
-              Expanded(child: _label("Speak remaining — every")),
-            ],
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: DropdownButton<int>(
-              value: timerAnnounceEvery,
-              isExpanded: true,
-              underline: const SizedBox(),
-              iconEnabledColor: palette.primary,
-              dropdownColor: palette.accent,
-              items: timerAnnounceOptions.map((e) => DropdownMenuItem(
-                value: e,
-                child: Text("$e min", style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 12)),
-              )).toList(),
-              onChanged: timerSpeakOn ? (val) {
-                setState(() { timerAnnounceEvery = val!; _lsSave(); });
-              } : null,
-            ),
-          ),
-        ],
-      )
-    );
-  }
-
-  Widget _btn(String text, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: palette.accent,
-        foregroundColor: palette.primary,
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-        side: BorderSide(color: palette.primary, width: 2),
-      ),
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-    );
-  }
-
-  Widget _buildPresetsPanel() {
-    return _panelContainer(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _header("⚡ Presets", ""),
-          _label("Tap to start instantly"),
-          Expanded(
-            child: GridView.count(
-              crossAxisCount: 5,
-              mainAxisSpacing: 4,
-              crossAxisSpacing: 4,
-              childAspectRatio: 1.8,
-              children: presetValues.map((p) {
-                return InkWell(
-                  onTap: () => choosePreset(p),
-                  child: Container(
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: palette.bg,
-                      border: Border.all(color: palette.primary, width: p == 25 ? 2 : 1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      p.toString(),
-                      style: TextStyle(
-                        color: palette.primary,
-                        fontWeight: p >= 90 ? FontWeight.bold : FontWeight.w500,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text("🍅 25 = Pomodoro  ·  bold = deep work", style: TextStyle(fontSize: 10, color: palette.primary.withAlpha(140))),
-          )
-        ],
-      )
-    );
-  }
-
-  Widget _buildSettingsPanel() {
-    return _panelContainer(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _header("⚙ Settings", ""),
-          _label("Background sound"),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: DropdownButton<String>(
-              value: soundList.any((e) => e.link == soundChosen) ? soundChosen : soundList.first.link,
-              isExpanded: true,
-              underline: const SizedBox(),
-              iconEnabledColor: palette.primary,
-              dropdownColor: palette.accent,
-              items: soundList.map((e) => DropdownMenuItem(
-                value: e.link,
-                child: Text(e.title, style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 12)),
-              )).toList(),
-              onChanged: (val) {
-                setState(() { soundChosen = val!; _lsSave(); _applyAudioSettings(); });
-              },
-            ),
-          ),
-          _label("Noise volume"),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: DropdownButton<double>(
-              value: noiseVolume,
-              isExpanded: true,
-              underline: const SizedBox(),
-              iconEnabledColor: palette.primary,
-              dropdownColor: palette.accent,
-              items: volumeLists.map((e) => DropdownMenuItem(
-                value: e,
-                child: Text(_getVolTitle(e), style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 12)),
-              )).toList(),
-              onChanged: (val) {
-                setState(() { noiseVolume = val!; _lsSave(); _applyAudioSettings(); });
-              },
-            ),
-          ),
-          _label("Speech volume"),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: DropdownButton<double>(
-              value: speakVolume,
-              isExpanded: true,
-              underline: const SizedBox(),
-              iconEnabledColor: palette.primary,
-              dropdownColor: palette.accent,
-              items: volumeLists.map((e) => DropdownMenuItem(
-                value: e,
-                child: Text(_getVolTitle(e), style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 12)),
-              )).toList(),
-              onChanged: (val) {
-                setState(() { speakVolume = val!; _lsSave(); });
-              },
-            ),
-          ),
-          const Spacer(),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.only(top: 8),
-            decoration: BoxDecoration(border: Border(top: BorderSide(color: palette.primary, width: 1, style: BorderStyle.none))),
-            child: Text(
-              "${isSpeechActive ? '🔉 Speaking…' : (speechQueue.isNotEmpty ? '⏳ ${speechQueue.length} queued' : '✔ Ready')}  ·  A↔B gap: 10 s",
-              style: TextStyle(fontSize: 10, color: palette.primary.withAlpha(140)),
-            ),
-          )
-        ],
-      )
-    );
-  }
-
-  String _getVolTitle(double v) {
-    if (v == 0.1) return "Very Low";
-    if (v == 0.2) return "Low";
-    if (v == 0.6) return "Medium";
-    if (v == 0.8) return "High";
-    return "Very High";
   }
 }
