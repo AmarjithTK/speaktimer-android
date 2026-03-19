@@ -11,9 +11,15 @@ class SettingsPanel extends StatelessWidget {
   final List<double> volumeLists;
   final bool isSpeechActive;
   final int speechQueueLength;
+  final String voiceListMode;
+  final List<Map<dynamic, dynamic>> voices;
+  final String? favoriteVoiceName;
+  final String? favoriteVoiceLocale;
   final ValueChanged<String?> onSoundChanged;
   final ValueChanged<double?> onNoiseVolumeChanged;
   final ValueChanged<double?> onSpeakVolumeChanged;
+  final ValueChanged<String?> onVoiceListModeChanged;
+  final ValueChanged<String?> onFavoriteVoiceChanged;
 
   const SettingsPanel({
     super.key,
@@ -24,9 +30,15 @@ class SettingsPanel extends StatelessWidget {
     required this.volumeLists,
     required this.isSpeechActive,
     required this.speechQueueLength,
+    required this.voiceListMode,
+    required this.voices,
+    required this.favoriteVoiceName,
+    required this.favoriteVoiceLocale,
     required this.onSoundChanged,
     required this.onNoiseVolumeChanged,
     required this.onSpeakVolumeChanged,
+    required this.onVoiceListModeChanged,
+    required this.onFavoriteVoiceChanged,
   });
 
   String _getVolTitle(double v) {
@@ -105,6 +117,88 @@ class SettingsPanel extends StatelessWidget {
                 child: Text(_getVolTitle(e), style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 12)),
               )).toList(),
               onChanged: onSpeakVolumeChanged,
+            ),
+          ),
+          sectionLabel("Voice list"),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+            decoration: BoxDecoration(
+              color: palette.accent,
+              border: Border.all(color: palette.primary, width: 2),
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: DropdownButton<String>(
+              value: voiceListMode,
+              isExpanded: true,
+              underline: const SizedBox(),
+              iconEnabledColor: palette.primary,
+              dropdownColor: palette.accent,
+              items: [
+                DropdownMenuItem(
+                  value: 'pleasant',
+                  child: Text(
+                    'Pleasant voices',
+                    style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 12),
+                  ),
+                ),
+                DropdownMenuItem(
+                  value: 'all',
+                  child: Text(
+                    'All English voices',
+                    style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 12),
+                  ),
+                ),
+              ],
+              onChanged: onVoiceListModeChanged,
+            ),
+          ),
+          sectionLabel("Favorite voice"),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+            decoration: BoxDecoration(
+              color: palette.accent,
+              border: Border.all(color: palette.primary, width: 2),
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: DropdownButton<String>(
+              value: () {
+                if (favoriteVoiceName == null || favoriteVoiceLocale == null) {
+                  return '__auto__';
+                }
+
+                final key = '${favoriteVoiceName!}|${favoriteVoiceLocale!}';
+                final exists = voices.any(
+                  (voice) => '${voice['name']}|${voice['locale']}' == key,
+                );
+                return exists ? key : '__auto__';
+              }(),
+              isExpanded: true,
+              underline: const SizedBox(),
+              iconEnabledColor: palette.primary,
+              dropdownColor: palette.accent,
+              items: [
+                DropdownMenuItem(
+                  value: '__auto__',
+                  child: Text(
+                    'Auto select',
+                    style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 12),
+                  ),
+                ),
+                ...voices.map((voice) {
+                  final name = voice['name']?.toString() ?? 'Unknown';
+                  final locale = voice['locale']?.toString() ?? 'en';
+                  final key = '$name|$locale';
+                  return DropdownMenuItem(
+                    value: key,
+                    child: Text(
+                      '$name ($locale)',
+                      style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }),
+              ],
+              onChanged: onFavoriteVoiceChanged,
             ),
           ),
           Container(

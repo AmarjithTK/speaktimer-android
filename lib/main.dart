@@ -87,6 +87,9 @@ class _MainScreenState extends State<MainScreen> {
   bool isSpeechActive = false;
   List<Map<dynamic, dynamic>> voices = [];
   int voiceIndex = 0;
+  String voiceListMode = 'pleasant';
+  String? favoriteVoiceName;
+  String? favoriteVoiceLocale;
 
   // Audio Players
   AudioPlayer bgPlayer = AudioPlayer();
@@ -104,6 +107,7 @@ class _MainScreenState extends State<MainScreen> {
   Timer? displayTick;
   String currentTimeDisplay = "";
   int lastNotificationSyncMs = 0;
+  int currentTabIndex = 0;
 
   // 10s Gap enforcement
   int lastClockSpoke = 0;
@@ -354,6 +358,9 @@ class _MainScreenState extends State<MainScreen> {
       motivationOn = prefs?.getBool("MotivationOn") ?? true;
       timerSpeakOn = prefs?.getBool("TimerSpeakOn") ?? true;
       timerAnnounceEvery = prefs?.getInt("TimerAnnounceEvery") ?? 1;
+      voiceListMode = prefs?.getString('VoiceListMode') ?? 'pleasant';
+      favoriteVoiceName = prefs?.getString('FavoriteVoiceName');
+      favoriteVoiceLocale = prefs?.getString('FavoriteVoiceLocale');
     });
 
     _applyAudioSettings();
@@ -372,6 +379,17 @@ class _MainScreenState extends State<MainScreen> {
     prefs!.setBool("MotivationOn", motivationOn);
     prefs!.setBool("TimerSpeakOn", timerSpeakOn);
     prefs!.setInt("TimerAnnounceEvery", timerAnnounceEvery);
+    prefs!.setString('VoiceListMode', voiceListMode);
+    if (favoriteVoiceName != null) {
+      prefs!.setString('FavoriteVoiceName', favoriteVoiceName!);
+    } else {
+      prefs!.remove('FavoriteVoiceName');
+    }
+    if (favoriteVoiceLocale != null) {
+      prefs!.setString('FavoriteVoiceLocale', favoriteVoiceLocale!);
+    } else {
+      prefs!.remove('FavoriteVoiceLocale');
+    }
   }
 
   void _initAudio() {
@@ -392,39 +410,54 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _initTts() async {
     final v = await flutterTts.getVoices;
     if (v != null) {
-      voices = List<Map<dynamic, dynamic>>.from(v)
+      final loadedVoices = List<Map<dynamic, dynamic>>.from(v)
           .where((v) => v["locale"]?.toString().startsWith("en") ?? false)
           .toList();
+      if (mounted) {
+        setState(() {
+          voices = loadedVoices;
+        });
+      } else {
+        voices = loadedVoices;
+      }
     }
     await flutterTts.awaitSpeakCompletion(true);
   }
 
-  Map<dynamic, dynamic>? getPleasantVoice() {
+  bool _isPleasantVoice(Map<dynamic, dynamic> voice) {
+    final name = voice['name']?.toString().toLowerCase() ?? '';
+    final locale = voice['locale']?.toString().toLowerCase() ?? '';
+    return name.contains('network') ||
+        name.contains('veena') ||
+        name.contains('rishi') ||
+        locale == 'en-in' ||
+        locale == 'en-us';
+  }
+
+  List<Map<dynamic, dynamic>> _availableVoicesForSettings() {
+    if (voiceListMode == 'all') {
+      return voices;
+    }
+
+    final filtered = voices.where(_isPleasantVoice).toList();
+    return filtered.isNotEmpty ? filtered : voices;
+  }
+
+  Map<dynamic, dynamic>? getPreferredVoice() {
     if (voices.isEmpty) return null;
 
-    // Try to find a high-quality Indian English voice
-    // "network" voices on Android sound the most human. "veena" and "rishi" are great on iOS.
-    const pleasantNames = [
-      "en-in-x-ahp-network", "en-in-x-cxx-network", "en-in-x-ene-network",
-      "veena", "rishi", "en-in-x-ahp-local", "en-in",
-      // Fallbacks just in case
-      "en-us-x-sfg-network", "samantha", "en-us",
-    ];
-
-    for (var name in pleasantNames) {
+    if (favoriteVoiceName != null && favoriteVoiceLocale != null) {
       try {
-        var v = voices.firstWhere(
-          (v) =>
-              v['name'].toString().toLowerCase().contains(name) ||
-              v['locale'].toString().toLowerCase() == name,
+        return voices.firstWhere(
+          (voice) =>
+              voice['name']?.toString() == favoriteVoiceName &&
+              voice['locale']?.toString() == favoriteVoiceLocale,
         );
-        return v;
-      } catch (e) {
-        // Not found, continue loop
-      }
+      } catch (_) {}
     }
-    // Return first english voice if no specific matches
-    return voices.first;
+
+    final available = _availableVoicesForSettings();
+    return available.isNotEmpty ? available.first : voices.first;
   }
 
   Future<void> drainQueue() async {
@@ -439,8 +472,7 @@ class _MainScreenState extends State<MainScreen> {
       await Future.delayed(Duration(milliseconds: item.delayMs));
     }
 
-    // Always use a pleasant voice, don't cycle through random/bad voices
-    final pv = getPleasantVoice();
+    final pv = getPreferredVoice();
     if (pv != null) {
       await flutterTts.setVoice({"name": pv["name"], "locale": pv["locale"]});
     }
@@ -630,6 +662,142 @@ class _MainScreenState extends State<MainScreen> {
     startTimer();
   }
 
+  Widget _buildHomeTab() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: ListView(
+          children: [
+            ClockPanel(
+              clockOn: clockOn,
+              currentTimeDisplay: currentTimeDisplay,
+              clockIntervalMins: clockIntervalMins,
+              motivationOn: motivationOn,
+              clockIntervalOptions: clockIntervalOptions,
+              toggleClock: toggleClock,
+              onIntervalChanged: (val) {
+                setState(() {
+                  clockIntervalMins = val!;
+                  _lsSave();
+                });
+                if (clockOn) startClock();
+              },
+              onMotivationChanged: (val) {
+                setState(() {
+                  motivationOn = val!;
+                  _lsSave();
+                });
+              },
+            ),
+            const SizedBox(height: 8),
+            TimerPanel(
+              timerValue: timerValue,
+              sliderValue: sliderValue,
+              voicesCount: voices.length,
+              timerSpeakOn: timerSpeakOn,
+              timerAnnounceEvery: timerAnnounceEvery,
+              timerAnnounceOptions: timerAnnounceOptions,
+              startTimer: startTimer,
+              stopTimer: stopTimer,
+              resetTimer: resetTimer,
+              onSliderChanged: (val) {
+                setState(() {
+                  sliderValue = val.toInt();
+                });
+              },
+              onTimerSpeakOnChanged: (val) {
+                setState(() {
+                  timerSpeakOn = val!;
+                  _lsSave();
+                });
+              },
+              onTimerAnnounceEveryChanged: (val) {
+                setState(() {
+                  timerAnnounceEvery = val!;
+                  _lsSave();
+                });
+              },
+            ),
+            const SizedBox(height: 8),
+            PresetsPanel(
+              presetValues: presetValues,
+              choosePreset: choosePreset,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsTab() {
+    final settingsVoices = _availableVoicesForSettings();
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: ListView(
+          children: [
+            SettingsPanel(
+              soundChosen: soundChosen,
+              noiseVolume: noiseVolume,
+              speakVolume: speakVolume,
+              soundList: soundList,
+              volumeLists: volumeLists,
+              isSpeechActive: isSpeechActive,
+              speechQueueLength: speechQueue.length,
+              voiceListMode: voiceListMode,
+              voices: settingsVoices,
+              favoriteVoiceName: favoriteVoiceName,
+              favoriteVoiceLocale: favoriteVoiceLocale,
+              onSoundChanged: (val) {
+                setState(() {
+                  soundChosen = val!;
+                  _lsSave();
+                  _applyAudioSettings();
+                });
+              },
+              onNoiseVolumeChanged: (val) {
+                setState(() {
+                  noiseVolume = val!;
+                  _lsSave();
+                  _applyAudioSettings();
+                });
+              },
+              onSpeakVolumeChanged: (val) {
+                setState(() {
+                  speakVolume = val!;
+                  _lsSave();
+                });
+              },
+              onVoiceListModeChanged: (val) {
+                if (val == null) return;
+                setState(() {
+                  voiceListMode = val;
+                  _lsSave();
+                });
+              },
+              onFavoriteVoiceChanged: (val) {
+                setState(() {
+                  if (val == null || val == '__auto__') {
+                    favoriteVoiceName = null;
+                    favoriteVoiceLocale = null;
+                  } else {
+                    final parts = val.split('|');
+                    if (parts.length == 2) {
+                      favoriteVoiceName = parts[0];
+                      favoriteVoiceLocale = parts[1];
+                    }
+                  }
+                  _lsSave();
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     stopClock();
@@ -665,99 +833,26 @@ class _MainScreenState extends State<MainScreen> {
           ),
           centerTitle: true,
         ),
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: ListView(
-              children: [
-                ClockPanel(
-                  clockOn: clockOn,
-                  currentTimeDisplay: currentTimeDisplay,
-                  clockIntervalMins: clockIntervalMins,
-                  motivationOn: motivationOn,
-                  clockIntervalOptions: clockIntervalOptions,
-                  toggleClock: toggleClock,
-                  onIntervalChanged: (val) {
-                    setState(() {
-                      clockIntervalMins = val!;
-                      _lsSave();
-                    });
-                    if (clockOn) startClock();
-                  },
-                  onMotivationChanged: (val) {
-                    setState(() {
-                      motivationOn = val!;
-                      _lsSave();
-                    });
-                  },
-                ),
-                const SizedBox(height: 8),
-                TimerPanel(
-                  timerValue: timerValue,
-                  sliderValue: sliderValue,
-                  voicesCount: voices.length,
-                  timerSpeakOn: timerSpeakOn,
-                  timerAnnounceEvery: timerAnnounceEvery,
-                  timerAnnounceOptions: timerAnnounceOptions,
-                  startTimer: startTimer,
-                  stopTimer: stopTimer,
-                  resetTimer: resetTimer,
-                  onSliderChanged: (val) {
-                    setState(() {
-                      sliderValue = val.toInt();
-                    });
-                  },
-                  onTimerSpeakOnChanged: (val) {
-                    setState(() {
-                      timerSpeakOn = val!;
-                      _lsSave();
-                    });
-                  },
-                  onTimerAnnounceEveryChanged: (val) {
-                    setState(() {
-                      timerAnnounceEvery = val!;
-                      _lsSave();
-                    });
-                  },
-                ),
-                const SizedBox(height: 8),
-                PresetsPanel(
-                  presetValues: presetValues,
-                  choosePreset: choosePreset,
-                ),
-                const SizedBox(height: 8),
-                SettingsPanel(
-                  soundChosen: soundChosen,
-                  noiseVolume: noiseVolume,
-                  speakVolume: speakVolume,
-                  soundList: soundList,
-                  volumeLists: volumeLists,
-                  isSpeechActive: isSpeechActive,
-                  speechQueueLength: speechQueue.length,
-                  onSoundChanged: (val) {
-                    setState(() {
-                      soundChosen = val!;
-                      _lsSave();
-                      _applyAudioSettings();
-                    });
-                  },
-                  onNoiseVolumeChanged: (val) {
-                    setState(() {
-                      noiseVolume = val!;
-                      _lsSave();
-                      _applyAudioSettings();
-                    });
-                  },
-                  onSpeakVolumeChanged: (val) {
-                    setState(() {
-                      speakVolume = val!;
-                      _lsSave();
-                    });
-                  },
-                ),
-              ],
+        body: currentTabIndex == 0 ? _buildHomeTab() : _buildSettingsTab(),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: currentTabIndex,
+          onTap: (index) {
+            setState(() {
+              currentTabIndex = index;
+            });
+          },
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.timer_outlined),
+              activeIcon: Icon(Icons.timer),
+              label: 'Home',
             ),
-          ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings_outlined),
+              activeIcon: Icon(Icons.settings),
+              label: 'Settings',
+            ),
+          ],
         ),
     );
   }
