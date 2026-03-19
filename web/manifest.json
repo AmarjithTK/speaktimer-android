@@ -1,6 +1,6 @@
 {
-    "name": "speakertimer",
-    "short_name": "speakertimer",
+    "name": "lifer",
+    "short_name": "lifer",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

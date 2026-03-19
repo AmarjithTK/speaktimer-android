@@ -7,10 +7,16 @@ class ClockPanel extends StatelessWidget {
   final String currentTimeDisplay;
   final int clockIntervalMins;
   final bool motivationOn;
+  final String motivationCategory;
+  final int motivationDelaySeconds;
   final List<int> clockIntervalOptions;
+  final List<String> motivationCategories;
+  final List<int> motivationDelayOptions;
   final VoidCallback toggleClock;
   final ValueChanged<int?> onIntervalChanged;
   final ValueChanged<bool?> onMotivationChanged;
+  final ValueChanged<String?> onMotivationCategoryChanged;
+  final ValueChanged<int?> onMotivationDelayChanged;
 
   const ClockPanel({
     super.key,
@@ -18,11 +24,25 @@ class ClockPanel extends StatelessWidget {
     required this.currentTimeDisplay,
     required this.clockIntervalMins,
     required this.motivationOn,
+    required this.motivationCategory,
+    required this.motivationDelaySeconds,
     required this.clockIntervalOptions,
+    required this.motivationCategories,
+    required this.motivationDelayOptions,
     required this.toggleClock,
     required this.onIntervalChanged,
     required this.onMotivationChanged,
+    required this.onMotivationCategoryChanged,
+    required this.onMotivationDelayChanged,
   });
+
+  (String, String?) _splitClockDisplay(String value) {
+    if (value.contains('.')) {
+      final parts = value.split('.');
+      return (parts.first, parts.length > 1 ? parts[1] : null);
+    }
+    return (value, null);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,15 +53,68 @@ class ClockPanel extends StatelessWidget {
         children: [
           headerTitle("🕐 Speaking Clock", "A"),
           const SizedBox(height: 8),
-          Text(
-            currentTimeDisplay,
-            style: TextStyle(
-              fontSize: 44,
-              fontWeight: FontWeight.bold,
-              color: palette.primary,
-              letterSpacing: 1.2,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
+          Builder(
+            builder: (_) {
+              final display = _splitClockDisplay(currentTimeDisplay);
+              final mainTime = display.$1;
+              final millis = display.$2;
+
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: palette.accent,
+                  border: Border.all(color: palette.primary, width: 2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'CURRENT TIME',
+                      style: TextStyle(
+                        color: palette.primary.withAlpha(150),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            mainTime,
+                            style: TextStyle(
+                              fontSize: 44,
+                              height: 1,
+                              fontWeight: FontWeight.w800,
+                              color: palette.primary,
+                              letterSpacing: 1.4,
+                              fontFeatures: const [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ),
+                        if (millis != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Text(
+                              '.$millis',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: palette.primary.withAlpha(170),
+                                fontFeatures: const [FontFeature.tabularFigures()],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
           sectionLabel("Announce every"),
           Container(
@@ -75,6 +148,55 @@ class ClockPanel extends StatelessWidget {
               ),
               Expanded(child: sectionLabel("Speak motivational quote after time")),
             ],
+          ),
+          sectionLabel("Motivation category"),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+            decoration: BoxDecoration(
+              color: palette.accent,
+              border: Border.all(color: palette.primary, width: 2),
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: DropdownButton<String>(
+              value: motivationCategory,
+              isExpanded: true,
+              underline: const SizedBox(),
+              iconEnabledColor: palette.primary,
+              dropdownColor: palette.accent,
+              items: motivationCategories.map((category) => DropdownMenuItem(
+                value: category,
+                child: Text(
+                  category,
+                  style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 14),
+                ),
+              )).toList(),
+              onChanged: motivationOn ? onMotivationCategoryChanged : null,
+            ),
+          ),
+          const SizedBox(height: 8),
+          sectionLabel("Motivation delay after time"),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+            decoration: BoxDecoration(
+              color: palette.accent,
+              border: Border.all(color: palette.primary, width: 2),
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: DropdownButton<int>(
+              value: motivationDelaySeconds,
+              isExpanded: true,
+              underline: const SizedBox(),
+              iconEnabledColor: palette.primary,
+              dropdownColor: palette.accent,
+              items: motivationDelayOptions.map((seconds) => DropdownMenuItem(
+                value: seconds,
+                child: Text(
+                  '$seconds sec',
+                  style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 14),
+                ),
+              )).toList(),
+              onChanged: motivationOn ? onMotivationDelayChanged : null,
+            ),
           ),
           const SizedBox(height: 8),
           ElevatedButton(

@@ -6,6 +6,7 @@ class TimerPanel extends StatelessWidget {
   final String timerValue;
   final int sliderValue;
   final int voicesCount;
+  final bool timerNoiseOn;
   final bool timerSpeakOn;
   final int timerAnnounceEvery;
   final List<int> timerAnnounceOptions;
@@ -17,6 +18,7 @@ class TimerPanel extends StatelessWidget {
   final VoidCallback stopTimer;
   final VoidCallback resetTimer;
   final ValueChanged<double> onSliderChanged;
+  final ValueChanged<bool?> onTimerNoiseOnChanged;
   final ValueChanged<bool?> onTimerSpeakOnChanged;
   final ValueChanged<int?> onTimerAnnounceEveryChanged;
   final ValueChanged<bool?> onChainModeChanged;
@@ -27,6 +29,7 @@ class TimerPanel extends StatelessWidget {
     required this.timerValue,
     required this.sliderValue,
     required this.voicesCount,
+    required this.timerNoiseOn,
     required this.timerSpeakOn,
     required this.timerAnnounceEvery,
     required this.timerAnnounceOptions,
@@ -38,11 +41,20 @@ class TimerPanel extends StatelessWidget {
     required this.stopTimer,
     required this.resetTimer,
     required this.onSliderChanged,
+    required this.onTimerNoiseOnChanged,
     required this.onTimerSpeakOnChanged,
     required this.onTimerAnnounceEveryChanged,
     required this.onChainModeChanged,
     required this.onChainPresetChanged,
   });
+
+  (String, String) _splitTimer(String value) {
+    final parts = value.split(':');
+    if (parts.length == 2) {
+      return (parts[0], parts[1]);
+    }
+    return ('00', '00');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,25 +64,69 @@ class TimerPanel extends StatelessWidget {
         children: [
           headerTitle("⏱ Timer", "B"),
           const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(5),
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: Text(
-              timerValue,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: palette.primary,
-                letterSpacing: 2,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
+          Builder(
+            builder: (_) {
+              final timerParts = _splitTimer(timerValue);
+              final minutes = timerParts.$1;
+              final seconds = timerParts.$2;
+
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: palette.accent,
+                  border: Border.all(color: palette.primary, width: 2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'REMAINING',
+                      style: TextStyle(
+                        color: palette.primary.withAlpha(150),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    RichText(
+                      textAlign: TextAlign.center,
+                      text: TextSpan(
+                        style: TextStyle(
+                          color: palette.primary,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                        children: [
+                          TextSpan(
+                            text: minutes,
+                            style: const TextStyle(
+                              fontSize: 46,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          TextSpan(
+                            text: ':',
+                            style: TextStyle(
+                              fontSize: 38,
+                              fontWeight: FontWeight.w700,
+                              color: palette.primary.withAlpha(180),
+                            ),
+                          ),
+                          TextSpan(
+                            text: seconds,
+                            style: const TextStyle(
+                              fontSize: 46,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
@@ -104,6 +160,17 @@ class TimerPanel extends StatelessWidget {
               Expanded(child: actionBtn("⏸ Stop", stopTimer)),
               const SizedBox(width: 4),
               Expanded(child: actionBtn("↺ Reset", resetTimer)),
+            ],
+          ),
+          Row(
+            children: [
+              Checkbox(
+                value: timerNoiseOn,
+                activeColor: palette.primary,
+                checkColor: palette.accent,
+                onChanged: onTimerNoiseOnChanged,
+              ),
+              Expanded(child: sectionLabel("Play background noise during timer")),
             ],
           ),
           Row(

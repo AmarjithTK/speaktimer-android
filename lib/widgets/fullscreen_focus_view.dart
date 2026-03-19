@@ -25,7 +25,7 @@ class FullscreenFocusView extends StatefulWidget {
 class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   Timer? _tick;
   bool _darkTheme = true;
-  bool _alwaysOn = false;
+  bool _alwaysOn = true;
   bool _showTimer = false;
   String _clockText = '';
   String _timerText = '00:00';
@@ -37,6 +37,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
     _showTimer = widget.startInTimerMode;
 
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    unawaited(WakelockPlus.enable());
     _refresh();
     _tick = Timer.periodic(const Duration(milliseconds: 120), (_) {
       _refresh();
@@ -50,6 +51,145 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
       _timerText = widget.timerTextBuilder();
       _timerRunning = widget.isTimerRunningBuilder();
     });
+  }
+
+  (String, String?) _splitClockDisplay(String value) {
+    if (value.contains('.')) {
+      final parts = value.split('.');
+      return (parts.first, parts.length > 1 ? parts[1] : null);
+    }
+    return (value, null);
+  }
+
+  (String, String) _splitTimer(String value) {
+    final parts = value.split(':');
+    if (parts.length == 2) {
+      return (parts[0], parts[1]);
+    }
+    return ('00', '00');
+  }
+
+  Widget _buildTimerDisplay(Color fg) {
+    final timerParts = _splitTimer(_timerText);
+    final mins = timerParts.$1;
+    final secs = timerParts.$2;
+
+    return Column(
+      children: [
+        Text(
+          'REMAINING',
+          style: TextStyle(
+            color: fg.withAlpha(165),
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.center,
+            child: RichText(
+              textAlign: TextAlign.center,
+              text: TextSpan(
+                style: TextStyle(
+                  color: fg,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+                children: [
+                  TextSpan(
+                    text: mins,
+                    style: const TextStyle(
+                      fontSize: 112,
+                      fontWeight: FontWeight.w800,
+                      height: 1,
+                    ),
+                  ),
+                  TextSpan(
+                    text: ':',
+                    style: TextStyle(
+                      fontSize: 88,
+                      fontWeight: FontWeight.w700,
+                      color: fg.withAlpha(190),
+                      height: 1,
+                    ),
+                  ),
+                  TextSpan(
+                    text: secs,
+                    style: const TextStyle(
+                      fontSize: 112,
+                      fontWeight: FontWeight.w800,
+                      height: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildClockDisplay(Color fg) {
+    final clockParts = _splitClockDisplay(_clockText);
+    final mainTime = clockParts.$1;
+    final millis = clockParts.$2;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'CURRENT TIME',
+          style: TextStyle(
+            color: fg.withAlpha(165),
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  mainTime,
+                  style: TextStyle(
+                    color: fg,
+                    fontSize: 88,
+                    fontWeight: FontWeight.w800,
+                    height: 1,
+                    letterSpacing: 1.6,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                if (millis != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Text(
+                      '.$millis',
+                      style: TextStyle(
+                        color: fg.withAlpha(190),
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -66,7 +206,8 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   Widget build(BuildContext context) {
     final bg = _darkTheme ? Colors.black : Colors.white;
     final fg = _darkTheme ? Colors.white : Colors.black;
-    final value = _showTimer ? _timerText : _clockText;
+    final cardBg = _darkTheme ? Colors.white.withAlpha(20) : Colors.black.withAlpha(20);
+    final cardBorder = _darkTheme ? Colors.white.withAlpha(45) : Colors.black.withAlpha(45);
 
     return Scaffold(
       backgroundColor: bg,
@@ -139,16 +280,16 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
             const Spacer(),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                value,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: fg,
-                  fontSize: _showTimer ? 110 : 80,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 2.0,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: cardBorder, width: 1.6),
                 ),
-              ),
+                child: _showTimer ? _buildTimerDisplay(fg) : _buildClockDisplay(fg),
+                          ),
             ),
             const SizedBox(height: 20),
             Text(

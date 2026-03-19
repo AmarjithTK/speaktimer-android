@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:quick_actions/quick_actions.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'theme/palette.dart';
 import 'models/app_settings.dart';
@@ -47,17 +49,17 @@ class MyTaskHandler extends TaskHandler {
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   FlutterForegroundTask.initCommunicationPort();
-  runApp(const SpeakTimerApp());
+  runApp(const LiferApp());
 }
 
-class SpeakTimerApp extends StatelessWidget {
-  const SpeakTimerApp({super.key});
+class LiferApp extends StatelessWidget {
+  const LiferApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return WithForegroundTask(
       child: MaterialApp(
-      title: 'Speaktimer',
+      title: 'lifer',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         scaffoldBackgroundColor: palette.bg,
@@ -84,6 +86,7 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
+  final QuickActions _quickActions = const QuickActions();
   final AudioService _audioService = AudioService();
   final SettingsService _settingsService = SettingsService();
   final SpeechService _speechService = SpeechService();
@@ -130,6 +133,9 @@ class _MainScreenState extends State<MainScreen> {
   bool clockOn = false;
   int clockIntervalMins = 30;
   bool motivationOn = true;
+  String motivationCategory = 'General';
+  int motivationDelaySeconds = 10;
+  bool timerNoiseOn = true;
   bool timerSpeakOn = true;
   int timerAnnounceEvery = 1;
   bool chainModeOn = false;
@@ -154,40 +160,62 @@ class _MainScreenState extends State<MainScreen> {
   final List<int> presetValues = [5, 10, 15, 20, 25, 30, 45, 60, 90, 120];
   final List<int> clockIntervalOptions = [1, 2, 5, 10, 15, 20, 30, 60];
   final List<int> timerAnnounceOptions = [1, 2, 5, 10, 15, 20, 30];
-
-  final List<String> quotes = [
-    "Use this moment well — it won't come back.",
-    "Small steps every hour build the life you want.",
-    "Your attention is your most valuable currency.",
-    "Time is the only resource you cannot earn back.",
-    "What you do right now shapes who you become.",
-    "Every minute of focus is an investment in your future.",
-    "Be present. This hour is a gift.",
-    "Clarity comes to those who use their time with intention.",
-    "Progress, not perfection, is what time rewards.",
-    "An hour of deep work is worth a day of distraction.",
-    "Don't count the hours; make the hours count.",
-    "Your future self will thank you for the work you do now.",
-    "One focused hour can change a whole day.",
-    "Time flies — but you are the pilot.",
-    "Do something today that your future self will be proud of.",
-    "Momentum is built one intentional moment at a time.",
-    "The best time to start was yesterday. The second best is now.",
-    "Each hour is a fresh canvas. Paint it well.",
-    "Discipline is choosing what you want most over what you want now.",
-    "Greatness is built minute by minute.",
-    "A year from now you'll wish you had started today.",
-    "Your work right now is compounding silently.",
-    "Focused effort now creates freedom later.",
-    "Every hour of rest is fuel. Every hour of work is progress.",
-    "Time is the great equaliser — what matters is what you do with it.",
-    "Stay the course. The results are coming.",
-    "Consistency over time is unstoppable.",
-    "You have enough time for what truly matters.",
-    "Let this hour be better than the last.",
-    "Breathe, focus, and make this moment count.",
+  final List<int> motivationDelayOptions = [5, 10, 20, 30, 40, 60];
+  final List<String> motivationCategories = const [
+    'General',
+    'Focus',
+    'Discipline',
+    'Calm',
+    'Positivity',
+    'Historic Figures',
   ];
-  int quoteIndex = 0;
+  static const String _lastTimerSecondsKey = 'QuickActionLastSeconds';
+
+  final Map<String, List<String>> quotesByCategory = {
+    'General': [
+      "Use this moment well — it won't come back.",
+      "Small steps every hour build the life you want.",
+      "Time is the only resource you cannot earn back.",
+      "Progress, not perfection, is what time rewards.",
+      "Your work right now is compounding silently.",
+    ],
+    'Focus': [
+      "Your attention is your most valuable currency.",
+      "An hour of deep work is worth a day of distraction.",
+      "One focused hour can change a whole day.",
+      "Clarity comes to those who use their time with intention.",
+      "Focused effort now creates freedom later.",
+    ],
+    'Discipline': [
+      "Discipline is choosing what you want most over what you want now.",
+      "Greatness is built minute by minute.",
+      "The best time to start was yesterday. The second best is now.",
+      "Consistency over time is unstoppable.",
+      "Stay the course. The results are coming.",
+    ],
+    'Calm': [
+      "Be present. This hour is a gift.",
+      "Breathe, focus, and make this moment count.",
+      "Each hour is a fresh canvas. Paint it well.",
+      "You have enough time for what truly matters.",
+      "Let this hour be better than the last.",
+    ],
+    'Positivity': [
+      "What you do right now shapes who you become.",
+      "Your future self will thank you for the work you do now.",
+      "Do something today that your future self will be proud of.",
+      "Momentum is built one intentional moment at a time.",
+      "A year from now you'll wish you had started today.",
+    ],
+    'Historic Figures': [
+      "Aristotle said: We are what we repeatedly do. Excellence, then, is a habit.",
+      "Leonardo da Vinci said: Time stays long enough for anyone who will use it.",
+      "Benjamin Franklin said: Lost time is never found again.",
+      "Maya Angelou said: Nothing will work unless you do.",
+      "Bruce Lee said: The successful warrior is the average person, with laser-like focus.",
+    ],
+  };
+  final Map<String, int> quoteIndexByCategory = {};
 
   Future<void> _requestPermissions() async {
     if (await FlutterForegroundTask.isIgnoringBatteryOptimizations == false) {
@@ -254,6 +282,74 @@ class _MainScreenState extends State<MainScreen> {
     await _ensureForegroundServiceRunning();
   }
 
+  Future<void> _saveLastTimerSeconds(int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_lastTimerSecondsKey, value);
+  }
+
+  Future<int> _readLastTimerSeconds() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_lastTimerSecondsKey) ?? (sliderValue * 60);
+  }
+
+  Future<void> _handleQuickAction(String type) async {
+    if (!mounted) return;
+    switch (type) {
+      case 'start_25m':
+        setState(() {
+          currentTabIndex = 1;
+          chainModeOn = false;
+          seconds = 25 * 60;
+          timerValue = '25:00';
+        });
+        startTimer();
+        break;
+      case 'resume_last':
+        final last = await _readLastTimerSeconds();
+        if (!mounted) return;
+        setState(() {
+          currentTabIndex = 1;
+          seconds = last;
+          final mins = (last ~/ 60).toString().padLeft(2, '0');
+          final secs = (last % 60).toString().padLeft(2, '0');
+          timerValue = '$mins:$secs';
+        });
+        startTimer();
+        break;
+      case 'toggle_speech':
+        setState(() {
+          timerSpeakOn = !timerSpeakOn;
+          _lsSave();
+        });
+        _syncForegroundNotification(force: true);
+        break;
+    }
+  }
+
+  void _initQuickActions() {
+    _quickActions.initialize((type) {
+      unawaited(_handleQuickAction(type));
+    });
+
+    _quickActions.setShortcutItems(<ShortcutItem>[
+      const ShortcutItem(
+        type: 'start_25m',
+        localizedTitle: 'Start 25m',
+        icon: 'icon_start',
+      ),
+      const ShortcutItem(
+        type: 'resume_last',
+        localizedTitle: 'Resume Last',
+        icon: 'icon_resume',
+      ),
+      const ShortcutItem(
+        type: 'toggle_speech',
+        localizedTitle: 'Toggle Speech',
+        icon: 'icon_speech',
+      ),
+    ]);
+  }
+
   Future<void> _openFullscreenFocus() async {
     final startInTimer = timerInterval != null || currentTabIndex == 1;
     await Navigator.of(context).push(
@@ -306,6 +402,7 @@ class _MainScreenState extends State<MainScreen> {
     _initAudio();
     _initTts();
     _initializeForegroundNotification();
+    _initQuickActions();
 
     // Add callback to handle notification button presses
     FlutterForegroundTask.addTaskDataCallback(_onReceiveTaskData);
@@ -334,11 +431,21 @@ class _MainScreenState extends State<MainScreen> {
       clockOn = settings.clockOn;
       clockIntervalMins = settings.clockIntervalMins;
       motivationOn = settings.motivationOn;
+      motivationCategory = settings.motivationCategory;
+      motivationDelaySeconds = settings.motivationDelaySeconds;
       timerSpeakOn = settings.timerSpeakOn;
       timerAnnounceEvery = settings.timerAnnounceEvery;
+      timerNoiseOn = settings.timerNoiseOn;
       voiceListMode = settings.voiceListMode;
       favoriteVoiceName = settings.favoriteVoiceName;
       favoriteVoiceLocale = settings.favoriteVoiceLocale;
+
+      if (!motivationCategories.contains(motivationCategory)) {
+        motivationCategory = 'General';
+      }
+      if (!motivationDelayOptions.contains(motivationDelaySeconds)) {
+        motivationDelaySeconds = 10;
+      }
     });
 
     _applyAudioSettings();
@@ -355,8 +462,11 @@ class _MainScreenState extends State<MainScreen> {
       clockOn: clockOn,
       clockIntervalMins: clockIntervalMins,
       motivationOn: motivationOn,
+      motivationCategory: motivationCategory,
+      motivationDelaySeconds: motivationDelaySeconds,
       timerSpeakOn: timerSpeakOn,
       timerAnnounceEvery: timerAnnounceEvery,
+      timerNoiseOn: timerNoiseOn,
       voiceListMode: voiceListMode,
       favoriteVoiceName: favoriteVoiceName,
       favoriteVoiceLocale: favoriteVoiceLocale,
@@ -372,7 +482,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _applyAudioSettings() {
-    if (audioPlaying) {
+    if (audioPlaying && timerNoiseOn) {
       unawaited(
         _audioService.applyBackground(
           shouldPlay: true,
@@ -380,6 +490,8 @@ class _MainScreenState extends State<MainScreen> {
           volume: noiseVolume,
         ),
       );
+    } else {
+      unawaited(_audioService.stopBackground());
     }
   }
 
@@ -486,12 +598,24 @@ class _MainScreenState extends State<MainScreen> {
       speak(text);
 
       if (motivationOn) {
-        final quoteText = quotes[quoteIndex % quotes.length];
-        quoteIndex++;
-        speechQueue.add(SpeechItem(quoteText, isQuote: true, delayMs: 5000));
+        final quoteText = _nextQuoteForCategory(motivationCategory);
+        final delayMs = motivationDelaySeconds * 1000;
+        speechQueue.add(SpeechItem(quoteText, isQuote: true, delayMs: delayMs));
       }
       drainQueue();
     });
+  }
+
+  String _nextQuoteForCategory(String category) {
+    final normalizedCategory = quotesByCategory.containsKey(category) ? category : 'General';
+    final categoryQuotes = quotesByCategory[normalizedCategory] ?? const [];
+    if (categoryQuotes.isEmpty) {
+      return "Stay steady and use this moment well.";
+    }
+    final currentIndex = quoteIndexByCategory[normalizedCategory] ?? 0;
+    final selected = categoryQuotes[currentIndex % categoryQuotes.length];
+    quoteIndexByCategory[normalizedCategory] = currentIndex + 1;
+    return selected;
   }
 
   void speakTimerMessage(String text) {
@@ -583,13 +707,17 @@ class _MainScreenState extends State<MainScreen> {
 
     setState(() {
       timerInterval = Timer.periodic(const Duration(seconds: 1), tick);
-      audioPlaying = true;
+      audioPlaying = timerNoiseOn;
     });
+    unawaited(_saveLastTimerSeconds(seconds > 0 ? seconds : sliderValue * 60));
     _applyAudioSettings();
     _syncForegroundNotification(force: true);
   }
 
   void stopTimer() {
+    if (seconds > 0) {
+      unawaited(_saveLastTimerSeconds(seconds));
+    }
     timerInterval?.cancel();
     timerInterval = null;
     setState(() {
@@ -627,7 +755,11 @@ class _MainScreenState extends State<MainScreen> {
               currentTimeDisplay: currentTimeDisplay,
               clockIntervalMins: clockIntervalMins,
               motivationOn: motivationOn,
+              motivationCategory: motivationCategory,
+              motivationDelaySeconds: motivationDelaySeconds,
               clockIntervalOptions: clockIntervalOptions,
+              motivationCategories: motivationCategories,
+              motivationDelayOptions: motivationDelayOptions,
               toggleClock: toggleClock,
               onIntervalChanged: (val) {
                 setState(() {
@@ -639,6 +771,20 @@ class _MainScreenState extends State<MainScreen> {
               onMotivationChanged: (val) {
                 setState(() {
                   motivationOn = val!;
+                  _lsSave();
+                });
+              },
+              onMotivationCategoryChanged: (val) {
+                if (val == null) return;
+                setState(() {
+                  motivationCategory = val;
+                  _lsSave();
+                });
+              },
+              onMotivationDelayChanged: (val) {
+                if (val == null) return;
+                setState(() {
+                  motivationDelaySeconds = val;
                   _lsSave();
                 });
               },
@@ -659,6 +805,7 @@ class _MainScreenState extends State<MainScreen> {
               timerValue: timerValue,
               sliderValue: sliderValue,
               voicesCount: voices.length,
+              timerNoiseOn: timerNoiseOn,
               timerSpeakOn: timerSpeakOn,
               timerAnnounceEvery: timerAnnounceEvery,
               timerAnnounceOptions: timerAnnounceOptions,
@@ -673,6 +820,14 @@ class _MainScreenState extends State<MainScreen> {
                 setState(() {
                   sliderValue = val.toInt();
                 });
+              },
+              onTimerNoiseOnChanged: (val) {
+                setState(() {
+                  timerNoiseOn = val ?? true;
+                  audioPlaying = timerInterval != null && timerNoiseOn;
+                  _lsSave();
+                });
+                _applyAudioSettings();
               },
               onTimerSpeakOnChanged: (val) {
                 setState(() {
@@ -803,7 +958,7 @@ class _MainScreenState extends State<MainScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'lifer',
+                'Lifer',
                 style: TextStyle(
                   color: palette.primary,
                   fontSize: 18,

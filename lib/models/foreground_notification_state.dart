@@ -14,7 +14,7 @@ class ForegroundNotificationState {
   });
 
   String get title =>
-      isTimerRunning ? 'Speaktimer (Timer Running)' : 'Speaktimer (Clock Mode)';
+      isTimerRunning ? 'lifer (Timer Running)' : 'lifer (Clock Mode)';
 
   String get text {
     if (isTimerRunning) {
