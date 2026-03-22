@@ -9,6 +9,8 @@ class TimerPanel extends StatelessWidget {
   final bool timerNoiseOn;
   final bool timerSpeakOn;
   final int timerAnnounceEvery;
+  final bool muteSpeechAfterMidnight;
+  final String nightMuteMode;
   final List<int> timerAnnounceOptions;
   final bool chainModeOn;
   final String chainPresetKey;
@@ -21,6 +23,8 @@ class TimerPanel extends StatelessWidget {
   final ValueChanged<bool?> onTimerNoiseOnChanged;
   final ValueChanged<bool?> onTimerSpeakOnChanged;
   final ValueChanged<int?> onTimerAnnounceEveryChanged;
+  final ValueChanged<bool?> onMuteSpeechAfterMidnightChanged;
+  final ValueChanged<String?> onNightMuteModeChanged;
   final ValueChanged<bool?> onChainModeChanged;
   final ValueChanged<String?> onChainPresetChanged;
 
@@ -32,6 +36,8 @@ class TimerPanel extends StatelessWidget {
     required this.timerNoiseOn,
     required this.timerSpeakOn,
     required this.timerAnnounceEvery,
+    required this.muteSpeechAfterMidnight,
+    required this.nightMuteMode,
     required this.timerAnnounceOptions,
     required this.chainModeOn,
     required this.chainPresetKey,
@@ -44,6 +50,8 @@ class TimerPanel extends StatelessWidget {
     required this.onTimerNoiseOnChanged,
     required this.onTimerSpeakOnChanged,
     required this.onTimerAnnounceEveryChanged,
+    required this.onMuteSpeechAfterMidnightChanged,
+    required this.onNightMuteModeChanged,
     required this.onChainModeChanged,
     required this.onChainPresetChanged,
   });
@@ -62,7 +70,7 @@ class TimerPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          headerTitle("⏱ Timer", "B"),
+          headerTitle("Timer", "B", icon: Icons.timer_outlined),
           const SizedBox(height: 8),
           Builder(
             builder: (_) {
@@ -72,7 +80,10 @@ class TimerPanel extends StatelessWidget {
 
               return Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: palette.accent,
                   border: Border.all(color: palette.primary, width: 2),
@@ -99,7 +110,9 @@ class TimerPanel extends StatelessWidget {
                           text: TextSpan(
                             style: TextStyle(
                               color: palette.primary,
-                              fontFeatures: const [FontFeature.tabularFigures()],
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
                             ),
                             children: [
                               TextSpan(
@@ -140,7 +153,13 @@ class TimerPanel extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 sectionLabel("$sliderValue min"),
-                Text("$voicesCount voice${voicesCount != 1 ? 's' : ''} loaded", style: TextStyle(fontSize: 10, color: palette.primary.withAlpha(140))),
+                Text(
+                  "$voicesCount voice${voicesCount != 1 ? 's' : ''} loaded",
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: palette.primary.withAlpha(140),
+                  ),
+                ),
               ],
             ),
           ),
@@ -161,11 +180,15 @@ class TimerPanel extends StatelessWidget {
           ),
           Row(
             children: [
-              Expanded(child: actionBtn("▶ Start", startTimer)),
+              Expanded(
+                child: actionBtn('Start', startTimer, icon: Icons.play_arrow),
+              ),
               const SizedBox(width: 4),
-              Expanded(child: actionBtn("⏸ Stop", stopTimer)),
+              Expanded(child: actionBtn('Stop', stopTimer, icon: Icons.pause)),
               const SizedBox(width: 4),
-              Expanded(child: actionBtn("↺ Reset", resetTimer)),
+              Expanded(
+                child: actionBtn('Reset', resetTimer, icon: Icons.refresh),
+              ),
             ],
           ),
           Row(
@@ -176,7 +199,9 @@ class TimerPanel extends StatelessWidget {
                 checkColor: palette.accent,
                 onChanged: onTimerNoiseOnChanged,
               ),
-              Expanded(child: sectionLabel("Play background noise during timer")),
+              Expanded(
+                child: sectionLabel("Play background noise during timer"),
+              ),
             ],
           ),
           Row(
@@ -203,11 +228,80 @@ class TimerPanel extends StatelessWidget {
               underline: const SizedBox(),
               iconEnabledColor: palette.primary,
               dropdownColor: palette.accent,
-              items: timerAnnounceOptions.map((e) => DropdownMenuItem(
-                value: e,
-                child: Text("$e min", style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 12)),
-              )).toList(),
+              items: timerAnnounceOptions
+                  .map(
+                    (e) => DropdownMenuItem(
+                      value: e,
+                      child: Text(
+                        "$e min",
+                        style: TextStyle(
+                          color: palette.primary,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
               onChanged: timerSpeakOn ? onTimerAnnounceEveryChanged : null,
+            ),
+          ),
+          Row(
+            children: [
+              Checkbox(
+                value: muteSpeechAfterMidnight,
+                activeColor: palette.primary,
+                checkColor: palette.accent,
+                onChanged: onMuteSpeechAfterMidnightChanged,
+              ),
+              Expanded(
+                child: sectionLabel(
+                  'Enable sleep mode (custom range in Settings)',
+                ),
+              ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+            decoration: BoxDecoration(
+              color: palette.accent,
+              border: Border.all(color: palette.primary, width: 2),
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: DropdownButton<String>(
+              value: nightMuteMode,
+              isExpanded: true,
+              underline: const SizedBox(),
+              iconEnabledColor: palette.primary,
+              dropdownColor: palette.accent,
+              items: const [
+                DropdownMenuItem(value: 'manual', child: Text('Manual mode')),
+                DropdownMenuItem(
+                  value: 'automatic',
+                  child: Text('Automatic mode (idle 5 min)'),
+                ),
+              ],
+              selectedItemBuilder: (context) => [
+                Text(
+                  'Manual mode',
+                  style: TextStyle(
+                    color: palette.primary,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
+                  ),
+                ),
+                Text(
+                  'Automatic mode (idle 5 min)',
+                  style: TextStyle(
+                    color: palette.primary,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+              onChanged: muteSpeechAfterMidnight
+                  ? onNightMuteModeChanged
+                  : null,
             ),
           ),
           const SizedBox(height: 8),
@@ -235,13 +329,21 @@ class TimerPanel extends StatelessWidget {
               underline: const SizedBox(),
               iconEnabledColor: palette.primary,
               dropdownColor: palette.accent,
-              items: chainPresets.keys.map((key) => DropdownMenuItem(
-                value: key,
-                child: Text(
-                  key,
-                  style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 12),
-                ),
-              )).toList(),
+              items: chainPresets.keys
+                  .map(
+                    (key) => DropdownMenuItem(
+                      value: key,
+                      child: Text(
+                        key,
+                        style: TextStyle(
+                          color: palette.primary,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
               onChanged: chainModeOn ? onChainPresetChanged : null,
             ),
           ),
@@ -250,11 +352,14 @@ class TimerPanel extends StatelessWidget {
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                 'Chain step ${chainIndex + 1}/${chainPresets[chainPresetKey]?.length ?? 1}',
-                style: TextStyle(color: palette.primary.withAlpha(170), fontSize: 11),
+                style: TextStyle(
+                  color: palette.primary.withAlpha(170),
+                  fontSize: 11,
+                ),
               ),
             ),
         ],
-      )
+      ),
     );
   }
 }

@@ -51,7 +51,7 @@ class ClockPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          headerTitle("🕐 Speaking Clock", "A"),
+          headerTitle('Speaking Clock', 'A', icon: Icons.schedule),
           const SizedBox(height: 8),
           Builder(
             builder: (_) {
@@ -61,7 +61,10 @@ class ClockPanel extends StatelessWidget {
 
               return Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: palette.accent,
                   border: Border.all(color: palette.primary, width: 2),
@@ -97,7 +100,9 @@ class ClockPanel extends StatelessWidget {
                                 fontWeight: FontWeight.w800,
                                 color: palette.primary,
                                 letterSpacing: 1.4,
-                                fontFeatures: const [FontFeature.tabularFigures()],
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
                               ),
                             ),
                             if (millis != null)
@@ -109,7 +114,9 @@ class ClockPanel extends StatelessWidget {
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
                                     color: palette.primary.withAlpha(170),
-                                    fontFeatures: const [FontFeature.tabularFigures()],
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -136,10 +143,21 @@ class ClockPanel extends StatelessWidget {
               underline: const SizedBox(),
               iconEnabledColor: palette.primary,
               dropdownColor: palette.accent,
-              items: clockIntervalOptions.map((e) => DropdownMenuItem(
-                value: e,
-                child: Text("$e min", style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 14)),
-              )).toList(),
+              items: clockIntervalOptions
+                  .map(
+                    (e) => DropdownMenuItem(
+                      value: e,
+                      child: Text(
+                        "$e min",
+                        style: TextStyle(
+                          color: palette.primary,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
               onChanged: onIntervalChanged,
             ),
           ),
@@ -152,7 +170,9 @@ class ClockPanel extends StatelessWidget {
                 checkColor: palette.accent,
                 onChanged: onMotivationChanged,
               ),
-              Expanded(child: sectionLabel("Speak motivational quote after time")),
+              Expanded(
+                child: sectionLabel("Speak motivational quote after time"),
+              ),
             ],
           ),
           sectionLabel("Motivation category"),
@@ -169,13 +189,21 @@ class ClockPanel extends StatelessWidget {
               underline: const SizedBox(),
               iconEnabledColor: palette.primary,
               dropdownColor: palette.accent,
-              items: motivationCategories.map((category) => DropdownMenuItem(
-                value: category,
-                child: Text(
-                  category,
-                  style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 14),
-                ),
-              )).toList(),
+              items: motivationCategories
+                  .map(
+                    (category) => DropdownMenuItem(
+                      value: category,
+                      child: Text(
+                        category,
+                        style: TextStyle(
+                          color: palette.primary,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
               onChanged: motivationOn ? onMotivationCategoryChanged : null,
             ),
           ),
@@ -194,33 +222,47 @@ class ClockPanel extends StatelessWidget {
               underline: const SizedBox(),
               iconEnabledColor: palette.primary,
               dropdownColor: palette.accent,
-              items: motivationDelayOptions.map((seconds) => DropdownMenuItem(
-                value: seconds,
-                child: Text(
-                  '$seconds sec',
-                  style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 14),
-                ),
-              )).toList(),
+              items: motivationDelayOptions
+                  .map(
+                    (seconds) => DropdownMenuItem(
+                      value: seconds,
+                      child: Text(
+                        '$seconds sec',
+                        style: TextStyle(
+                          color: palette.primary,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
               onChanged: motivationOn ? onMotivationDelayChanged : null,
             ),
           ),
           const SizedBox(height: 8),
-          ElevatedButton(
+          ElevatedButton.icon(
             onPressed: toggleClock,
+            icon: Icon(
+              clockOn ? Icons.notifications_active : Icons.notifications_off,
+              size: 18,
+            ),
+            label: Text(
+              clockOn ? 'Clock On' : 'Clock Off',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: clockOn ? palette.primary : palette.accent,
               foregroundColor: clockOn ? palette.accent : palette.primary,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
               side: BorderSide(color: palette.primary, width: 2),
-            ),
-            child: Text(
-              clockOn ? "🔔 ON" : "🔕 OFF",
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
           ),
         ],
-      )
+      ),
     );
   }
 }

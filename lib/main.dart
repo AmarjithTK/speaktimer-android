@@ -9,6 +9,7 @@ import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'theme/palette.dart';
 import 'models/app_settings.dart';
@@ -21,11 +22,22 @@ import 'services/malayalam_tts_service.dart';
 import 'services/settings_service.dart';
 import 'services/speech_service.dart';
 import 'services/timer_service.dart';
+import 'core/pref_keys.dart';
 import 'widgets/clock_panel.dart';
 import 'widgets/fullscreen_focus_view.dart';
 import 'widgets/timer_panel.dart';
 import 'widgets/presets_panel.dart';
 import 'widgets/settings_panel.dart';
+import 'widgets/help_panel.dart';
+
+final ValueNotifier<ThemeMode> appThemeModeNotifier = ValueNotifier(
+  ThemeMode.light,
+);
+
+void setAppThemeMode(bool isDark) {
+  appThemeModeNotifier.value = isDark ? ThemeMode.dark : ThemeMode.light;
+  setPaletteDarkMode(isDark);
+}
 
 @pragma('vm:entry-point')
 void startCallback() {
@@ -60,21 +72,64 @@ class LiferApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WithForegroundTask(
-      child: MaterialApp(
-      title: 'lifer',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        scaffoldBackgroundColor: palette.bg,
-        primaryColor: palette.primary,
-        colorScheme: ColorScheme.light(
-          primary: palette.primary,
-          secondary: palette.accent,
-          surface: palette.bg,
+      child: ValueListenableBuilder<ThemeMode>(
+        valueListenable: appThemeModeNotifier,
+        builder: (context, themeMode, _) => MaterialApp(
+          title: 'lifer',
+          debugShowCheckedModeBanner: false,
+          themeMode: themeMode,
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF4F46E5),
+              brightness: Brightness.light,
+            ),
+            useMaterial3: true,
+            textTheme: GoogleFonts.interTextTheme(),
+            appBarTheme: AppBarTheme(
+              centerTitle: false,
+              titleTextStyle: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
+              ),
+            ),
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                textStyle: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ),
+          darkTheme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF4F46E5),
+              brightness: Brightness.dark,
+            ),
+            useMaterial3: true,
+            textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+            appBarTheme: AppBarTheme(
+              centerTitle: false,
+              titleTextStyle: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
+              ),
+            ),
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                textStyle: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ),
+          home: const MainScreen(),
         ),
-        fontFamily: 'Rubik', // Standard fallback is fine if not imported
-        useMaterial3: true,
-      ),
-        home: const MainScreen(),
       ),
     );
   }
@@ -87,7 +142,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   final QuickActions _quickActions = const QuickActions();
   final AudioService _audioService = AudioService();
   final SettingsService _settingsService = SettingsService();
@@ -139,6 +194,15 @@ class _MainScreenState extends State<MainScreen> {
   String motivationCategory = 'General';
   int motivationDelaySeconds = 10;
   bool timerNoiseOn = true;
+  bool appDarkTheme = false;
+  bool muteSpeechAfterMidnight = false;
+  String nightMuteMode = 'manual';
+  int sleepStartMinutes = 0;
+  int sleepEndMinutes = 360;
+  bool autoNightMuteActive = false;
+  Timer? nightIdleTimer;
+  Timer? nightResumeSpeechTimer;
+  Timer? speechStateSyncTimer;
   bool fullscreenDarkTheme = true;
   bool fullscreenDimBrightness = false;
   bool fullscreenStartLandscape = false;
@@ -227,7 +291,8 @@ class _MainScreenState extends State<MainScreen> {
     if (await FlutterForegroundTask.isIgnoringBatteryOptimizations == false) {
       await FlutterForegroundTask.requestIgnoreBatteryOptimization();
     }
-    final NotificationPermission status = await FlutterForegroundTask.checkNotificationPermission();
+    final NotificationPermission status =
+        await FlutterForegroundTask.checkNotificationPermission();
     if (status != NotificationPermission.granted) {
       await FlutterForegroundTask.requestNotificationPermission();
     }
@@ -242,7 +307,10 @@ class _MainScreenState extends State<MainScreen> {
         channelImportance: NotificationChannelImportance.LOW,
         priority: NotificationPriority.LOW,
       ),
-      iosNotificationOptions: const IOSNotificationOptions(showNotification: true, playSound: false),
+      iosNotificationOptions: const IOSNotificationOptions(
+        showNotification: true,
+        playSound: false,
+      ),
       foregroundTaskOptions: ForegroundTaskOptions(
         eventAction: ForegroundTaskEventAction.repeat(1000),
         allowWakeLock: true,
@@ -291,6 +359,149 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _saveLastTimerSeconds(int value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_lastTimerSecondsKey, value);
+  }
+
+  void _startSpeechStateSync() {
+    speechStateSyncTimer?.cancel();
+    speechStateSyncTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      unawaited(_syncExternalWidgetControls());
+    });
+  }
+
+  Future<void> _syncExternalWidgetControls() async {
+    await _syncTimerSpeakFromPrefs();
+    await _consumeWidgetCommandFromPrefs();
+    await _publishWidgetStateToPrefs();
+  }
+
+  Future<void> _consumeWidgetCommandFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final command = prefs.getString(PrefKeys.widgetCommand);
+    if (command == null || command.isEmpty || !mounted) return;
+
+    await prefs.remove(PrefKeys.widgetCommand);
+
+    switch (command) {
+      case 'toggle_speech':
+        setState(() {
+          timerSpeakOn = !timerSpeakOn;
+          if (!timerSpeakOn) {
+            speechQueue.clear();
+          }
+          _lsSave();
+        });
+        break;
+      case 'timer_toggle':
+        if (timerInterval != null) {
+          stopTimer();
+        } else {
+          startTimer();
+        }
+        break;
+      case 'start_25m':
+        setState(() {
+          currentTabIndex = 1;
+          chainModeOn = false;
+          seconds = 25 * 60;
+          timerValue = '25:00';
+        });
+        startTimer();
+        break;
+      case 'resume_last':
+        final last = await _readLastTimerSeconds();
+        if (!mounted) return;
+        setState(() {
+          currentTabIndex = 1;
+          seconds = last;
+          final mins = (last ~/ 60).toString().padLeft(2, '0');
+          final secs = (last % 60).toString().padLeft(2, '0');
+          timerValue = '$mins:$secs';
+        });
+        startTimer();
+        break;
+      default:
+        break;
+    }
+  }
+
+  Future<void> _publishWidgetStateToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(PrefKeys.widgetSpeechOn, timerSpeakOn);
+    await prefs.setBool(PrefKeys.widgetTimerRunning, timerInterval != null);
+    await prefs.setString(PrefKeys.widgetTimerValue, timerValue);
+
+    final nightStatus = () {
+      if (!muteSpeechAfterMidnight) return 'Off';
+      if (nightMuteMode == 'manual') return 'Manual';
+      return autoNightMuteActive ? 'Auto (Muted)' : 'Auto (Armed)';
+    }();
+    await prefs.setString(PrefKeys.widgetNightStatus, nightStatus);
+  }
+
+  String _formatMinutesAs12Hour(int totalMinutes) {
+    final normalized = totalMinutes % (24 * 60);
+    final hour = normalized ~/ 60;
+    final minute = normalized % 60;
+    final ampm = hour >= 12 ? 'PM' : 'AM';
+    final hour12 = hour % 12 == 0 ? 12 : hour % 12;
+    final minuteStr = minute.toString().padLeft(2, '0');
+    return '$hour12:$minuteStr $ampm';
+  }
+
+  Future<void> _pickSleepStartTime() async {
+    final initial = TimeOfDay(
+      hour: sleepStartMinutes ~/ 60,
+      minute: sleepStartMinutes % 60,
+    );
+    final selected = await showTimePicker(
+      context: context,
+      initialTime: initial,
+    );
+    if (selected == null) return;
+
+    setState(() {
+      sleepStartMinutes = selected.hour * 60 + selected.minute;
+      _lsSave();
+      if (_isSpeechMutedForSleep()) {
+        speechQueue.clear();
+      }
+    });
+    unawaited(_publishWidgetStateToPrefs());
+  }
+
+  Future<void> _pickSleepEndTime() async {
+    final initial = TimeOfDay(
+      hour: sleepEndMinutes ~/ 60,
+      minute: sleepEndMinutes % 60,
+    );
+    final selected = await showTimePicker(
+      context: context,
+      initialTime: initial,
+    );
+    if (selected == null) return;
+
+    setState(() {
+      sleepEndMinutes = selected.hour * 60 + selected.minute;
+      _lsSave();
+      if (_isSpeechMutedForSleep()) {
+        speechQueue.clear();
+      }
+    });
+    unawaited(_publishWidgetStateToPrefs());
+  }
+
+  Future<void> _syncTimerSpeakFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final externalTimerSpeak = prefs.getBool(PrefKeys.timerSpeakOn);
+    if (externalTimerSpeak == null || !mounted) return;
+    if (externalTimerSpeak == timerSpeakOn) return;
+
+    setState(() {
+      timerSpeakOn = externalTimerSpeak;
+      if (!timerSpeakOn) {
+        speechQueue.clear();
+      }
+    });
   }
 
   Future<int> _readLastTimerSeconds() async {
@@ -446,6 +657,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     unawaited(SystemChrome.setPreferredOrientations([]));
     _initForegroundTask();
     _initPrefs();
@@ -453,6 +665,7 @@ class _MainScreenState extends State<MainScreen> {
     _initTts();
     _initializeForegroundNotification();
     _initQuickActions();
+    _startSpeechStateSync();
 
     // Add callback to handle notification button presses
     FlutterForegroundTask.addTaskDataCallback(_onReceiveTaskData);
@@ -473,7 +686,9 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _initPrefs() async {
-    final settings = await _settingsService.load(defaultSound: soundList.first.link);
+    final settings = await _settingsService.load(
+      defaultSound: soundList.first.link,
+    );
     setState(() {
       soundChosen = settings.soundChosen;
       noiseVolume = settings.noiseVolume;
@@ -486,6 +701,11 @@ class _MainScreenState extends State<MainScreen> {
       timerSpeakOn = settings.timerSpeakOn;
       timerAnnounceEvery = settings.timerAnnounceEvery;
       timerNoiseOn = settings.timerNoiseOn;
+      appDarkTheme = settings.appDarkTheme;
+      muteSpeechAfterMidnight = settings.muteSpeechAfterMidnight;
+      nightMuteMode = settings.nightMuteMode;
+      sleepStartMinutes = settings.sleepStartMinutes;
+      sleepEndMinutes = settings.sleepEndMinutes;
       fullscreenDarkTheme = settings.fullscreenDarkTheme;
       fullscreenDimBrightness = settings.fullscreenDimBrightness;
       fullscreenStartLandscape = settings.fullscreenStartLandscape;
@@ -499,9 +719,15 @@ class _MainScreenState extends State<MainScreen> {
       if (!motivationDelayOptions.contains(motivationDelaySeconds)) {
         motivationDelaySeconds = 10;
       }
+      if (nightMuteMode != 'manual' && nightMuteMode != 'automatic') {
+        nightMuteMode = 'manual';
+      }
+      sleepStartMinutes = sleepStartMinutes.clamp(0, 1439);
+      sleepEndMinutes = sleepEndMinutes.clamp(0, 1439);
     });
 
     _applyAudioSettings();
+    setAppThemeMode(appDarkTheme);
     if (clockOn) {
       Future.delayed(const Duration(milliseconds: 200), startClock);
     }
@@ -520,6 +746,11 @@ class _MainScreenState extends State<MainScreen> {
       timerSpeakOn: timerSpeakOn,
       timerAnnounceEvery: timerAnnounceEvery,
       timerNoiseOn: timerNoiseOn,
+      appDarkTheme: appDarkTheme,
+      muteSpeechAfterMidnight: muteSpeechAfterMidnight,
+      nightMuteMode: nightMuteMode,
+      sleepStartMinutes: sleepStartMinutes,
+      sleepEndMinutes: sleepEndMinutes,
       fullscreenDarkTheme: fullscreenDarkTheme,
       fullscreenDimBrightness: fullscreenDimBrightness,
       fullscreenStartLandscape: fullscreenStartLandscape,
@@ -590,6 +821,16 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> drainQueue() async {
+    if (_isSpeechMutedForSleep()) {
+      speechQueue.clear();
+      if (isSpeechActive && mounted) {
+        setState(() {
+          isSpeechActive = false;
+        });
+      }
+      return;
+    }
+
     if (isSpeechActive || speechQueue.isEmpty) return;
     setState(() {
       isSpeechActive = true;
@@ -619,8 +860,98 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void speak(String text) {
+    if (_isSpeechMutedForSleep()) {
+      speechQueue.clear();
+      return;
+    }
     speechQueue.add(SpeechItem(text));
     drainQueue();
+  }
+
+  bool _isNightTime() {
+    final now = DateTime.now();
+    final nowMinutes = now.hour * 60 + now.minute;
+
+    if (sleepStartMinutes == sleepEndMinutes) {
+      return false;
+    }
+
+    if (sleepStartMinutes < sleepEndMinutes) {
+      return nowMinutes >= sleepStartMinutes && nowMinutes < sleepEndMinutes;
+    }
+
+    return nowMinutes >= sleepStartMinutes || nowMinutes < sleepEndMinutes;
+  }
+
+  void _cancelNightIdleTimer() {
+    nightIdleTimer?.cancel();
+    nightIdleTimer = null;
+  }
+
+  void _startNightIdleTimerIfNeeded() {
+    _cancelNightIdleTimer();
+    if (!muteSpeechAfterMidnight ||
+        nightMuteMode != 'automatic' ||
+        !_isNightTime()) {
+      return;
+    }
+
+    nightIdleTimer = Timer(const Duration(minutes: 5), () {
+      autoNightMuteActive = true;
+      speechQueue.clear();
+    });
+  }
+
+  void _scheduleNightResumeAnnouncement() {
+    nightResumeSpeechTimer?.cancel();
+    if (!muteSpeechAfterMidnight ||
+        nightMuteMode != 'automatic' ||
+        !_isNightTime()) {
+      return;
+    }
+
+    nightResumeSpeechTimer = Timer(const Duration(seconds: 5), () {
+      if (!mounted) return;
+      if (!muteSpeechAfterMidnight ||
+          nightMuteMode != 'automatic' ||
+          !_isNightTime()) {
+        return;
+      }
+      final announcement = timeToWords();
+      speakTimerMessage(announcement);
+    });
+  }
+
+  void _handleNightUsageStateChange(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      autoNightMuteActive = false;
+      _cancelNightIdleTimer();
+      _scheduleNightResumeAnnouncement();
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused) {
+      _startNightIdleTimerIfNeeded();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _handleNightUsageStateChange(state);
+  }
+
+  bool _isSpeechMutedForSleep() {
+    if (!muteSpeechAfterMidnight) return false;
+    if (!_isNightTime()) {
+      autoNightMuteActive = false;
+      return false;
+    }
+    if (nightMuteMode == 'manual') {
+      return true;
+    }
+    return autoNightMuteActive;
   }
 
   String timeToWords() {
@@ -657,6 +988,11 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void speakClock(String text) {
+    if (_isSpeechMutedForSleep()) {
+      speechQueue.clear();
+      return;
+    }
+
     const gap = 10000;
     final waitMs = max(
       0,
@@ -690,7 +1026,9 @@ class _MainScreenState extends State<MainScreen> {
       return selected;
     }
 
-    final normalizedCategory = quotesByCategory.containsKey(category) ? category : 'General';
+    final normalizedCategory = quotesByCategory.containsKey(category)
+        ? category
+        : 'General';
     final categoryQuotes = quotesByCategory[normalizedCategory] ?? const [];
     if (categoryQuotes.isEmpty) {
       return "Stay steady and use this moment well.";
@@ -702,6 +1040,11 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void speakTimerMessage(String text) {
+    if (_isSpeechMutedForSleep()) {
+      speechQueue.clear();
+      return;
+    }
+
     const gap = 10000;
     final waitMs = max(
       0,
@@ -776,9 +1119,7 @@ class _MainScreenState extends State<MainScreen> {
             FlutterRingtonePlayer().stop();
           });
         } else {
-          unawaited(
-            _audioService.playNotification(assetPath: notifySound),
-          );
+          unawaited(_audioService.playNotification(assetPath: notifySound));
         }
       }
     });
@@ -810,6 +1151,7 @@ class _MainScreenState extends State<MainScreen> {
       audioPlaying = timerNoiseOn;
     });
     unawaited(_saveLastTimerSeconds(seconds > 0 ? seconds : sliderValue * 60));
+    unawaited(_publishWidgetStateToPrefs());
     _applyAudioSettings();
     _syncForegroundNotification(force: true);
   }
@@ -824,6 +1166,7 @@ class _MainScreenState extends State<MainScreen> {
       audioPlaying = false;
     });
     unawaited(_audioService.stopBackground());
+    unawaited(_publishWidgetStateToPrefs());
     _syncForegroundNotification(force: true);
   }
 
@@ -834,6 +1177,7 @@ class _MainScreenState extends State<MainScreen> {
       timerValue = "00:00";
       chainIndex = 0;
     });
+    unawaited(_publishWidgetStateToPrefs());
   }
 
   void choosePreset(int val) {
@@ -908,6 +1252,8 @@ class _MainScreenState extends State<MainScreen> {
               timerNoiseOn: timerNoiseOn,
               timerSpeakOn: timerSpeakOn,
               timerAnnounceEvery: timerAnnounceEvery,
+              muteSpeechAfterMidnight: muteSpeechAfterMidnight,
+              nightMuteMode: nightMuteMode,
               timerAnnounceOptions: timerAnnounceOptions,
               chainModeOn: chainModeOn,
               chainPresetKey: chainPresetKey,
@@ -934,12 +1280,49 @@ class _MainScreenState extends State<MainScreen> {
                   timerSpeakOn = val!;
                   _lsSave();
                 });
+                unawaited(_publishWidgetStateToPrefs());
               },
               onTimerAnnounceEveryChanged: (val) {
                 setState(() {
                   timerAnnounceEvery = val!;
                   _lsSave();
                 });
+              },
+              onMuteSpeechAfterMidnightChanged: (val) {
+                setState(() {
+                  muteSpeechAfterMidnight = val ?? false;
+                  if (!muteSpeechAfterMidnight) {
+                    autoNightMuteActive = false;
+                    _cancelNightIdleTimer();
+                    nightResumeSpeechTimer?.cancel();
+                  } else if (nightMuteMode == 'automatic') {
+                    _startNightIdleTimerIfNeeded();
+                  }
+                  if (_isSpeechMutedForSleep()) {
+                    speechQueue.clear();
+                  }
+                  _lsSave();
+                });
+                unawaited(_publishWidgetStateToPrefs());
+              },
+              onNightMuteModeChanged: (val) {
+                if (val == null) return;
+                setState(() {
+                  nightMuteMode = val;
+                  if (nightMuteMode == 'manual') {
+                    autoNightMuteActive = false;
+                    _cancelNightIdleTimer();
+                    nightResumeSpeechTimer?.cancel();
+                  } else if (muteSpeechAfterMidnight) {
+                    autoNightMuteActive = false;
+                    _startNightIdleTimerIfNeeded();
+                  }
+                  if (_isSpeechMutedForSleep()) {
+                    speechQueue.clear();
+                  }
+                  _lsSave();
+                });
+                unawaited(_publishWidgetStateToPrefs());
               },
               onChainModeChanged: (val) {
                 setState(() {
@@ -981,6 +1364,11 @@ class _MainScreenState extends State<MainScreen> {
               fullscreenDarkTheme: fullscreenDarkTheme,
               fullscreenDimBrightness: fullscreenDimBrightness,
               fullscreenStartLandscape: fullscreenStartLandscape,
+              appDarkTheme: appDarkTheme,
+              muteSpeechAfterMidnight: muteSpeechAfterMidnight,
+              nightMuteMode: nightMuteMode,
+              sleepStartLabel: _formatMinutesAs12Hour(sleepStartMinutes),
+              sleepEndLabel: _formatMinutesAs12Hour(sleepEndMinutes),
               soundList: soundList,
               volumeLists: volumeLists,
               isSpeechActive: isSpeechActive,
@@ -1015,6 +1403,13 @@ class _MainScreenState extends State<MainScreen> {
                   _lsSave();
                 });
               },
+              onAppDarkThemeChanged: (val) {
+                setState(() {
+                  appDarkTheme = val ?? false;
+                  _lsSave();
+                });
+                setAppThemeMode(appDarkTheme);
+              },
               onFullscreenDimBrightnessChanged: (val) {
                 setState(() {
                   fullscreenDimBrightness = val ?? false;
@@ -1026,6 +1421,48 @@ class _MainScreenState extends State<MainScreen> {
                   fullscreenStartLandscape = val ?? false;
                   _lsSave();
                 });
+              },
+              onMuteSpeechAfterMidnightChanged: (val) {
+                setState(() {
+                  muteSpeechAfterMidnight = val ?? false;
+                  if (!muteSpeechAfterMidnight) {
+                    autoNightMuteActive = false;
+                    _cancelNightIdleTimer();
+                    nightResumeSpeechTimer?.cancel();
+                  } else if (nightMuteMode == 'automatic') {
+                    _startNightIdleTimerIfNeeded();
+                  }
+                  if (_isSpeechMutedForSleep()) {
+                    speechQueue.clear();
+                  }
+                  _lsSave();
+                });
+                unawaited(_publishWidgetStateToPrefs());
+              },
+              onNightMuteModeChanged: (val) {
+                if (val == null) return;
+                setState(() {
+                  nightMuteMode = val;
+                  if (nightMuteMode == 'manual') {
+                    autoNightMuteActive = false;
+                    _cancelNightIdleTimer();
+                    nightResumeSpeechTimer?.cancel();
+                  } else if (muteSpeechAfterMidnight) {
+                    autoNightMuteActive = false;
+                    _startNightIdleTimerIfNeeded();
+                  }
+                  if (_isSpeechMutedForSleep()) {
+                    speechQueue.clear();
+                  }
+                  _lsSave();
+                });
+                unawaited(_publishWidgetStateToPrefs());
+              },
+              onPickSleepStart: () {
+                unawaited(_pickSleepStartTime());
+              },
+              onPickSleepEnd: () {
+                unawaited(_pickSleepEndTime());
               },
               onVoiceListModeChanged: (val) {
                 if (val == null) return;
@@ -1049,6 +1486,11 @@ class _MainScreenState extends State<MainScreen> {
                   _lsSave();
                 });
               },
+              onOpenHelp: () {
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => _buildHelpTab()));
+              },
             ),
           ],
         ),
@@ -1056,8 +1498,45 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  Widget _buildHelpTab() {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: palette.bg,
+        elevation: 0,
+        iconTheme: IconThemeData(color: palette.primary),
+        title: Text(
+          'Help / Working',
+          style: TextStyle(
+            color: palette.primary,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: ListView(
+            children: [
+              HelpPanel(
+                muteSpeechAfterMidnight: muteSpeechAfterMidnight,
+                nightMuteMode: nightMuteMode,
+                sleepStartLabel: _formatMinutesAs12Hour(sleepStartMinutes),
+                sleepEndLabel: _formatMinutesAs12Hour(sleepEndMinutes),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    nightIdleTimer?.cancel();
+    nightResumeSpeechTimer?.cancel();
+    speechStateSyncTimer?.cancel();
     stopClock();
     stopTimer();
     displayTick?.cancel();
@@ -1071,65 +1550,67 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-          toolbarHeight: 48,
-          backgroundColor: palette.bg,
-          elevation: 0,
-          title: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Lifer',
-                style: TextStyle(
-                  color: palette.primary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+        toolbarHeight: 48,
+        backgroundColor: palette.bg,
+        elevation: 0,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Lifer',
+              style: TextStyle(
+                color: palette.primary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
-            ],
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            onPressed: () => unawaited(_exitAppFully()),
+            tooltip: 'Exit App',
+            icon: Icon(Icons.power_settings_new, color: palette.primary),
           ),
-          actions: [
-            IconButton(
-              onPressed: () => unawaited(_exitAppFully()),
-              tooltip: 'Exit App',
-              icon: Icon(Icons.power_settings_new, color: palette.primary),
-            ),
-            IconButton(
-              onPressed: _openFullscreenFocus,
-              tooltip: 'Fullscreen Focus',
-              icon: Icon(Icons.fullscreen, color: palette.primary),
-            ),
-          ],
-          centerTitle: true,
-        ),
-        body: currentTabIndex == 0
-            ? _buildSpeakClockTab()
-            : (currentTabIndex == 1 ? _buildTimerSetupTab() : _buildSettingsTab()),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: currentTabIndex,
-          onTap: (index) {
-            setState(() {
-              currentTabIndex = index;
-            });
-          },
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.access_time_outlined),
-              activeIcon: Icon(Icons.access_time),
-              label: 'SpeakClock',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.tune_outlined),
-              activeIcon: Icon(Icons.tune),
-              label: 'Timer Setup',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.settings_outlined),
-              activeIcon: Icon(Icons.settings),
-              label: 'Settings',
-            ),
-          ],
-        ),
+          IconButton(
+            onPressed: _openFullscreenFocus,
+            tooltip: 'Fullscreen Focus',
+            icon: Icon(Icons.fullscreen, color: palette.primary),
+          ),
+        ],
+        centerTitle: true,
+      ),
+      body: currentTabIndex == 0
+          ? _buildSpeakClockTab()
+          : (currentTabIndex == 1
+                ? _buildTimerSetupTab()
+                : _buildSettingsTab()),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: currentTabIndex,
+        onTap: (index) {
+          setState(() {
+            currentTabIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.access_time_outlined),
+            activeIcon: Icon(Icons.access_time),
+            label: 'SpeakClock',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.tune_outlined),
+            activeIcon: Icon(Icons.tune),
+            label: 'Timer Setup',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings_outlined),
+            activeIcon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
+        ],
+      ),
     );
   }
 }

@@ -10,10 +10,20 @@ class PrefKeys {
   static const timerSpeakOn = 'TimerSpeakOn';
   static const timerAnnounceEvery = 'TimerAnnounceEvery';
   static const timerNoiseOn = 'TimerNoiseOn';
+  static const muteSpeechAfterMidnight = 'MuteSpeechAfterMidnight';
+  static const nightMuteMode = 'NightMuteMode';
+  static const sleepStartMinutes = 'SleepStartMinutes';
+  static const sleepEndMinutes = 'SleepEndMinutes';
+  static const appDarkTheme = 'AppDarkTheme';
   static const fullscreenDarkTheme = 'FullscreenDarkTheme';
   static const fullscreenDimBrightness = 'FullscreenDimBrightness';
   static const fullscreenStartLandscape = 'FullscreenStartLandscape';
   static const voiceListMode = 'VoiceListMode';
   static const favoriteVoiceName = 'FavoriteVoiceName';
   static const favoriteVoiceLocale = 'FavoriteVoiceLocale';
+  static const widgetCommand = 'WidgetCommand';
+  static const widgetSpeechOn = 'WidgetSpeechOn';
+  static const widgetTimerRunning = 'WidgetTimerRunning';
+  static const widgetTimerValue = 'WidgetTimerValue';
+  static const widgetNightStatus = 'WidgetNightStatus';
 }

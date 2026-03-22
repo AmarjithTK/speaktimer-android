@@ -46,6 +46,22 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".SpeechToggleWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.speakertimer.ACTION_TOGGLE_SPEECH" />
+                <action android:name="com.example.speakertimer.ACTION_TIMER_TOGGLE" />
+                <action android:name="com.example.speakertimer.ACTION_START_25M" />
+                <action android:name="com.example.speakertimer.ACTION_RESUME_LAST" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/speech_toggle_widget_info" />
+        </receiver>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

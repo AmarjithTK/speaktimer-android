@@ -19,14 +19,24 @@ class SettingsService {
       clockOn: prefs.getBool(PrefKeys.clockOn) ?? false,
       clockIntervalMins: prefs.getInt(PrefKeys.clockIntervalMins) ?? 30,
       motivationOn: prefs.getBool(PrefKeys.motivationOn) ?? true,
-      motivationCategory: prefs.getString(PrefKeys.motivationCategory) ?? 'General',
-      motivationDelaySeconds: prefs.getInt(PrefKeys.motivationDelaySeconds) ?? 10,
+      motivationCategory:
+          prefs.getString(PrefKeys.motivationCategory) ?? 'General',
+      motivationDelaySeconds:
+          prefs.getInt(PrefKeys.motivationDelaySeconds) ?? 10,
       timerSpeakOn: prefs.getBool(PrefKeys.timerSpeakOn) ?? true,
       timerAnnounceEvery: prefs.getInt(PrefKeys.timerAnnounceEvery) ?? 1,
       timerNoiseOn: prefs.getBool(PrefKeys.timerNoiseOn) ?? true,
+      muteSpeechAfterMidnight:
+          prefs.getBool(PrefKeys.muteSpeechAfterMidnight) ?? false,
+      nightMuteMode: prefs.getString(PrefKeys.nightMuteMode) ?? 'manual',
+      sleepStartMinutes: prefs.getInt(PrefKeys.sleepStartMinutes) ?? 0,
+      sleepEndMinutes: prefs.getInt(PrefKeys.sleepEndMinutes) ?? 360,
+      appDarkTheme: prefs.getBool(PrefKeys.appDarkTheme) ?? false,
       fullscreenDarkTheme: prefs.getBool(PrefKeys.fullscreenDarkTheme) ?? true,
-      fullscreenDimBrightness: prefs.getBool(PrefKeys.fullscreenDimBrightness) ?? false,
-      fullscreenStartLandscape: prefs.getBool(PrefKeys.fullscreenStartLandscape) ?? false,
+      fullscreenDimBrightness:
+          prefs.getBool(PrefKeys.fullscreenDimBrightness) ?? false,
+      fullscreenStartLandscape:
+          prefs.getBool(PrefKeys.fullscreenStartLandscape) ?? false,
       voiceListMode: prefs.getString(PrefKeys.voiceListMode) ?? 'pleasant',
       favoriteVoiceName: prefs.getString(PrefKeys.favoriteVoiceName),
       favoriteVoiceLocale: prefs.getString(PrefKeys.favoriteVoiceLocale),
@@ -42,24 +52,56 @@ class SettingsService {
     await prefs.setBool(PrefKeys.clockOn, settings.clockOn);
     await prefs.setInt(PrefKeys.clockIntervalMins, settings.clockIntervalMins);
     await prefs.setBool(PrefKeys.motivationOn, settings.motivationOn);
-    await prefs.setString(PrefKeys.motivationCategory, settings.motivationCategory);
-    await prefs.setInt(PrefKeys.motivationDelaySeconds, settings.motivationDelaySeconds);
+    await prefs.setString(
+      PrefKeys.motivationCategory,
+      settings.motivationCategory,
+    );
+    await prefs.setInt(
+      PrefKeys.motivationDelaySeconds,
+      settings.motivationDelaySeconds,
+    );
     await prefs.setBool(PrefKeys.timerSpeakOn, settings.timerSpeakOn);
-    await prefs.setInt(PrefKeys.timerAnnounceEvery, settings.timerAnnounceEvery);
+    await prefs.setInt(
+      PrefKeys.timerAnnounceEvery,
+      settings.timerAnnounceEvery,
+    );
     await prefs.setBool(PrefKeys.timerNoiseOn, settings.timerNoiseOn);
-    await prefs.setBool(PrefKeys.fullscreenDarkTheme, settings.fullscreenDarkTheme);
-    await prefs.setBool(PrefKeys.fullscreenDimBrightness, settings.fullscreenDimBrightness);
-    await prefs.setBool(PrefKeys.fullscreenStartLandscape, settings.fullscreenStartLandscape);
+    await prefs.setBool(
+      PrefKeys.muteSpeechAfterMidnight,
+      settings.muteSpeechAfterMidnight,
+    );
+    await prefs.setString(PrefKeys.nightMuteMode, settings.nightMuteMode);
+    await prefs.setInt(PrefKeys.sleepStartMinutes, settings.sleepStartMinutes);
+    await prefs.setInt(PrefKeys.sleepEndMinutes, settings.sleepEndMinutes);
+    await prefs.setBool(PrefKeys.appDarkTheme, settings.appDarkTheme);
+    await prefs.setBool(
+      PrefKeys.fullscreenDarkTheme,
+      settings.fullscreenDarkTheme,
+    );
+    await prefs.setBool(
+      PrefKeys.fullscreenDimBrightness,
+      settings.fullscreenDimBrightness,
+    );
+    await prefs.setBool(
+      PrefKeys.fullscreenStartLandscape,
+      settings.fullscreenStartLandscape,
+    );
     await prefs.setString(PrefKeys.voiceListMode, settings.voiceListMode);
 
     if (settings.favoriteVoiceName != null) {
-      await prefs.setString(PrefKeys.favoriteVoiceName, settings.favoriteVoiceName!);
+      await prefs.setString(
+        PrefKeys.favoriteVoiceName,
+        settings.favoriteVoiceName!,
+      );
     } else {
       await prefs.remove(PrefKeys.favoriteVoiceName);
     }
 
     if (settings.favoriteVoiceLocale != null) {
-      await prefs.setString(PrefKeys.favoriteVoiceLocale, settings.favoriteVoiceLocale!);
+      await prefs.setString(
+        PrefKeys.favoriteVoiceLocale,
+        settings.favoriteVoiceLocale!,
+      );
     } else {
       await prefs.remove(PrefKeys.favoriteVoiceLocale);
     }

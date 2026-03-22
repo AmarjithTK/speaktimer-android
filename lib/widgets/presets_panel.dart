@@ -18,8 +18,8 @@ class PresetsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          headerTitle("⚡ Presets", ""),
-          sectionLabel("Tap to start instantly"),
+          headerTitle('Quick Presets', '', icon: Icons.flash_on_outlined),
+          sectionLabel('Tap to start quickly'),
           GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -34,7 +34,10 @@ class PresetsPanel extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: palette.bg,
-                    border: Border.all(color: palette.primary, width: p == 25 ? 2 : 1),
+                    border: Border.all(
+                      color: palette.primary,
+                      width: p == 25 ? 2 : 1,
+                    ),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -51,10 +54,16 @@ class PresetsPanel extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Text("🍅 25 = Pomodoro  ·  bold = deep work", style: TextStyle(fontSize: 10, color: palette.primary.withAlpha(140))),
-          )
+            child: Text(
+              '25 = Pomodoro • bold values = deep work',
+              style: TextStyle(
+                fontSize: 10,
+                color: palette.primary.withAlpha(140),
+              ),
+            ),
+          ),
         ],
-      )
+      ),
     );
   }
 }

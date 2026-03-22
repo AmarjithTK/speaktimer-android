@@ -10,6 +10,11 @@ class AppSettings {
   final bool timerSpeakOn;
   final int timerAnnounceEvery;
   final bool timerNoiseOn;
+  final bool muteSpeechAfterMidnight;
+  final String nightMuteMode;
+  final int sleepStartMinutes;
+  final int sleepEndMinutes;
+  final bool appDarkTheme;
   final bool fullscreenDarkTheme;
   final bool fullscreenDimBrightness;
   final bool fullscreenStartLandscape;
@@ -29,6 +34,11 @@ class AppSettings {
     required this.timerSpeakOn,
     required this.timerAnnounceEvery,
     required this.timerNoiseOn,
+    required this.muteSpeechAfterMidnight,
+    required this.nightMuteMode,
+    required this.sleepStartMinutes,
+    required this.sleepEndMinutes,
+    required this.appDarkTheme,
     required this.fullscreenDarkTheme,
     required this.fullscreenDimBrightness,
     required this.fullscreenStartLandscape,
