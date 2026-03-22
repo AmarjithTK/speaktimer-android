@@ -56,6 +56,7 @@
                 <action android:name="com.example.speakertimer.ACTION_TIMER_TOGGLE" />
                 <action android:name="com.example.speakertimer.ACTION_START_25M" />
                 <action android:name="com.example.speakertimer.ACTION_RESUME_LAST" />
+                <action android:name="com.example.speakertimer.ACTION_REFRESH_WIDGET" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

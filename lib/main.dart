@@ -9,7 +9,6 @@ import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'theme/palette.dart';
 import 'models/app_settings.dart';
@@ -84,10 +83,9 @@ class LiferApp extends StatelessWidget {
               brightness: Brightness.light,
             ),
             useMaterial3: true,
-            textTheme: GoogleFonts.interTextTheme(),
             appBarTheme: AppBarTheme(
               centerTitle: false,
-              titleTextStyle: GoogleFonts.inter(
+              titleTextStyle: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.2,
@@ -95,7 +93,7 @@ class LiferApp extends StatelessWidget {
             ),
             elevatedButtonTheme: ElevatedButtonThemeData(
               style: ElevatedButton.styleFrom(
-                textStyle: GoogleFonts.inter(
+                textStyle: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.2,
@@ -109,10 +107,9 @@ class LiferApp extends StatelessWidget {
               brightness: Brightness.dark,
             ),
             useMaterial3: true,
-            textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
             appBarTheme: AppBarTheme(
               centerTitle: false,
-              titleTextStyle: GoogleFonts.inter(
+              titleTextStyle: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.2,
@@ -120,7 +117,7 @@ class LiferApp extends StatelessWidget {
             ),
             elevatedButtonTheme: ElevatedButtonThemeData(
               style: ElevatedButton.styleFrom(
-                textStyle: GoogleFonts.inter(
+                textStyle: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.2,
@@ -143,6 +140,10 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
+  static const MethodChannel _widgetChannel = MethodChannel(
+    'speaktimer/widget',
+  );
+
   final QuickActions _quickActions = const QuickActions();
   final AudioService _audioService = AudioService();
   final SettingsService _settingsService = SettingsService();
@@ -203,6 +204,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Timer? nightIdleTimer;
   Timer? nightResumeSpeechTimer;
   Timer? speechStateSyncTimer;
+  bool widgetSyncInProgress = false;
   bool fullscreenDarkTheme = true;
   bool fullscreenDimBrightness = false;
   bool fullscreenStartLandscape = false;
@@ -369,9 +371,34 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _syncExternalWidgetControls() async {
-    await _syncTimerSpeakFromPrefs();
-    await _consumeWidgetCommandFromPrefs();
-    await _publishWidgetStateToPrefs();
+    if (widgetSyncInProgress) return;
+    widgetSyncInProgress = true;
+    try {
+      await _syncClockSpeechFromPrefs();
+      await _syncTimerSpeakFromPrefs();
+      await _consumeWidgetCommandFromPrefs();
+      await _publishWidgetStateToPrefs();
+    } finally {
+      widgetSyncInProgress = false;
+    }
+  }
+
+  Future<void> _syncClockSpeechFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final externalClockOn = prefs.getBool(PrefKeys.clockOn);
+    if (externalClockOn == null || !mounted) return;
+    if (externalClockOn == clockOn) return;
+
+    setState(() {
+      clockOn = externalClockOn;
+      _lsSave();
+      if (clockOn) {
+        startClock();
+      } else {
+        stopClock();
+      }
+    });
+    await _syncForegroundNotification(force: true);
   }
 
   Future<void> _consumeWidgetCommandFromPrefs() async {
@@ -383,8 +410,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     switch (command) {
       case 'toggle_speech':
+        final explicit = prefs.getBool(PrefKeys.timerSpeakOn);
         setState(() {
-          timerSpeakOn = !timerSpeakOn;
+          timerSpeakOn = explicit ?? timerSpeakOn;
           if (!timerSpeakOn) {
             speechQueue.clear();
           }
@@ -426,7 +454,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   Future<void> _publishWidgetStateToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(PrefKeys.widgetSpeechOn, timerSpeakOn);
+    await prefs.setBool(PrefKeys.widgetSpeechOn, clockOn);
     await prefs.setBool(PrefKeys.widgetTimerRunning, timerInterval != null);
     await prefs.setString(PrefKeys.widgetTimerValue, timerValue);
 
@@ -436,6 +464,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       return autoNightMuteActive ? 'Auto (Muted)' : 'Auto (Armed)';
     }();
     await prefs.setString(PrefKeys.widgetNightStatus, nightStatus);
+    await _refreshAndroidWidget();
+  }
+
+  Future<void> _refreshAndroidWidget() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _widgetChannel.invokeMethod('refreshWidget');
+    } catch (_) {}
   }
 
   String _formatMinutesAs12Hour(int totalMinutes) {

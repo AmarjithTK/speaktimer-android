@@ -20,52 +20,65 @@ class SpeechToggleWidgetProvider : AppWidgetProvider() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent)
-
         when (intent.action) {
             ACTION_TOGGLE_SPEECH -> {
                 toggleSpeechState(context)
+                refreshAllWidgets(context)
+                return
             }
             ACTION_TIMER_TOGGLE -> {
                 writeWidgetCommand(context, CMD_TIMER_TOGGLE)
+                launchApp(context)
+                refreshAllWidgets(context)
+                return
             }
             ACTION_START_25M -> {
                 writeWidgetCommand(context, CMD_START_25M)
+                launchApp(context)
+                refreshAllWidgets(context)
+                return
             }
             ACTION_RESUME_LAST -> {
                 writeWidgetCommand(context, CMD_RESUME_LAST)
+                launchApp(context)
+                refreshAllWidgets(context)
+                return
+            }
+            ACTION_REFRESH_WIDGET -> {
+                refreshAllWidgets(context)
+                return
             }
         }
 
-        if (
-            intent.action == ACTION_TOGGLE_SPEECH ||
-            intent.action == ACTION_TIMER_TOGGLE ||
-            intent.action == ACTION_START_25M ||
-            intent.action == ACTION_RESUME_LAST
-        ) {
-            val appWidgetManager = AppWidgetManager.getInstance(context)
-            val thisWidget = ComponentName(context, SpeechToggleWidgetProvider::class.java)
-            val appWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
-            appWidgetIds.forEach { appWidgetId ->
-                updateWidget(context, appWidgetManager, appWidgetId)
-            }
-        }
+        super.onReceive(context, intent)
     }
 
     private fun writeWidgetCommand(context: Context, command: String) {
         val prefs = context.getSharedPreferences(FLUTTER_PREFS, Context.MODE_PRIVATE)
-        prefs.edit().putString(WIDGET_COMMAND_KEY, command).apply()
+        prefs.edit().putString(WIDGET_COMMAND_KEY, command).commit()
+    }
+
+    private fun launchApp(context: Context) {
+        val launchIntent = Intent(context, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+        context.startActivity(launchIntent)
     }
 
     private fun toggleSpeechState(context: Context) {
         val prefs = context.getSharedPreferences(FLUTTER_PREFS, Context.MODE_PRIVATE)
-        val current = prefs.getBoolean(TIMER_SPEAK_KEY, true)
+        val current = if (prefs.contains(WIDGET_SPEECH_ON_KEY)) {
+            prefs.getBoolean(WIDGET_SPEECH_ON_KEY, false)
+        } else {
+            prefs.getBoolean(CLOCK_ON_KEY, false)
+        }
         val next = !current
         prefs.edit()
+            .putBoolean(CLOCK_ON_KEY, next)
             .putBoolean(TIMER_SPEAK_KEY, next)
             .putBoolean(WIDGET_SPEECH_ON_KEY, next)
             .remove(WIDGET_COMMAND_KEY)
-            .apply()
+            .commit()
     }
 
     private fun updateWidget(
@@ -76,14 +89,16 @@ class SpeechToggleWidgetProvider : AppWidgetProvider() {
         val prefs = context.getSharedPreferences(FLUTTER_PREFS, Context.MODE_PRIVATE)
         val speechOn = if (prefs.contains(WIDGET_SPEECH_ON_KEY)) {
             prefs.getBoolean(WIDGET_SPEECH_ON_KEY, true)
+        } else if (prefs.contains(CLOCK_ON_KEY)) {
+            prefs.getBoolean(CLOCK_ON_KEY, false)
         } else {
             prefs.getBoolean(TIMER_SPEAK_KEY, true)
         }
         val timerRunning = prefs.getBoolean(WIDGET_TIMER_RUNNING_KEY, false)
         val timerValue = prefs.getString(WIDGET_TIMER_VALUE_KEY, "00:00") ?: "00:00"
         val nightStatus = prefs.getString(WIDGET_NIGHT_STATUS_KEY, "Off") ?: "Off"
-        val statusText = if (speechOn) "Speech: ON" else "Speech: OFF"
-        val timerText = if (timerRunning) "Timer: Running ($timerValue)" else "Timer: Stopped"
+        val statusText = if (speechOn) "Speech  ON" else "Speech  OFF"
+        val timerText = if (timerRunning) "Timer  RUNNING  ($timerValue)" else "Timer  STOPPED"
 
         val views = RemoteViews(context.packageName, R.layout.speech_toggle_widget)
         views.setTextViewText(R.id.speech_widget_status, statusText)
@@ -95,7 +110,7 @@ class SpeechToggleWidgetProvider : AppWidgetProvider() {
         }
         val togglePendingIntent = PendingIntent.getBroadcast(
             context,
-            appWidgetId,
+            appWidgetId * 10 + 1,
             toggleIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -106,7 +121,7 @@ class SpeechToggleWidgetProvider : AppWidgetProvider() {
         }
         val timerTogglePendingIntent = PendingIntent.getBroadcast(
             context,
-            appWidgetId + 2000,
+            appWidgetId * 10 + 2,
             timerToggleIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -117,7 +132,7 @@ class SpeechToggleWidgetProvider : AppWidgetProvider() {
         }
         val start25PendingIntent = PendingIntent.getBroadcast(
             context,
-            appWidgetId + 3000,
+            appWidgetId * 10 + 3,
             start25Intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -128,7 +143,7 @@ class SpeechToggleWidgetProvider : AppWidgetProvider() {
         }
         val resumePendingIntent = PendingIntent.getBroadcast(
             context,
-            appWidgetId + 4000,
+            appWidgetId * 10 + 4,
             resumeIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -137,10 +152,11 @@ class SpeechToggleWidgetProvider : AppWidgetProvider() {
         val launchIntent = Intent(context, MainActivity::class.java)
         val launchPendingIntent = PendingIntent.getActivity(
             context,
-            appWidgetId + 1000,
+            appWidgetId * 10 + 5,
             launchIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        views.setOnClickPendingIntent(R.id.speech_widget_root, launchPendingIntent)
         views.setOnClickPendingIntent(R.id.speech_widget_open_app, launchPendingIntent)
 
         appWidgetManager.updateAppWidget(appWidgetId, views)
@@ -151,8 +167,10 @@ class SpeechToggleWidgetProvider : AppWidgetProvider() {
         private const val ACTION_TIMER_TOGGLE = "com.example.speakertimer.ACTION_TIMER_TOGGLE"
         private const val ACTION_START_25M = "com.example.speakertimer.ACTION_START_25M"
         private const val ACTION_RESUME_LAST = "com.example.speakertimer.ACTION_RESUME_LAST"
+        const val ACTION_REFRESH_WIDGET = "com.example.speakertimer.ACTION_REFRESH_WIDGET"
         private const val FLUTTER_PREFS = "FlutterSharedPreferences"
         private const val TIMER_SPEAK_KEY = "flutter.TimerSpeakOn"
+        private const val CLOCK_ON_KEY = "flutter.ClockOn"
         private const val WIDGET_COMMAND_KEY = "flutter.WidgetCommand"
         private const val WIDGET_SPEECH_ON_KEY = "flutter.WidgetSpeechOn"
         private const val WIDGET_TIMER_RUNNING_KEY = "flutter.WidgetTimerRunning"
@@ -162,5 +180,15 @@ class SpeechToggleWidgetProvider : AppWidgetProvider() {
         private const val CMD_TIMER_TOGGLE = "timer_toggle"
         private const val CMD_START_25M = "start_25m"
         private const val CMD_RESUME_LAST = "resume_last"
+
+        fun refreshAllWidgets(context: Context) {
+            val manager = AppWidgetManager.getInstance(context)
+            val component = ComponentName(context, SpeechToggleWidgetProvider::class.java)
+            val ids = manager.getAppWidgetIds(component)
+            ids.forEach { widgetId ->
+                val provider = SpeechToggleWidgetProvider()
+                provider.updateWidget(context, manager, widgetId)
+            }
+        }
     }
 }
