@@ -3,11 +3,18 @@ import 'package:flutter_tts/flutter_tts.dart';
 import '../models/speech_item.dart';
 
 class SpeechService {
-  List<Map<dynamic, dynamic>> parseEnglishVoices(dynamic voices) {
+  bool isMalayalamLocale(String? locale) {
+    return locale?.toLowerCase().startsWith('ml') ?? false;
+  }
+
+  List<Map<dynamic, dynamic>> parseSupportedVoices(dynamic voices) {
     if (voices == null) return [];
 
     return List<Map<dynamic, dynamic>>.from(voices)
-        .where((voice) => voice['locale']?.toString().startsWith('en') ?? false)
+        .where((voice) {
+          final locale = voice['locale']?.toString().toLowerCase() ?? '';
+          return locale.startsWith('en') || locale.startsWith('ml');
+        })
         .toList();
   }
 
@@ -25,12 +32,25 @@ class SpeechService {
     required List<Map<dynamic, dynamic>> voices,
     required String voiceListMode,
   }) {
-    if (voiceListMode == 'all') {
-      return voices;
+    if (voiceListMode == 'malayalam') {
+      final malayalamVoices = voices
+          .where((voice) => isMalayalamLocale(voice['locale']?.toString()))
+          .toList();
+      return malayalamVoices.isNotEmpty ? malayalamVoices : voices;
     }
 
-    final filtered = voices.where(isPleasantVoice).toList();
-    return filtered.isNotEmpty ? filtered : voices;
+    if (voiceListMode == 'all') {
+      return voices
+          .where((voice) => voice['locale']?.toString().startsWith('en') ?? false)
+          .toList();
+    }
+
+    final englishVoices = voices
+        .where((voice) => voice['locale']?.toString().startsWith('en') ?? false)
+        .toList();
+    final filtered = englishVoices.where(isPleasantVoice).toList();
+    if (filtered.isNotEmpty) return filtered;
+    return englishVoices.isNotEmpty ? englishVoices : voices;
   }
 
   Map<dynamic, dynamic>? preferredVoice({
@@ -41,9 +61,14 @@ class SpeechService {
   }) {
     if (voices.isEmpty) return null;
 
+    final available = availableVoicesForSettings(
+      voices: voices,
+      voiceListMode: voiceListMode,
+    );
+
     if (favoriteVoiceName != null && favoriteVoiceLocale != null) {
       try {
-        return voices.firstWhere(
+        return available.firstWhere(
           (voice) =>
               voice['name']?.toString() == favoriteVoiceName &&
               voice['locale']?.toString() == favoriteVoiceLocale,
@@ -51,10 +76,6 @@ class SpeechService {
       } catch (_) {}
     }
 
-    final available = availableVoicesForSettings(
-      voices: voices,
-      voiceListMode: voiceListMode,
-    );
     return available.isNotEmpty ? available.first : voices.first;
   }
 
@@ -63,6 +84,7 @@ class SpeechService {
     required SpeechItem item,
     required double speakVolume,
     required Map<dynamic, dynamic>? preferredVoice,
+    required bool useMalayalamNuance,
   }) async {
     if (preferredVoice != null) {
       await flutterTts.setVoice({
@@ -71,12 +93,18 @@ class SpeechService {
       });
     }
 
-    if (item.isQuote) {
-      await flutterTts.setPitch(1.0);
-      await flutterTts.setSpeechRate(0.45);
+    if (useMalayalamNuance) {
+      await flutterTts.setLanguage('ml-IN');
+    } else {
+      await flutterTts.setLanguage('en-IN');
+    }
+
+    if (useMalayalamNuance) {
+      await flutterTts.setPitch(0.98);
+      await flutterTts.setSpeechRate(item.isQuote ? 0.40 : 0.44);
     } else {
       await flutterTts.setPitch(1.0);
-      await flutterTts.setSpeechRate(0.5);
+      await flutterTts.setSpeechRate(item.isQuote ? 0.45 : 0.5);
     }
 
     await flutterTts.setVolume(speakVolume);

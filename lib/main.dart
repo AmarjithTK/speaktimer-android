@@ -17,6 +17,7 @@ import 'models/speech_item.dart';
 import 'models/sound_option.dart';
 import 'services/audio_service.dart';
 import 'services/foreground_notification_service.dart';
+import 'services/malayalam_tts_service.dart';
 import 'services/settings_service.dart';
 import 'services/speech_service.dart';
 import 'services/timer_service.dart';
@@ -91,6 +92,7 @@ class _MainScreenState extends State<MainScreen> {
   final AudioService _audioService = AudioService();
   final SettingsService _settingsService = SettingsService();
   final SpeechService _speechService = SpeechService();
+  final MalayalamTtsService _malayalamTtsService = MalayalamTtsService();
   final TimerService _timerService = TimerService();
   final ForegroundNotificationService _foregroundNotificationService =
       const ForegroundNotificationService(
@@ -552,7 +554,7 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _initTts() async {
     final v = await flutterTts.getVoices;
     if (v != null) {
-      final loadedVoices = _speechService.parseEnglishVoices(v);
+      final loadedVoices = _speechService.parseSupportedVoices(v);
       if (mounted) {
         setState(() {
           voices = loadedVoices;
@@ -580,6 +582,13 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  bool _isMalayalamActive(Map<dynamic, dynamic>? preferredVoice) {
+    return _malayalamTtsService.isMalayalamMode(
+      voiceListMode: voiceListMode,
+      preferredVoice: preferredVoice,
+    );
+  }
+
   Future<void> drainQueue() async {
     if (isSpeechActive || speechQueue.isEmpty) return;
     setState(() {
@@ -593,11 +602,13 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     final pv = getPreferredVoice();
+    final useMalayalam = _isMalayalamActive(pv);
     await _speechService.speakItem(
       flutterTts: flutterTts,
       item: item,
       speakVolume: speakVolume,
       preferredVoice: pv,
+      useMalayalamNuance: useMalayalam,
     );
 
     // Done speaking
@@ -613,6 +624,10 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   String timeToWords() {
+    final preferredVoice = getPreferredVoice();
+    if (_isMalayalamActive(preferredVoice)) {
+      return _malayalamTtsService.clockAnnouncement(DateTime.now());
+    }
     return _timerService.timeToWords(DateTime.now());
   }
 
@@ -661,6 +676,20 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   String _nextQuoteForCategory(String category) {
+    final preferredVoice = getPreferredVoice();
+    final useMalayalam = _isMalayalamActive(preferredVoice);
+
+    if (useMalayalam) {
+      final categoryQuotes = _malayalamTtsService.quotesForCategory(category);
+      if (categoryQuotes.isEmpty) {
+        return _malayalamTtsService.defaultQuote();
+      }
+      final currentIndex = quoteIndexByCategory[category] ?? 0;
+      final selected = categoryQuotes[currentIndex % categoryQuotes.length];
+      quoteIndexByCategory[category] = currentIndex + 1;
+      return selected;
+    }
+
     final normalizedCategory = quotesByCategory.containsKey(category) ? category : 'General';
     final categoryQuotes = quotesByCategory[normalizedCategory] ?? const [];
     if (categoryQuotes.isEmpty) {
@@ -699,7 +728,12 @@ class _MainScreenState extends State<MainScreen> {
 
       if (tickResult.shouldAnnounceRemaining) {
         final mins = tickResult.announceMinutes;
-        speakTimerMessage("$mins minute${mins != 1 ? 's' : ''} remaining");
+        final preferredVoice = getPreferredVoice();
+        final useMalayalam = _isMalayalamActive(preferredVoice);
+        final message = useMalayalam
+            ? _malayalamTtsService.timerRemaining(mins)
+            : "$mins minute${mins != 1 ? 's' : ''} remaining";
+        speakTimerMessage(message);
       }
 
       if (tickResult.isFinished) {
@@ -711,8 +745,12 @@ class _MainScreenState extends State<MainScreen> {
             seconds = nextMinutes * 60;
             timerValue = '${nextMinutes.toString().padLeft(2, '0')}:00';
             if (timerSpeakOn) {
+              final preferredVoice = getPreferredVoice();
+              final useMalayalam = _isMalayalamActive(preferredVoice);
               speakTimerMessage(
-                'Starting next timer: $nextMinutes minute${nextMinutes != 1 ? 's' : ''}',
+                useMalayalam
+                    ? _malayalamTtsService.nextTimerStarting(nextMinutes)
+                    : 'Starting next timer: $nextMinutes minute${nextMinutes != 1 ? 's' : ''}',
               );
             }
             _syncForegroundNotification(force: true);
@@ -722,7 +760,15 @@ class _MainScreenState extends State<MainScreen> {
         }
 
         resetTimer();
-        if (timerSpeakOn) speakTimerMessage("Timer finished");
+        if (timerSpeakOn) {
+          final preferredVoice = getPreferredVoice();
+          final useMalayalam = _isMalayalamActive(preferredVoice);
+          speakTimerMessage(
+            useMalayalam
+                ? _malayalamTtsService.timerFinished()
+                : 'Timer finished',
+          );
+        }
 
         if (Platform.isAndroid) {
           FlutterRingtonePlayer().playAlarm(looping: true);

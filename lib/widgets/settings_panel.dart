@@ -200,6 +200,13 @@ class SettingsPanel extends StatelessWidget {
                     style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 12),
                   ),
                 ),
+                DropdownMenuItem(
+                  value: 'malayalam',
+                  child: Text(
+                    'Malayalam voices',
+                    style: TextStyle(color: palette.primary, fontWeight: FontWeight.w500, fontSize: 12),
+                  ),
+                ),
               ],
               onChanged: onVoiceListModeChanged,
             ),
