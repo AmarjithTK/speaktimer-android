@@ -1,4 +1,5 @@
 class PrefKeys {
+  static const settingsSchemaVersion = 'SettingsSchemaVersion';
   static const soundChosen = 'SoundChosen';
   static const noiseVolume = 'NoiseVolume';
   static const speakVolume = 'SpeakVolume';

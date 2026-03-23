@@ -4,8 +4,11 @@ import '../core/pref_keys.dart';
 import '../models/app_settings.dart';
 
 class SettingsService {
+  static const int _currentSchemaVersion = 1;
+
   Future<AppSettings> load({required String defaultSound}) async {
     final prefs = await SharedPreferences.getInstance();
+    await _runMigrations(prefs);
 
     String sound = prefs.getString(PrefKeys.soundChosen) ?? defaultSound;
     if (sound.startsWith('assets/')) {
@@ -105,5 +108,22 @@ class SettingsService {
     } else {
       await prefs.remove(PrefKeys.favoriteVoiceLocale);
     }
+  }
+
+  Future<void> _runMigrations(SharedPreferences prefs) async {
+    final currentVersion = prefs.getInt(PrefKeys.settingsSchemaVersion) ?? 0;
+    if (currentVersion >= _currentSchemaVersion) return;
+
+    if (currentVersion < 1) {
+      final sound = prefs.getString(PrefKeys.soundChosen);
+      if (sound != null && sound.startsWith('assets/')) {
+        await prefs.setString(
+          PrefKeys.soundChosen,
+          sound.replaceFirst('assets/', ''),
+        );
+      }
+    }
+
+    await prefs.setInt(PrefKeys.settingsSchemaVersion, _currentSchemaVersion);
   }
 }
