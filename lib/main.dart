@@ -176,6 +176,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Timer? clockTimer;
   Timer? displayTick;
   String currentTimeDisplay = "";
+  Timer? foregroundHealthTimer;
   int lastNotificationSyncMs = 0;
   int currentTabIndex = 0;
 
@@ -300,6 +301,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     await _ensureForegroundServiceRunning();
   }
 
+  void _startForegroundHealthCheck() {
+    foregroundHealthTimer?.cancel();
+    foregroundHealthTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) return;
+      if (timerInterval == null && !clockOn) return;
+      unawaited(_ensureForegroundServiceRunning());
+      unawaited(_syncForegroundNotification(force: true));
+    });
+  }
+
   Future<void> _saveLastTimerSeconds(int value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_lastTimerSecondsKey, value);
@@ -416,6 +427,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         icon: 'icon_speech',
       ),
     ]);
+    _startForegroundHealthCheck();
   }
 
   Future<void> _openFullscreenFocus() async {
@@ -1368,6 +1380,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    foregroundHealthTimer?.cancel();
     nightIdleTimer?.cancel();
     nightResumeSpeechTimer?.cancel();
     stopClock();
