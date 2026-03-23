@@ -1,11 +1,36 @@
+// ============================================================================
+// SettingsService - Persistent user preferences management
+// ============================================================================
+//
+// Responsibilities:
+// - Load all user preferences from SharedPreferences at startup
+// - Apply data migrations for backward compatibility across app versions
+// - Save updated preferences back to persistent storage
+// - Handle defaults for missing or corrupted preference values
+//
+// Architecture Pattern:
+// - Uses AppSettings data class for type-safe preference snapshots
+// - Migrations run automatically on load() before reading preferences
+// - Schema versioning enables safe evolution of preference structure
+// - All preference keys centralized in lib/core/pref_keys.dart
+//
+// Migration Example:
+// If app v2.x stored sound paths as "assets/rain.mp3" but v3.x expects
+// "rain.mp3", load() automatically fixes this via _runMigrations().
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/pref_keys.dart';
 import '../models/app_settings.dart';
 
 class SettingsService {
+  /// Current schema version: increment when preference structure changes
+  /// Used to detect and run migrations for old stored data
   static const int _currentSchemaVersion = 1;
 
+  /// Load all settings from persistent storage
+  /// Automatically runs migrations if stored version differs from current
+  /// Returns AppSettings with all user preferences and defaults
   Future<AppSettings> load({required String defaultSound}) async {
     final prefs = await SharedPreferences.getInstance();
     await _runMigrations(prefs);

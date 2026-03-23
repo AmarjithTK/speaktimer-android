@@ -109,6 +109,198 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Help / Working'**
   String get helpTitle;
+
+  /// No description provided for @timerTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Timer'**
+  String get timerTab;
+
+  /// No description provided for @clockTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Clock'**
+  String get clockTab;
+
+  /// No description provided for @settingsTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsTab;
+
+  /// No description provided for @presetTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Presets'**
+  String get presetTab;
+
+  /// No description provided for @startButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get startButton;
+
+  /// No description provided for @pauseButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get pauseButton;
+
+  /// No description provided for @resumeButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get resumeButton;
+
+  /// No description provided for @stopButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop'**
+  String get stopButton;
+
+  /// No description provided for @resetButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get resetButton;
+
+  /// No description provided for @skipButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get skipButton;
+
+  /// No description provided for @addTimeButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Time'**
+  String get addTimeButton;
+
+  /// No description provided for @chainModeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Chain Mode'**
+  String get chainModeLabel;
+
+  /// No description provided for @chainModeDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Run preset timers in sequence'**
+  String get chainModeDescription;
+
+  /// No description provided for @timerNotificationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Timer Running'**
+  String get timerNotificationTitle;
+
+  /// No description provided for @clockNotificationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Time Check'**
+  String get clockNotificationTitle;
+
+  /// No description provided for @focusMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Focus Mode'**
+  String get focusMode;
+
+  /// No description provided for @fullscreenMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Fullscreen'**
+  String get fullscreenMode;
+
+  /// No description provided for @soundLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Background Sound'**
+  String get soundLabel;
+
+  /// No description provided for @volumeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume'**
+  String get volumeLabel;
+
+  /// No description provided for @voiceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice Selection'**
+  String get voiceLabel;
+
+  /// No description provided for @darkThemeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark Theme'**
+  String get darkThemeLabel;
+
+  /// No description provided for @motivationLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Show Motivation'**
+  String get motivationLabel;
+
+  /// No description provided for @motivationCategoryLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Motivation Category'**
+  String get motivationCategoryLabel;
+
+  /// No description provided for @motivationDelayLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Quote Delay (seconds)'**
+  String get motivationDelayLabel;
+
+  /// No description provided for @clockIntervalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Clock Interval (minutes)'**
+  String get clockIntervalLabel;
+
+  /// No description provided for @timerAnnouncementLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Announce Every (minutes)'**
+  String get timerAnnouncementLabel;
+
+  /// No description provided for @nightMuteMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Night Mute Mode'**
+  String get nightMuteMode;
+
+  /// No description provided for @sleepStartLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep Start Time'**
+  String get sleepStartLabel;
+
+  /// No description provided for @sleepEndLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep End Time'**
+  String get sleepEndLabel;
+
+  /// No description provided for @longPressToDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Long press timer to mark done'**
+  String get longPressToDone;
+
+  /// No description provided for @sessionCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Session Completed!'**
+  String get sessionCompleted;
+
+  /// No description provided for @motivationQuote.
+  ///
+  /// In en, this message translates to:
+  /// **'Motivation'**
+  String get motivationQuote;
 }
 
 class _AppLocalizationsDelegate

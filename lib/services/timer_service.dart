@@ -1,6 +1,22 @@
+// ============================================================================
+// TimerService - Timer countdown logic and time formatting
+// ============================================================================
+//
+// Responsibilities:
+// - Format current time in 12-hour and 24-hour displays
+// - Convert time to spoken words (e.g., "3 o'clock PM")
+// - Calculate countdown remaining from seconds
+// - Determine announcement points based on frequency settings
+// - Track completion and achievement thresholds
+//
+// This service is stateless: it receives timer state and returns formatted
+// results. No timers are managed here; that's done in the UI layer.
+
 import '../models/timer_tick_result.dart';
 
 class TimerService {
+  /// Format current time with milliseconds for detailed display
+  /// Returns: "HH:MM:SS.mmm AM/PM" (e.g., "03:45:30.125 PM")
   String formatCurrentTime(DateTime now) {
     final h = now.hour;
     final m = now.minute.toString().padLeft(2, '0');
@@ -12,6 +28,11 @@ class TimerService {
     return '$hStr:$m:$s.$ms $ampm';
   }
 
+  /// Convert time to natural spoken English (for TTS announcements)
+  /// Examples:
+  ///   - 3:00 AM → "3 o'clock AM"
+  ///   - 3:05 PM → "3 oh 5 PM"
+  ///   - 3:45 PM → "3 45 PM"
   String timeToWords(DateTime now) {
     final h = now.hour;
     final m = now.minute;

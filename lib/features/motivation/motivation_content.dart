@@ -1,3 +1,39 @@
+// ============================================================================
+// MotivationContent - Centralized motivational quotes by category
+// ============================================================================
+//
+// This feature module encapsulates all motivational content used to inspire
+// and encourage users during breaks and focus sessions.
+//
+// Structure:
+// - motivationCategories: List of available quote categories (7 total)
+// - quotesByCategory: Map of categories to quote lists
+//
+// Content Organization:
+// 1. General - Universal productivity tips for all languages/cultures
+// 2. General Malayalam - Malayalam-specific wellness & productivity advice
+// 3. Focus - Maintaining concentration during work sessions
+// 4. Discipline - Building habits and consistency
+// 5. Calm - Mindfulness and stress reduction
+// 6. Positivity - Encouragement and self-affirmation
+// 7. Historic Figures - Inspiring quotes from notable people
+//
+// Usage:
+// - Load via QuoteRotationService.nextQuoteFromMap(category)
+// - Default category is 'General' (always available)
+// - Falls back to 'General' if user-selected category not found
+//
+// Future Enhancement:
+// - [ ] Externalize quotes to asset files (JSON)
+// - [ ] Load from database for easy updates without app rebuild
+// - [ ] User-submitted quotes feature
+// - [ ] Spaced repetition: prefer less-recently-used quotes
+//
+// Localization Strategy:
+// - English quotes in 'General' category
+// - Malayalam content in dedicated 'General Malayalam' category
+// - Quotes remain const (compile-time safe, no runtime overhead)
+
 const List<String> motivationCategories = [
   'General',
   'General Malayalam',

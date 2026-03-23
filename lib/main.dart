@@ -1,3 +1,65 @@
+// ============================================================================
+// LIFER - A Productivity Timer & Meditation App
+// ============================================================================
+//
+// **Version:** 3.0.0
+// **Platform:** Android, iOS, Web, macOS, Linux, Windows
+// **Target:** Dart ^3.11.3, Flutter stable
+//
+// ## Architecture Overview
+//
+// This is a feature-modular, service-oriented app for managing focused work
+// sessions, clock displays, and motivational quotes. Clean architecture:
+//
+// - **UI Layer:** Screens & Widgets (main tabs: Timer, Clock, Settings, Presets)
+// - **Service Layer:** Business logic (TimerService, SettingsService, etc.)
+// - **Features:** Domain-specific modules (motivation/ feature)
+// - **Models:** Data classes representing app state
+// - **Theme:** Centralized Material 3 styling via palette.dart
+//
+// ## Key Features
+//
+// 1. Timer Management: Countdown with customizable presets & chain mode
+// 2. Speech: TTS announcements with Malayalam support
+// 3. Background Audio: Ambient sounds (rain, waterfall, fire, stream)
+// 4. Foreground Service: Persistent notifications during long sessions
+// 5. Motivational Quotes: Category-based rotating quotes for focus
+// 6. Night Mode: Auto-mute speech after midnight with configurable window
+// 7. Localization: Multi-language support (English, Malayalam)
+// 8. Theme System: Light/dark mode toggle with Material 3 theming
+// 9. Health Checks: Periodic service recovery to prevent OS kills
+// 10. Settable Presets: Pomodoro, Sprint, and Quick session types
+//
+// ## Service Initialization Pattern
+//
+// Services are initialized as class members in _MainScreenState:
+// - SettingsService: Persists user preferences via SharedPreferences
+// - TimerService: Manages countdown logic and announcements
+// - SpeechService: Queues TTS/ringtone playback with concurrency control
+// - AudioService: Plays ambient background sounds
+// - ForegroundNotificationService: Android foreground service & notification
+// - QuoteRotationService: Cycling logic for motivational quotes
+// - MalayalamTtsService: Language-specific TTS selection
+//
+// ## Performance Optimizations
+//
+// - Display Ticker: 250ms frequency (up from 30ms) for reduced GPU pressure
+// - Conditional setState(): Only rebuild if display actually changed
+// - Idle Notification Throttle: 4:1 reduction in idle notification syncs
+// - Lazy TTS initialization: Voices loaded only when needed
+// - Health Check Interval: 30s periodic service recovery
+//
+// ## Future Roadmap
+//
+// - [ ] Custom preset creation UI
+// - [ ] Session history & analytics
+// - [ ] Haptic feedback on timer complete
+// - [ ] Circular progress indicator widget
+// - [ ] Material You dynamic colors (Android 12+)
+// - [ ] Cloud sync of settings & session history
+// - [ ] Wear OS companion app
+// - [ ] Export session data to Google Fit
+
 import 'dart:async';
 import 'dart:math';
 import 'dart:io';
@@ -147,84 +209,231 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
+  /// ============================================================================
+  /// SERVICE LAYER - Dependency injection for business logic
+  /// ============================================================================
+  /// Each service is a singleton responsible for specific domain logic.
+  /// Services handle persistence, calculations, and external system integration.
+  
+  /// Manages quick actions (home screen shortcuts) for rapid timer start
   final QuickActions _quickActions = const QuickActions();
+  
+  /// Plays ambient background sounds (rain, waterfall, fire, stream)
+  /// Handles volume and audio session management
   final AudioService _audioService = AudioService();
+  
+  /// Loads/saves AppSettings from SharedPreferences with versioned migrations
+  /// Ensures data compatibility across app versions
   final SettingsService _settingsService = SettingsService();
+  
+  /// Queues TTS (text-to-speech) and ringtone announcements
+  /// Ensures speech items play sequentially (no overlaps)
   final SpeechService _speechService = SpeechService();
+  
+  /// Handles Malayalam-specific TTS voice selection and synthesis
+  /// Provides fallback to English if Malayalam unavailable
   final MalayalamTtsService _malayalamTtsService = MalayalamTtsService();
+  
+  /// Manages timer countdown logic: starts, pauses, resumes, calculates display
+  /// Handles announcement timings based on user preferences
   final TimerService _timerService = TimerService();
+  
+  /// Cycles through motivational quotes by category
+  /// Encapsulates quote rotation state and list management
   final QuoteRotationService _quoteRotationService = QuoteRotationService();
+  
+  /// Manages Android foreground service & persistent notifications
+  /// Keeps app alive during long timer sessions
   final ForegroundNotificationService _foregroundNotificationService =
       const ForegroundNotificationService(
         notificationIconMetaDataName:
             'com.example.speakertimer.service.NOTIFICATION_ICON',
       );
 
-  // TTS & Speech Queue
+  /// ============================================================================
+  /// TTS & SPEECH STATE - Text-to-speech management
+  /// ============================================================================
+  /// Manages voice synthesis, queue management, and concurrent speech exclusion
+  
+  /// Flutter TTS instance for speech synthesis
   FlutterTts flutterTts = FlutterTts();
+  
+  /// Queue of pending speech items (announcements, quotes, affirmations)
   List<SpeechItem> speechQueue = [];
+  
+  /// Flag to prevent concurrent speech playback (TTS can't overlap)
   bool isSpeechActive = false;
+  
+  /// List of available TTS voices fetched from system
   List<Map<dynamic, dynamic>> voices = [];
+  
+  /// Current voice index in the voices list
   int voiceIndex = 0;
+  
+  /// Voice filtering mode: 'pleasant' for audio quality, others for specific locales
   String voiceListMode = 'pleasant';
+  
+  /// User's preferred voice name (cached from settings)
   String? favoriteVoiceName;
+  
+  /// Locale of the user's preferred voice (e.g., 'en-US', 'ml-IN')
   String? favoriteVoiceLocale;
 
+  /// Flag indicating if background audio is currently playing
   bool audioPlaying = false;
 
-  // Timer State
+  /// ============================================================================
+  /// TIMER STATE - Timer display & countdown management
+  /// ============================================================================
+  /// Tracks timer value, intervals, and completion status
+  
+  /// Slider input value (0-120 minutes) from timer UI
   int sliderValue = 25;
+  
+  /// Current countdown seconds remaining
   int seconds = 0;
+  
+  /// Active countdown interval timer (null when stopped)
   Timer? timerInterval;
+  
+  /// Formatted display string (MM:SS)
   String timerValue = "00:00";
 
-  // Clock State
+  /// ============================================================================
+  /// CLOCK STATE - Clock display & periodic announcements
+  /// ============================================================================
+  /// Manages clock time display and interval-based time announcements
+  
+  /// Periodic timer for clock time updates
   Timer? clockTimer;
+  
+  /// Display ticker: updates UI at 250ms intervals (reduced from 30ms for performance)
   Timer? displayTick;
+  
+  /// Current time formatted for display (HH:MM or HH:MM:SS)
   String currentTimeDisplay = "";
+  
+  /// 30-second health check timer for foreground service recovery
+  /// Detects if OS killed the service and restarts it
   Timer? foregroundHealthTimer;
+  
+  /// Counter for idle notification ticks (used with 4:1 throttle ratio)
   int _idleNotificationTicks = 0;
+  
+  /// Timestamp of last notification sync to prevent excessive updates
   int lastNotificationSyncMs = 0;
+  
+  /// Currently active tab index (0=Timer, 1=Clock, 2=Presets, 3=Settings, 4=Help)
   int currentTabIndex = 0;
 
-  // 10s Gap enforcement
+  /// ============================================================================
+  /// ANNOUNCEMENT TIMING - 10-second gap enforcement between speech segments
+  /// ============================================================================
+  /// Prevents rapid repeated announcements from overlapping
+  
+  /// Timestamp of last clock announcement (prevents <10s re-announcements)
   int lastClockSpoke = 0;
+  
+  /// Timestamp of last timer announcement (prevents <10s re-announcements)
   int lastTimerSpoke = 0;
 
-  // Prefs state variables
+  /// ============================================================================
+  /// PREFERENCES STATE - User-configurable settings (loaded from storage)
+  /// ============================================================================
+  /// All preference variables mirror keys in lib/core/pref_keys.dart
+  
+  /// Currently selected background sound file path
   String soundChosen = "audio/rain.mp3";
+  
+  /// Volume level for background ambient audio (0.0-1.0)
   double noiseVolume = 0.6;
+  
+  /// Volume level for speech/TTS output (0.0-1.0)
   double speakVolume = 0.8;
+  
+  /// Enable/disable clock announcements
   bool clockOn = false;
+  
+  /// Clock announcement interval in minutes
   int clockIntervalMins = 30;
+  
+  /// Enable/disable motivational quote announcements
   bool motivationOn = true;
+  
+  /// Category of quotes to use (General, Malayalam, Focus, etc.)
   String motivationCategory = 'General';
+  
+  /// Delay between quote announcements in seconds
   int motivationDelaySeconds = 10;
+  
+  /// Enable/disable background noise during timer
   bool timerNoiseOn = true;
+  
+  /// Use dark theme for app UI
   bool appDarkTheme = false;
+  
+  /// Automatically mute speech after midnight threshold
   bool muteSpeechAfterMidnight = false;
+  
+  /// Night mute mode: 'manual' or 'auto' (with sleep window)
   String nightMuteMode = 'manual';
+  
+  /// Start of auto-mute window in minutes since midnight (e.g., 2400 = 12 AM + 400 min)
   int sleepStartMinutes = 0;
+  
+  /// End of auto-mute window in minutes since midnight
   int sleepEndMinutes = 360;
+  
+  /// Flag: auto-mute is currently active in the sleep window
   bool autoNightMuteActive = false;
+  
+  /// Timer for managing idle auto-mute countdown
   Timer? nightIdleTimer;
+  
+  /// Timer for resuming speech after auto-mute duration expires
   Timer? nightResumeSpeechTimer;
+  
+  /// Use dark theme in fullscreen focus mode
   bool fullscreenDarkTheme = true;
+  
+  /// Dim screen brightness in fullscreen focus mode
   bool fullscreenDimBrightness = false;
+  
+  /// Start fullscreen focus mode in landscape orientation
   bool fullscreenStartLandscape = false;
+  
+  /// Enable/disable timer completion announcements
   bool timerSpeakOn = true;
+  
+  /// Announce timer every N minutes during countdown
   int timerAnnounceEvery = 1;
+  
+  /// Enable/disable chain mode (consecutive presets)
   bool chainModeOn = false;
+  
+  /// Name of current preset being used in chain mode
   String chainPresetKey = 'Pomodoro 25-5x4';
+  
+  /// Index of current preset in chain sequence
   int chainIndex = 0;
 
+  /// ============================================================================
+  /// PRESET CONFIGURATIONS - Predefined timer sequences & options
+  /// ============================================================================
+  /// These define user-selectable options for different timer modes
+  
+  /// Named chains of timer durations (in minutes) to run consecutively
+  /// Useful for Pomodoro technique: work 25min, break 5min (4 cycles), long break 15min
   final Map<String, List<int>> chainPresets = {
-    'Pomodoro 25-5x4': [25, 5, 25, 5, 25, 5, 25, 15],
-    'Sprint 50-10x2': [50, 10, 50, 10],
-    'Quick 15-3x3': [15, 3, 15, 3, 15, 3],
+    'Pomodoro 25-5x4': [25, 5, 25, 5, 25, 5, 25, 15],  // Classic Pomodoro
+    'Sprint 50-10x2': [50, 10, 50, 10],                 // Long focus + short breaks
+    'Quick 15-3x3': [15, 3, 15, 3, 15, 3],              // Fast-paced cycles
   };
 
+  /// Sound file path for timer completion notification
   final String notifySound = "audio/notify.mp3";
+  
+  /// Available ambient background sounds with user-friendly names
   final List<SoundOption> soundList = [
     SoundOption("audio/rain.mp3", "Rain"),
     SoundOption("audio/waterfall.mp3", "Waterfall"),
@@ -232,11 +441,22 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     SoundOption("audio/stream.mp3", "Stream"),
   ];
 
+  /// Available volume levels (0.0-1.0) for numerical selection
   final List<double> volumeLists = [0.1, 0.2, 0.6, 0.8, 1.0];
+  
+  /// Quick preset timer values (in minutes) for rapid timer setup
   final List<int> presetValues = [5, 10, 15, 20, 25, 30, 45, 60, 90, 120];
+  
+  /// Available clock announcement intervals (in minutes)
   final List<int> clockIntervalOptions = [1, 2, 5, 10, 15, 20, 30, 60];
+  
+  /// Timer announcement frequency options (announce every N minutes)
   final List<int> timerAnnounceOptions = [1, 2, 5, 10, 15, 20, 30];
+  
+  /// Delay options between motivational quote announcements (in seconds)
   final List<int> motivationDelayOptions = [5, 10, 20, 30, 40, 60];
+  
+  /// SharedPreferences key for last timer seconds via quick action
   static const String _lastTimerSecondsKey = 'QuickActionLastSeconds';
 
   Future<void> _requestPermissions() async {
