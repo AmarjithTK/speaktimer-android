@@ -21,9 +21,4 @@ class PrefKeys {
   static const voiceListMode = 'VoiceListMode';
   static const favoriteVoiceName = 'FavoriteVoiceName';
   static const favoriteVoiceLocale = 'FavoriteVoiceLocale';
-  static const widgetCommand = 'WidgetCommand';
-  static const widgetSpeechOn = 'WidgetSpeechOn';
-  static const widgetTimerRunning = 'WidgetTimerRunning';
-  static const widgetTimerValue = 'WidgetTimerValue';
-  static const widgetNightStatus = 'WidgetNightStatus';
 }

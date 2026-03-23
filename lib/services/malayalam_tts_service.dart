@@ -8,22 +8,22 @@ class MalayalamTtsService {
     return voiceListMode == 'malayalam' && locale.startsWith('ml');
   }
 
-  String periodText(DateTime now) {
-    if (now.hour < 12) return 'രാവിലെ';
-    if (now.hour < 17) return 'ഉച്ചയ്ക്ക്';
-    if (now.hour < 20) return 'വൈകുന്നേരം';
-    return 'രാത്രി';
-  }
+  // String periodText(DateTime now) {
+  //   if (now.hour < 12) return 'രാവിലെ';
+  //   if (now.hour < 17) return 'ഉച്ചയ്ക്ക്';
+  //   if (now.hour < 20) return 'വൈകുന്നേരം';
+  //   return 'രാത്രി';
+  // }
 
   String clockAnnouncement(DateTime now) {
     final hour12 = now.hour % 12 == 0 ? 12 : now.hour % 12;
     final minute = now.minute;
 
     if (minute == 0) {
-      return 'ഇപ്പോൾ സമയം $hour12 മണി, ${periodText(now)}.';
+      return 'ഇപ്പോൾ സമയം $hour12 മണി,';
     }
 
-    return 'ഇപ്പോൾ സമയം $hour12 മണി $minute മിനിറ്റ്, ${periodText(now)}.';
+    return 'ഇപ്പോൾ സമയം $hour12 മണി $minute മിനിറ്റ്,';
   }
 
   String timerRemaining(int minutes) {

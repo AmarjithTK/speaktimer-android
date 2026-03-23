@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="260dp"
-    android:minHeight="160dp"
-    android:updatePeriodMillis="0"
-    android:initialLayout="@layout/speech_toggle_widget"
-    android:resizeMode="horizontal|vertical"
-    android:widgetCategory="home_screen"
-    android:description="@string/speech_toggle_widget_description" />

@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="speech_toggle_widget_description">Toggle timer speech on or off</string>
+    <string name="app_name">lifer</string>
 </resources>
