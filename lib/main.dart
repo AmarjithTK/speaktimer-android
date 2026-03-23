@@ -22,6 +22,7 @@ import 'services/settings_service.dart';
 import 'services/speech_service.dart';
 import 'services/timer_service.dart';
 import 'features/motivation/motivation_content.dart';
+import 'features/motivation/services/quote_rotation_service.dart';
 import 'widgets/clock_panel.dart';
 import 'widgets/fullscreen_focus_view.dart';
 import 'widgets/timer_panel.dart';
@@ -146,6 +147,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   final SpeechService _speechService = SpeechService();
   final MalayalamTtsService _malayalamTtsService = MalayalamTtsService();
   final TimerService _timerService = TimerService();
+  final QuoteRotationService _quoteRotationService = QuoteRotationService();
   final ForegroundNotificationService _foregroundNotificationService =
       const ForegroundNotificationService(
         notificationIconMetaDataName:
@@ -228,7 +230,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   final List<int> timerAnnounceOptions = [1, 2, 5, 10, 15, 20, 30];
   final List<int> motivationDelayOptions = [5, 10, 20, 30, 40, 60];
   static const String _lastTimerSecondsKey = 'QuickActionLastSeconds';
-  final Map<String, int> quoteIndexByCategory = {};
 
   Future<void> _requestPermissions() async {
     if (await FlutterForegroundTask.isIgnoringBatteryOptimizations == false) {
@@ -865,26 +866,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     if (useMalayalam) {
       final categoryQuotes = _malayalamTtsService.quotesForCategory(category);
-      if (categoryQuotes.isEmpty) {
-        return _malayalamTtsService.defaultQuote();
-      }
-      final currentIndex = quoteIndexByCategory[category] ?? 0;
-      final selected = categoryQuotes[currentIndex % categoryQuotes.length];
-      quoteIndexByCategory[category] = currentIndex + 1;
-      return selected;
+      return _quoteRotationService.nextQuoteForList(
+        key: category,
+        quotes: categoryQuotes,
+        fallbackQuote: _malayalamTtsService.defaultQuote(),
+      );
     }
 
-    final normalizedCategory = quotesByCategory.containsKey(category)
-        ? category
-        : 'General';
-    final categoryQuotes = quotesByCategory[normalizedCategory] ?? const [];
-    if (categoryQuotes.isEmpty) {
-      return "Stay steady and use this moment well.";
-    }
-    final currentIndex = quoteIndexByCategory[normalizedCategory] ?? 0;
-    final selected = categoryQuotes[currentIndex % categoryQuotes.length];
-    quoteIndexByCategory[normalizedCategory] = currentIndex + 1;
-    return selected;
+    return _quoteRotationService.nextQuoteFromMap(
+      category: category,
+      quotesByCategory: quotesByCategory,
+      fallbackCategory: 'General',
+      fallbackQuote: 'Stay steady and use this moment well.',
+    );
   }
 
   void speakTimerMessage(String text) {
