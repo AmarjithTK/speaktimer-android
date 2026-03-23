@@ -10,6 +10,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'l10n/app_localizations.dart';
 import 'theme/palette.dart';
 import 'models/app_settings.dart';
 import 'models/foreground_notification_state.dart';
@@ -74,60 +75,65 @@ class LiferApp extends StatelessWidget {
     return WithForegroundTask(
       child: ValueListenableBuilder<ThemeMode>(
         valueListenable: appThemeModeNotifier,
-        builder: (context, themeMode, _) => MaterialApp(
-          title: 'lifer',
-          debugShowCheckedModeBanner: false,
-          themeMode: themeMode,
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF4F46E5),
-              brightness: Brightness.light,
-            ),
-            useMaterial3: true,
-            appBarTheme: AppBarTheme(
-              centerTitle: false,
-              titleTextStyle: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.2,
+        builder: (context, themeMode, _) {
+          final l10n = AppLocalizations.of(context);
+          return MaterialApp(
+            title: l10n?.appTitle ?? 'lifer',
+            debugShowCheckedModeBanner: false,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            themeMode: themeMode,
+            theme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: const Color(0xFF4F46E5),
+                brightness: Brightness.light,
               ),
-            ),
-            elevatedButtonTheme: ElevatedButtonThemeData(
-              style: ElevatedButton.styleFrom(
-                textStyle: const TextStyle(
-                  fontSize: 13,
+              useMaterial3: true,
+              appBarTheme: AppBarTheme(
+                centerTitle: false,
+                titleTextStyle: const TextStyle(
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.2,
                 ),
               ),
-            ),
-          ),
-          darkTheme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF4F46E5),
-              brightness: Brightness.dark,
-            ),
-            useMaterial3: true,
-            appBarTheme: AppBarTheme(
-              centerTitle: false,
-              titleTextStyle: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.2,
+              elevatedButtonTheme: ElevatedButtonThemeData(
+                style: ElevatedButton.styleFrom(
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                  ),
+                ),
               ),
             ),
-            elevatedButtonTheme: ElevatedButtonThemeData(
-              style: ElevatedButton.styleFrom(
-                textStyle: const TextStyle(
-                  fontSize: 13,
+            darkTheme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: const Color(0xFF4F46E5),
+                brightness: Brightness.dark,
+              ),
+              useMaterial3: true,
+              appBarTheme: AppBarTheme(
+                centerTitle: false,
+                titleTextStyle: const TextStyle(
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.2,
                 ),
               ),
+              elevatedButtonTheme: ElevatedButtonThemeData(
+                style: ElevatedButton.styleFrom(
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
             ),
-          ),
-          home: const MainScreen(),
-        ),
+            home: const MainScreen(),
+          );
+        },
       ),
     );
   }
@@ -177,6 +183,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Timer? displayTick;
   String currentTimeDisplay = "";
   Timer? foregroundHealthTimer;
+  int _idleNotificationTicks = 0;
   int lastNotificationSyncMs = 0;
   int currentTabIndex = 0;
 
@@ -531,17 +538,21 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     // Add callback to handle notification button presses
     FlutterForegroundTask.addTaskDataCallback(_onReceiveTaskData);
 
-    displayTick = Timer.periodic(const Duration(milliseconds: 30), (timer) {
-      final now = DateTime.now();
-      final display = _formatCurrentTime(now);
-      if (mounted) {
+    displayTick = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      if (!mounted) return;
+
+      final display = _formatCurrentTime(DateTime.now());
+      if (display != currentTimeDisplay) {
         setState(() {
           currentTimeDisplay = display;
         });
       }
 
       if (timerInterval == null) {
-        _syncForegroundNotification();
+        _idleNotificationTicks = (_idleNotificationTicks + 1) % 4;
+        if (_idleNotificationTicks == 0) {
+          _syncForegroundNotification();
+        }
       }
     });
   }
@@ -1351,7 +1362,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         elevation: 0,
         iconTheme: IconThemeData(color: palette.primary),
         title: Text(
-          'Help / Working',
+          AppLocalizations.of(context)?.helpTitle ?? 'Help / Working',
           style: TextStyle(
             color: palette.primary,
             fontSize: 16,
@@ -1404,7 +1415,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'Lifer',
+              AppLocalizations.of(context)?.appTitle ?? 'Lifer',
               style: TextStyle(
                 color: palette.primary,
                 fontSize: 18,
