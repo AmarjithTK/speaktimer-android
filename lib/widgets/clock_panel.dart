@@ -5,39 +5,13 @@ import 'ui_helpers.dart';
 class ClockPanel extends StatelessWidget {
   final bool clockOn;
   final String currentTimeDisplay;
-  final int clockIntervalMins;
-  final bool clockShowMilliseconds;
-  final bool motivationOn;
-  final String motivationCategory;
-  final int motivationDelaySeconds;
-  final List<int> clockIntervalOptions;
-  final List<String> motivationCategories;
-  final List<int> motivationDelayOptions;
   final VoidCallback toggleClock;
-  final ValueChanged<int?> onIntervalChanged;
-  final ValueChanged<bool?> onClockShowMillisecondsChanged;
-  final ValueChanged<bool?> onMotivationChanged;
-  final ValueChanged<String?> onMotivationCategoryChanged;
-  final ValueChanged<int?> onMotivationDelayChanged;
 
   const ClockPanel({
     super.key,
     required this.clockOn,
     required this.currentTimeDisplay,
-    required this.clockIntervalMins,
-    required this.clockShowMilliseconds,
-    required this.motivationOn,
-    required this.motivationCategory,
-    required this.motivationDelaySeconds,
-    required this.clockIntervalOptions,
-    required this.motivationCategories,
-    required this.motivationDelayOptions,
     required this.toggleClock,
-    required this.onIntervalChanged,
-    required this.onClockShowMillisecondsChanged,
-    required this.onMotivationChanged,
-    required this.onMotivationCategoryChanged,
-    required this.onMotivationDelayChanged,
   });
 
   (String, String?) _splitClockDisplay(String value) {
@@ -132,131 +106,6 @@ class ClockPanel extends StatelessWidget {
                 ),
               );
             },
-          ),
-          sectionLabel("Announce every"),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: DropdownButton<int>(
-              value: clockIntervalMins,
-              isExpanded: true,
-              underline: const SizedBox(),
-              iconEnabledColor: palette.primary,
-              dropdownColor: palette.accent,
-              items: clockIntervalOptions
-                  .map(
-                    (e) => DropdownMenuItem(
-                      value: e,
-                      child: Text(
-                        "$e min",
-                        style: TextStyle(
-                          color: palette.primary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: onIntervalChanged,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Checkbox(
-                value: clockShowMilliseconds,
-                activeColor: palette.primary,
-                checkColor: palette.accent,
-                onChanged: onClockShowMillisecondsChanged,
-              ),
-              Expanded(
-                child: sectionLabel('Show milliseconds in Speaking Clock'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          Row(
-            children: [
-              Checkbox(
-                value: motivationOn,
-                activeColor: palette.primary,
-                checkColor: palette.accent,
-                onChanged: onMotivationChanged,
-              ),
-              Expanded(
-                child: sectionLabel("Speak motivational quote after time"),
-              ),
-            ],
-          ),
-          sectionLabel("Motivation category"),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: DropdownButton<String>(
-              value: motivationCategory,
-              isExpanded: true,
-              underline: const SizedBox(),
-              iconEnabledColor: palette.primary,
-              dropdownColor: palette.accent,
-              items: motivationCategories
-                  .map(
-                    (category) => DropdownMenuItem(
-                      value: category,
-                      child: Text(
-                        category,
-                        style: TextStyle(
-                          color: palette.primary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: motivationOn ? onMotivationCategoryChanged : null,
-            ),
-          ),
-          const SizedBox(height: 8),
-          sectionLabel("Motivation delay after time"),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: DropdownButton<int>(
-              value: motivationDelaySeconds,
-              isExpanded: true,
-              underline: const SizedBox(),
-              iconEnabledColor: palette.primary,
-              dropdownColor: palette.accent,
-              items: motivationDelayOptions
-                  .map(
-                    (seconds) => DropdownMenuItem(
-                      value: seconds,
-                      child: Text(
-                        '$seconds sec',
-                        style: TextStyle(
-                          color: palette.primary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: motivationOn ? onMotivationDelayChanged : null,
-            ),
           ),
           const SizedBox(height: 8),
           ElevatedButton.icon(

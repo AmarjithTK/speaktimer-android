@@ -6,58 +6,20 @@ class TimerPanel extends StatelessWidget {
   final String timerValue;
   final int sliderValue;
   final int voicesCount;
-  final bool timerNoiseOn;
-  final bool timerSpeakOn;
-  final bool timerShowMilliseconds;
-  final int timerAnnounceEvery;
-  final bool muteSpeechAfterMidnight;
-  final String nightMuteMode;
-  final List<int> timerAnnounceOptions;
-  final bool chainModeOn;
-  final String chainPresetKey;
-  final Map<String, List<int>> chainPresets;
-  final int chainIndex;
   final VoidCallback startTimer;
   final VoidCallback stopTimer;
   final VoidCallback resetTimer;
   final ValueChanged<double> onSliderChanged;
-  final ValueChanged<bool?> onTimerNoiseOnChanged;
-  final ValueChanged<bool?> onTimerSpeakOnChanged;
-  final ValueChanged<bool?> onTimerShowMillisecondsChanged;
-  final ValueChanged<int?> onTimerAnnounceEveryChanged;
-  final ValueChanged<bool?> onMuteSpeechAfterMidnightChanged;
-  final ValueChanged<String?> onNightMuteModeChanged;
-  final ValueChanged<bool?> onChainModeChanged;
-  final ValueChanged<String?> onChainPresetChanged;
 
   const TimerPanel({
     super.key,
     required this.timerValue,
     required this.sliderValue,
     required this.voicesCount,
-    required this.timerNoiseOn,
-    required this.timerSpeakOn,
-    required this.timerShowMilliseconds,
-    required this.timerAnnounceEvery,
-    required this.muteSpeechAfterMidnight,
-    required this.nightMuteMode,
-    required this.timerAnnounceOptions,
-    required this.chainModeOn,
-    required this.chainPresetKey,
-    required this.chainPresets,
-    required this.chainIndex,
     required this.startTimer,
     required this.stopTimer,
     required this.resetTimer,
     required this.onSliderChanged,
-    required this.onTimerNoiseOnChanged,
-    required this.onTimerSpeakOnChanged,
-    required this.onTimerShowMillisecondsChanged,
-    required this.onTimerAnnounceEveryChanged,
-    required this.onMuteSpeechAfterMidnightChanged,
-    required this.onNightMuteModeChanged,
-    required this.onChainModeChanged,
-    required this.onChainPresetChanged,
   });
 
   (String, String, String?) _splitTimer(String value) {
@@ -208,184 +170,6 @@ class TimerPanel extends StatelessWidget {
               ),
             ],
           ),
-          Row(
-            children: [
-              Checkbox(
-                value: timerNoiseOn,
-                activeColor: palette.primary,
-                checkColor: palette.accent,
-                onChanged: onTimerNoiseOnChanged,
-              ),
-              Expanded(
-                child: sectionLabel("Play background noise during timer"),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              Checkbox(
-                value: timerSpeakOn,
-                activeColor: palette.primary,
-                checkColor: palette.accent,
-                onChanged: onTimerSpeakOnChanged,
-              ),
-              Expanded(child: sectionLabel("Speak remaining — every")),
-            ],
-          ),
-          Row(
-            children: [
-              Checkbox(
-                value: timerShowMilliseconds,
-                activeColor: palette.primary,
-                checkColor: palette.accent,
-                onChanged: onTimerShowMillisecondsChanged,
-              ),
-              Expanded(child: sectionLabel('Show milliseconds in timer')),
-            ],
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: DropdownButton<int>(
-              value: timerAnnounceEvery,
-              isExpanded: true,
-              underline: const SizedBox(),
-              iconEnabledColor: palette.primary,
-              dropdownColor: palette.accent,
-              items: timerAnnounceOptions
-                  .map(
-                    (e) => DropdownMenuItem(
-                      value: e,
-                      child: Text(
-                        "$e min",
-                        style: TextStyle(
-                          color: palette.primary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: timerSpeakOn ? onTimerAnnounceEveryChanged : null,
-            ),
-          ),
-          Row(
-            children: [
-              Checkbox(
-                value: muteSpeechAfterMidnight,
-                activeColor: palette.primary,
-                checkColor: palette.accent,
-                onChanged: onMuteSpeechAfterMidnightChanged,
-              ),
-              Expanded(
-                child: sectionLabel(
-                  'Enable sleep mode (custom range in Settings)',
-                ),
-              ),
-            ],
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: DropdownButton<String>(
-              value: nightMuteMode,
-              isExpanded: true,
-              underline: const SizedBox(),
-              iconEnabledColor: palette.primary,
-              dropdownColor: palette.accent,
-              items: const [
-                DropdownMenuItem(value: 'manual', child: Text('Manual mode')),
-                DropdownMenuItem(
-                  value: 'automatic',
-                  child: Text('Automatic mode (idle 5 min)'),
-                ),
-              ],
-              selectedItemBuilder: (context) => [
-                Text(
-                  'Manual mode',
-                  style: TextStyle(
-                    color: palette.primary,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 12,
-                  ),
-                ),
-                Text(
-                  'Automatic mode (idle 5 min)',
-                  style: TextStyle(
-                    color: palette.primary,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-              onChanged: muteSpeechAfterMidnight
-                  ? onNightMuteModeChanged
-                  : null,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Checkbox(
-                value: chainModeOn,
-                activeColor: palette.primary,
-                checkColor: palette.accent,
-                onChanged: onChainModeChanged,
-              ),
-              Expanded(child: sectionLabel('Enable chain timers')),
-            ],
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: DropdownButton<String>(
-              value: chainPresetKey,
-              isExpanded: true,
-              underline: const SizedBox(),
-              iconEnabledColor: palette.primary,
-              dropdownColor: palette.accent,
-              items: chainPresets.keys
-                  .map(
-                    (key) => DropdownMenuItem(
-                      value: key,
-                      child: Text(
-                        key,
-                        style: TextStyle(
-                          color: palette.primary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: chainModeOn ? onChainPresetChanged : null,
-            ),
-          ),
-          if (chainModeOn)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                'Chain step ${chainIndex + 1}/${chainPresets[chainPresetKey]?.length ?? 1}',
-                style: TextStyle(
-                  color: palette.primary.withAlpha(170),
-                  fontSize: 11,
-                ),
-              ),
-            ),
         ],
       ),
     );
