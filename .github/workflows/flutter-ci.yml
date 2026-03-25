@@ -1,15 +1,18 @@
-name: Flutter CI
+name: Flutter CI + Release
 
 on:
   push:
-    branches: [ master ]
-    tags: [ 'v*' ]
+    branches: [master]
+    tags: ['v*']
   pull_request:
-    branches: [ master ]
+    branches: [master]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  test-and-build:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -36,13 +39,10 @@ jobs:
       - name: Test
         run: flutter test
 
-      - name: Build debug APK
-        run: flutter build apk --debug
-
-  android-release-split-abi:
+  build-android:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    needs: test-and-build
+    needs: verify
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -62,11 +62,103 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build split-ABI release APKs
+      - name: Build split-ABI APKs
         run: flutter build apk --release --split-per-abi
 
-      - name: Upload release APK artifacts
+      - name: Upload Android release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: split-abi-apks-${{ github.ref_name }}
+          name: android-release-apks
           path: build/app/outputs/flutter-apk/*-release.apk
+
+  build-linux:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable Linux desktop
+        run: flutter config --enable-linux-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Linux release
+        run: flutter build linux --release
+
+      - name: Pack Linux bundle
+        run: |
+          cd build/linux/x64/release
+          tar -czf lifer-linux-x64-${{ github.ref_name }}.tar.gz bundle
+
+      - name: Upload Linux release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-release-bundle
+          path: build/linux/x64/release/lifer-linux-x64-${{ github.ref_name }}.tar.gz
+
+  build-windows:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    needs: verify
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows release
+        run: flutter build windows --release
+
+      - name: Pack Windows bundle
+        shell: pwsh
+        run: |
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath build/windows/x64/runner/Release/lifer-windows-x64-${{ github.ref_name }}.zip
+
+      - name: Upload Windows release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release-bundle
+          path: build/windows/x64/runner/Release/lifer-windows-x64-${{ github.ref_name }}.zip
+
+  publish-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    needs: [build-android, build-linux, build-windows]
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Publish GitHub Release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/android-release-apks/*.apk
+            dist/linux-release-bundle/*.tar.gz
+            dist/windows-release-bundle/*.zip
