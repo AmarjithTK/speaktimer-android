@@ -89,6 +89,7 @@ import 'features/motivation/services/quote_rotation_service.dart';
 import 'widgets/clock_panel.dart';
 import 'widgets/fullscreen_focus_view.dart';
 import 'widgets/timer_panel.dart';
+import 'widgets/stopwatch_panel.dart';
 import 'widgets/presets_panel.dart';
 import 'widgets/settings_panel.dart';
 import 'widgets/help_panel.dart';
@@ -214,34 +215,34 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// ============================================================================
   /// Each service is a singleton responsible for specific domain logic.
   /// Services handle persistence, calculations, and external system integration.
-  
+
   /// Manages quick actions (home screen shortcuts) for rapid timer start
   final QuickActions _quickActions = const QuickActions();
-  
+
   /// Plays ambient background sounds (rain, waterfall, fire, stream)
   /// Handles volume and audio session management
   final AudioService _audioService = AudioService();
-  
+
   /// Loads/saves AppSettings from SharedPreferences with versioned migrations
   /// Ensures data compatibility across app versions
   final SettingsService _settingsService = SettingsService();
-  
+
   /// Queues TTS (text-to-speech) and ringtone announcements
   /// Ensures speech items play sequentially (no overlaps)
   final SpeechService _speechService = SpeechService();
-  
+
   /// Handles Malayalam-specific TTS voice selection and synthesis
   /// Provides fallback to English if Malayalam unavailable
   final MalayalamTtsService _malayalamTtsService = MalayalamTtsService();
-  
+
   /// Manages timer countdown logic: starts, pauses, resumes, calculates display
   /// Handles announcement timings based on user preferences
   final TimerService _timerService = TimerService();
-  
+
   /// Cycles through motivational quotes by category
   /// Encapsulates quote rotation state and list management
   final QuoteRotationService _quoteRotationService = QuoteRotationService();
-  
+
   /// Manages Android foreground service & persistent notifications
   /// Keeps app alive during long timer sessions
   final ForegroundNotificationService _foregroundNotificationService =
@@ -254,28 +255,28 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// TTS & SPEECH STATE - Text-to-speech management
   /// ============================================================================
   /// Manages voice synthesis, queue management, and concurrent speech exclusion
-  
+
   /// Flutter TTS instance for speech synthesis
   FlutterTts flutterTts = FlutterTts();
-  
+
   /// Queue of pending speech items (announcements, quotes, affirmations)
   List<SpeechItem> speechQueue = [];
-  
+
   /// Flag to prevent concurrent speech playback (TTS can't overlap)
   bool isSpeechActive = false;
-  
+
   /// List of available TTS voices fetched from system
   List<Map<dynamic, dynamic>> voices = [];
-  
+
   /// Current voice index in the voices list
   int voiceIndex = 0;
-  
+
   /// Voice filtering mode: 'pleasant' for audio quality, others for specific locales
   String voiceListMode = 'pleasant';
-  
+
   /// User's preferred voice name (cached from settings)
   String? favoriteVoiceName;
-  
+
   /// Locale of the user's preferred voice (e.g., 'en-US', 'ml-IN')
   String? favoriteVoiceLocale;
 
@@ -286,134 +287,170 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// TIMER STATE - Timer display & countdown management
   /// ============================================================================
   /// Tracks timer value, intervals, and completion status
-  
+
   /// Slider input value (0-120 minutes) from timer UI
   int sliderValue = 25;
-  
+
   /// Current countdown seconds remaining
   int seconds = 0;
-  
+
   /// Active countdown interval timer (null when stopped)
   Timer? timerInterval;
-  
+
   /// Formatted display string (MM:SS)
   String timerValue = "00:00";
+
+  /// Timer text used by UI (supports optional centiseconds)
+  String timerDisplayValue = "00:00";
 
   /// ============================================================================
   /// CLOCK STATE - Clock display & periodic announcements
   /// ============================================================================
   /// Manages clock time display and interval-based time announcements
-  
+
   /// Periodic timer for clock time updates
   Timer? clockTimer;
-  
+
   /// Display ticker: updates UI at 250ms intervals (reduced from 30ms for performance)
   Timer? displayTick;
-  
+
   /// Current time formatted for display (HH:MM or HH:MM:SS)
   String currentTimeDisplay = "";
-  
+
   /// 30-second health check timer for foreground service recovery
   /// Detects if OS killed the service and restarts it
   Timer? foregroundHealthTimer;
-  
+
   /// Counter for idle notification ticks (used with 4:1 throttle ratio)
   int _idleNotificationTicks = 0;
-  
+
   /// Timestamp of last notification sync to prevent excessive updates
   int lastNotificationSyncMs = 0;
-  
-  /// Currently active tab index (0=Timer, 1=Clock, 2=Presets, 3=Settings, 4=Help)
+
+  /// Currently active tab index (0=SpeakClock, 1=Timer Setup, 2=Stopwatch, 3=Settings)
   int currentTabIndex = 0;
 
   /// ============================================================================
   /// ANNOUNCEMENT TIMING - 10-second gap enforcement between speech segments
   /// ============================================================================
   /// Prevents rapid repeated announcements from overlapping
-  
+
   /// Timestamp of last clock announcement (prevents <10s re-announcements)
   int lastClockSpoke = 0;
-  
+
   /// Timestamp of last timer announcement (prevents <10s re-announcements)
   int lastTimerSpoke = 0;
+
+  /// Timestamp of last stopwatch announcement (prevents <10s re-announcements)
+  int lastStopwatchSpoke = 0;
+
+  /// Stopwatch ticker interval
+  Timer? stopwatchInterval;
+
+  /// Internal high-precision stopwatch engine
+  final Stopwatch _stopwatchEngine = Stopwatch();
+
+  /// Elapsed stopwatch seconds
+  int stopwatchElapsedSeconds = 0;
+
+  /// Formatted elapsed stopwatch display (MM:SS or HH:MM:SS)
+  String stopwatchElapsedValue = '00:00';
+
+  /// Enable/disable periodic stopwatch announcements
+  bool stopwatchSpeakOn = true;
+
+  /// Show centiseconds in timer display
+  bool timerShowMilliseconds = false;
+
+  /// Show centiseconds in stopwatch display
+  bool stopwatchShowMilliseconds = false;
+
+  /// Speak stopwatch elapsed announcement every N seconds
+  int stopwatchSpeakDelaySeconds = 60;
+
+  /// Guard to avoid repeated auto-announcements within the same elapsed second
+  int _lastStopwatchAutoAnnouncedSecond = -1;
 
   /// ============================================================================
   /// PREFERENCES STATE - User-configurable settings (loaded from storage)
   /// ============================================================================
   /// All preference variables mirror keys in lib/core/pref_keys.dart
-  
+
   /// Currently selected background sound file path
   String soundChosen = "audio/rain.mp3";
-  
+
   /// Volume level for background ambient audio (0.0-1.0)
   double noiseVolume = 0.6;
-  
+
   /// Volume level for speech/TTS output (0.0-1.0)
   double speakVolume = 0.8;
-  
+
   /// Enable/disable clock announcements
   bool clockOn = false;
-  
+
   /// Clock announcement interval in minutes
   int clockIntervalMins = 30;
-  
+
+  /// Show milliseconds in speaking clock display
+  bool clockShowMilliseconds = true;
+
   /// Enable/disable motivational quote announcements
   bool motivationOn = true;
-  
+
   /// Category of quotes to use (General, Malayalam, Focus, etc.)
   String motivationCategory = 'General';
-  
+
   /// Delay between quote announcements in seconds
   int motivationDelaySeconds = 10;
-  
+
   /// Enable/disable background noise during timer
   bool timerNoiseOn = true;
-  
+
   /// Use dark theme for app UI
   bool appDarkTheme = false;
-  
+
   /// Automatically mute speech after midnight threshold
   bool muteSpeechAfterMidnight = false;
-  
+
   /// Night mute mode: 'manual' or 'auto' (with sleep window)
   String nightMuteMode = 'manual';
-  
+
   /// Start of auto-mute window in minutes since midnight (e.g., 2400 = 12 AM + 400 min)
   int sleepStartMinutes = 0;
-  
+
   /// End of auto-mute window in minutes since midnight
   int sleepEndMinutes = 360;
-  
+
   /// Flag: auto-mute is currently active in the sleep window
   bool autoNightMuteActive = false;
-  
+
   /// Timer for managing idle auto-mute countdown
   Timer? nightIdleTimer;
-  
+
   /// Timer for resuming speech after auto-mute duration expires
   Timer? nightResumeSpeechTimer;
-  
+
   /// Use dark theme in fullscreen focus mode
   bool fullscreenDarkTheme = true;
-  
+
   /// Dim screen brightness in fullscreen focus mode
   bool fullscreenDimBrightness = false;
-  
+
   /// Start fullscreen focus mode in landscape orientation
   bool fullscreenStartLandscape = false;
-  
+
   /// Enable/disable timer completion announcements
   bool timerSpeakOn = true;
-  
+
   /// Announce timer every N minutes during countdown
   int timerAnnounceEvery = 1;
-  
+
   /// Enable/disable chain mode (consecutive presets)
   bool chainModeOn = false;
-  
+
   /// Name of current preset being used in chain mode
   String chainPresetKey = 'Pomodoro 25-5x4';
-  
+
   /// Index of current preset in chain sequence
   int chainIndex = 0;
 
@@ -421,18 +458,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// PRESET CONFIGURATIONS - Predefined timer sequences & options
   /// ============================================================================
   /// These define user-selectable options for different timer modes
-  
+
   /// Named chains of timer durations (in minutes) to run consecutively
   /// Useful for Pomodoro technique: work 25min, break 5min (4 cycles), long break 15min
   final Map<String, List<int>> chainPresets = {
-    'Pomodoro 25-5x4': [25, 5, 25, 5, 25, 5, 25, 15],  // Classic Pomodoro
-    'Sprint 50-10x2': [50, 10, 50, 10],                 // Long focus + short breaks
-    'Quick 15-3x3': [15, 3, 15, 3, 15, 3],              // Fast-paced cycles
+    'Pomodoro 25-5x4': [25, 5, 25, 5, 25, 5, 25, 15], // Classic Pomodoro
+    'Sprint 50-10x2': [50, 10, 50, 10], // Long focus + short breaks
+    'Quick 15-3x3': [15, 3, 15, 3, 15, 3], // Fast-paced cycles
   };
 
   /// Sound file path for timer completion notification
   final String notifySound = "audio/notify.mp3";
-  
+
   /// Available ambient background sounds with user-friendly names
   final List<SoundOption> soundList = [
     SoundOption("audio/rain.mp3", "Rain"),
@@ -443,19 +480,32 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   /// Available volume levels (0.0-1.0) for numerical selection
   final List<double> volumeLists = [0.1, 0.2, 0.6, 0.8, 1.0];
-  
+
   /// Quick preset timer values (in minutes) for rapid timer setup
   final List<int> presetValues = [5, 10, 15, 20, 25, 30, 45, 60, 90, 120];
-  
+
   /// Available clock announcement intervals (in minutes)
   final List<int> clockIntervalOptions = [1, 2, 5, 10, 15, 20, 30, 60];
-  
+
   /// Timer announcement frequency options (announce every N minutes)
   final List<int> timerAnnounceOptions = [1, 2, 5, 10, 15, 20, 30];
-  
+
+  /// Stopwatch speech delay options (in seconds)
+  final List<int> stopwatchSpeakDelayOptions = [
+    15,
+    30,
+    45,
+    60,
+    120,
+    300,
+    600,
+    900,
+    1800,
+  ];
+
   /// Delay options between motivational quote announcements (in seconds)
   final List<int> motivationDelayOptions = [5, 10, 20, 30, 40, 60];
-  
+
   /// SharedPreferences key for last timer seconds via quick action
   static const String _lastTimerSecondsKey = 'QuickActionLastSeconds';
 
@@ -492,7 +542,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   String _formatCurrentTime(DateTime now) {
-    return _timerService.formatCurrentTime(now);
+    final withMs = _timerService.formatCurrentTime(now);
+    if (clockShowMilliseconds) {
+      return withMs;
+    }
+
+    final split = withMs.split(' ');
+    if (split.length < 2) {
+      return withMs.split('.').first;
+    }
+    final timePart = split.first.split('.').first;
+    final suffix = split.sublist(1).join(' ');
+    return '$timePart $suffix';
   }
 
   ForegroundNotificationState _foregroundState() {
@@ -502,7 +563,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     return ForegroundNotificationState(
       isTimerRunning: timerInterval != null,
-      timerValue: timerValue,
+      isStopwatchRunning: stopwatchInterval != null,
+      timerValue: timerDisplayValue,
+      stopwatchValue: stopwatchElapsedValue,
       currentTimeDisplay: idleTime,
       clockSpeechOn: clockOn,
     );
@@ -532,7 +595,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     foregroundHealthTimer?.cancel();
     foregroundHealthTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (!mounted) return;
-      if (timerInterval == null && !clockOn) return;
+      if (timerInterval == null && stopwatchInterval == null && !clockOn) {
+        return;
+      }
       unawaited(_ensureForegroundServiceRunning());
       unawaited(_syncForegroundNotification(force: true));
     });
@@ -658,11 +723,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _openFullscreenFocus() async {
-    final startInTimer = timerInterval != null || currentTabIndex == 1;
+    final initialMode = currentTabIndex == 2
+        ? FullscreenFocusMode.moduleC
+        : (timerInterval != null || currentTabIndex == 1
+              ? FullscreenFocusMode.timer
+              : FullscreenFocusMode.clock);
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => FullscreenFocusView(
-          startInTimerMode: startInTimer,
+          initialMode: initialMode,
           initialDarkTheme: fullscreenDarkTheme,
           initialDimBrightness: fullscreenDimBrightness,
           initialForceLandscape: fullscreenStartLandscape,
@@ -688,8 +757,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             });
           },
           clockTextBuilder: () => currentTimeDisplay,
-          timerTextBuilder: () => timerValue,
+          timerTextBuilder: () => timerDisplayValue,
           isTimerRunningBuilder: () => timerInterval != null,
+          stopwatchTextBuilder: () => stopwatchElapsedValue,
+          isStopwatchRunningBuilder: () => stopwatchInterval != null,
         ),
       ),
     );
@@ -737,6 +808,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           });
           _syncForegroundNotification(force: true);
           break;
+        case 'btn_stopwatch_toggle':
+          if (stopwatchInterval != null) {
+            stopStopwatch();
+          } else {
+            startStopwatch();
+          }
+          _syncForegroundNotification(force: true);
+          break;
         case 'btn_exit':
           unawaited(_exitAppFully());
           break;
@@ -762,9 +841,22 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       if (!mounted) return;
 
       final display = _formatCurrentTime(DateTime.now());
+      final timerDisplay = _formatTimerDisplayValue(seconds);
+      final stopwatchDisplay = _formatStopwatchElapsed(
+        stopwatchElapsedSeconds,
+        showMilliseconds: stopwatchShowMilliseconds,
+      );
       if (display != currentTimeDisplay) {
         setState(() {
           currentTimeDisplay = display;
+          timerDisplayValue = timerDisplay;
+          stopwatchElapsedValue = stopwatchDisplay;
+        });
+      } else if (timerDisplay != timerDisplayValue ||
+          stopwatchDisplay != stopwatchElapsedValue) {
+        setState(() {
+          timerDisplayValue = timerDisplay;
+          stopwatchElapsedValue = stopwatchDisplay;
         });
       }
 
@@ -787,12 +879,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       speakVolume = settings.speakVolume;
       clockOn = settings.clockOn;
       clockIntervalMins = settings.clockIntervalMins;
+      clockShowMilliseconds = settings.clockShowMilliseconds;
       motivationOn = settings.motivationOn;
       motivationCategory = settings.motivationCategory;
       motivationDelaySeconds = settings.motivationDelaySeconds;
       timerSpeakOn = settings.timerSpeakOn;
       timerAnnounceEvery = settings.timerAnnounceEvery;
+      timerShowMilliseconds = settings.timerShowMilliseconds;
       timerNoiseOn = settings.timerNoiseOn;
+      stopwatchShowMilliseconds = settings.stopwatchShowMilliseconds;
+      stopwatchSpeakDelaySeconds = settings.stopwatchSpeakDelaySeconds;
       appDarkTheme = settings.appDarkTheme;
       muteSpeechAfterMidnight = settings.muteSpeechAfterMidnight;
       nightMuteMode = settings.nightMuteMode;
@@ -811,11 +907,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       if (!motivationDelayOptions.contains(motivationDelaySeconds)) {
         motivationDelaySeconds = 10;
       }
+      if (!stopwatchSpeakDelayOptions.contains(stopwatchSpeakDelaySeconds)) {
+        stopwatchSpeakDelaySeconds = 60;
+      }
       if (nightMuteMode != 'manual' && nightMuteMode != 'automatic') {
         nightMuteMode = 'manual';
       }
       sleepStartMinutes = sleepStartMinutes.clamp(0, 1439);
       sleepEndMinutes = sleepEndMinutes.clamp(0, 1439);
+      timerDisplayValue = _formatTimerDisplayValue(seconds);
+      stopwatchElapsedValue = _formatStopwatchElapsed(
+        stopwatchElapsedSeconds,
+        showMilliseconds: stopwatchShowMilliseconds,
+      );
     });
 
     _applyAudioSettings();
@@ -832,12 +936,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       speakVolume: speakVolume,
       clockOn: clockOn,
       clockIntervalMins: clockIntervalMins,
+      clockShowMilliseconds: clockShowMilliseconds,
       motivationOn: motivationOn,
       motivationCategory: motivationCategory,
       motivationDelaySeconds: motivationDelaySeconds,
       timerSpeakOn: timerSpeakOn,
       timerAnnounceEvery: timerAnnounceEvery,
+      timerShowMilliseconds: timerShowMilliseconds,
       timerNoiseOn: timerNoiseOn,
+      stopwatchShowMilliseconds: stopwatchShowMilliseconds,
+      stopwatchSpeakDelaySeconds: stopwatchSpeakDelaySeconds,
       appDarkTheme: appDarkTheme,
       muteSpeechAfterMidnight: muteSpeechAfterMidnight,
       nightMuteMode: nightMuteMode,
@@ -1141,6 +1249,142 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     });
   }
 
+  int _currentTimerCentiseconds() {
+    if (!timerShowMilliseconds || timerInterval == null || seconds <= 0) {
+      return 0;
+    }
+    final ms = DateTime.now().millisecond;
+    final centiseconds = ((1000 - ms) / 10).floor().clamp(0, 99);
+    return centiseconds;
+  }
+
+  String _formatTimerDisplayValue(int totalSeconds) {
+    final mins = (totalSeconds ~/ 60).toString().padLeft(2, '0');
+    final secs = (totalSeconds % 60).toString().padLeft(2, '0');
+    if (!timerShowMilliseconds) {
+      return '$mins:$secs';
+    }
+    final centiseconds = _currentTimerCentiseconds().toString().padLeft(2, '0');
+    return '$mins:$secs.$centiseconds';
+  }
+
+  String _formatStopwatchElapsed(
+    int totalSeconds, {
+    bool showMilliseconds = false,
+  }) {
+    final elapsedMs = _stopwatchEngine.elapsedMilliseconds;
+    final totalForView = stopwatchInterval != null
+        ? (elapsedMs ~/ 1000)
+        : totalSeconds;
+    final hours = totalForView ~/ 3600;
+    final minutes = (totalForView % 3600) ~/ 60;
+    final secs = totalForView % 60;
+    if (hours > 0) {
+      final base =
+          '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+      if (!showMilliseconds) return base;
+      final centiseconds = ((elapsedMs % 1000) ~/ 10).toString().padLeft(
+        2,
+        '0',
+      );
+      return '$base.$centiseconds';
+    }
+    final base =
+        '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+    if (!showMilliseconds) return base;
+    final centiseconds = ((elapsedMs % 1000) ~/ 10).toString().padLeft(2, '0');
+    return '$base.$centiseconds';
+  }
+
+  String _stopwatchElapsedSpeechText() {
+    final hours = stopwatchElapsedSeconds ~/ 3600;
+    final minutes = (stopwatchElapsedSeconds % 3600) ~/ 60;
+    final secs = stopwatchElapsedSeconds % 60;
+
+    final parts = <String>[];
+    if (hours > 0) {
+      parts.add('$hours hour${hours == 1 ? '' : 's'}');
+    }
+    if (minutes > 0) {
+      parts.add('$minutes minute${minutes == 1 ? '' : 's'}');
+    }
+    if (secs > 0 || parts.isEmpty) {
+      parts.add('$secs second${secs == 1 ? '' : 's'}');
+    }
+
+    return 'Elapsed ${parts.join(', ')}';
+  }
+
+  void _speakStopwatchMessage(String text) {
+    if (_isSpeechMutedForSleep()) {
+      speechQueue.clear();
+      return;
+    }
+
+    const gap = 10000;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final latestOtherSpeech = max(lastClockSpoke, lastTimerSpoke);
+    final waitMs = max(0, gap - (nowMs - latestOtherSpeech));
+    Future.delayed(Duration(milliseconds: waitMs), () {
+      lastStopwatchSpoke = DateTime.now().millisecondsSinceEpoch;
+      speak(text);
+    });
+  }
+
+  void _tickStopwatch(Timer timer) {
+    setState(() {
+      stopwatchElapsedSeconds = _stopwatchEngine.elapsed.inSeconds;
+      stopwatchElapsedValue = _formatStopwatchElapsed(
+        stopwatchElapsedSeconds,
+        showMilliseconds: stopwatchShowMilliseconds,
+      );
+
+      _syncForegroundNotification(force: true);
+
+      if (stopwatchSpeakOn &&
+          stopwatchElapsedSeconds > 0 &&
+          stopwatchElapsedSeconds % stopwatchSpeakDelaySeconds == 0 &&
+          stopwatchElapsedSeconds != _lastStopwatchAutoAnnouncedSecond) {
+        _lastStopwatchAutoAnnouncedSecond = stopwatchElapsedSeconds;
+        _speakStopwatchMessage(_stopwatchElapsedSpeechText());
+      }
+    });
+  }
+
+  void startStopwatch() {
+    if (stopwatchInterval != null) return;
+    _stopwatchEngine.start();
+    setState(() {
+      stopwatchInterval = Timer.periodic(
+        const Duration(milliseconds: 50),
+        _tickStopwatch,
+      );
+    });
+  }
+
+  void stopStopwatch() {
+    _stopwatchEngine.stop();
+    stopwatchInterval?.cancel();
+    stopwatchInterval = null;
+  }
+
+  void resetStopwatch() {
+    stopStopwatch();
+    _stopwatchEngine.reset();
+    setState(() {
+      stopwatchElapsedSeconds = 0;
+      _lastStopwatchAutoAnnouncedSecond = -1;
+      stopwatchElapsedValue = _formatStopwatchElapsed(
+        0,
+        showMilliseconds: stopwatchShowMilliseconds,
+      );
+    });
+  }
+
+  void speakStopwatchElapsedNow() {
+    _speakStopwatchMessage(_stopwatchElapsedSpeechText());
+  }
+
   void tick(Timer timer) {
     setState(() {
       final tickResult = _timerService.tick(
@@ -1151,6 +1395,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
       seconds = tickResult.nextSeconds;
       timerValue = tickResult.timerValue;
+      timerDisplayValue = _formatTimerDisplayValue(seconds);
 
       _syncForegroundNotification(force: true);
 
@@ -1172,6 +1417,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             final nextMinutes = sequence[chainIndex];
             seconds = nextMinutes * 60;
             timerValue = '${nextMinutes.toString().padLeft(2, '0')}:00';
+            timerDisplayValue = _formatTimerDisplayValue(seconds);
             if (timerSpeakOn) {
               final preferredVoice = getPreferredVoice();
               final useMalayalam = _isMalayalamActive(preferredVoice);
@@ -1223,6 +1469,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         seconds = sliderValue * 60;
       }
     }
+    timerValue = _formatTimerDisplayValue(seconds).split('.').first;
+    timerDisplayValue = _formatTimerDisplayValue(seconds);
     if (timerInterval != null) return;
 
     try {
@@ -1258,6 +1506,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     setState(() {
       seconds = 0;
       timerValue = "00:00";
+      timerDisplayValue = _formatTimerDisplayValue(0);
       chainIndex = 0;
     });
   }
@@ -1280,6 +1529,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               clockOn: clockOn,
               currentTimeDisplay: currentTimeDisplay,
               clockIntervalMins: clockIntervalMins,
+              clockShowMilliseconds: clockShowMilliseconds,
               motivationOn: motivationOn,
               motivationCategory: motivationCategory,
               motivationDelaySeconds: motivationDelaySeconds,
@@ -1293,6 +1543,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   _lsSave();
                 });
                 if (clockOn) startClock();
+              },
+              onClockShowMillisecondsChanged: (val) {
+                setState(() {
+                  clockShowMilliseconds = val ?? true;
+                  currentTimeDisplay = _formatCurrentTime(DateTime.now());
+                  _lsSave();
+                });
               },
               onMotivationChanged: (val) {
                 setState(() {
@@ -1328,11 +1585,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         child: ListView(
           children: [
             TimerPanel(
-              timerValue: timerValue,
+              timerValue: timerDisplayValue,
               sliderValue: sliderValue,
               voicesCount: voices.length,
               timerNoiseOn: timerNoiseOn,
               timerSpeakOn: timerSpeakOn,
+              timerShowMilliseconds: timerShowMilliseconds,
               timerAnnounceEvery: timerAnnounceEvery,
               muteSpeechAfterMidnight: muteSpeechAfterMidnight,
               nightMuteMode: nightMuteMode,
@@ -1360,6 +1618,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               onTimerSpeakOnChanged: (val) {
                 setState(() {
                   timerSpeakOn = val!;
+                  _lsSave();
+                });
+              },
+              onTimerShowMillisecondsChanged: (val) {
+                setState(() {
+                  timerShowMilliseconds = val ?? false;
+                  timerDisplayValue = _formatTimerDisplayValue(seconds);
                   _lsSave();
                 });
               },
@@ -1421,6 +1686,55 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             PresetsPanel(
               presetValues: presetValues,
               choosePreset: choosePreset,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStopwatchTab() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: ListView(
+          children: [
+            StopwatchPanel(
+              elapsedValue: stopwatchElapsedValue,
+              isRunning: stopwatchInterval != null,
+              stopwatchSpeakOn: stopwatchSpeakOn,
+              stopwatchShowMilliseconds: stopwatchShowMilliseconds,
+              stopwatchSpeakDelaySeconds: stopwatchSpeakDelaySeconds,
+              stopwatchSpeakDelayOptions: stopwatchSpeakDelayOptions,
+              startStopwatch: startStopwatch,
+              stopStopwatch: stopStopwatch,
+              resetStopwatch: resetStopwatch,
+              openFullscreen: _openFullscreenFocus,
+              speakElapsedNow: speakStopwatchElapsedNow,
+              onStopwatchSpeakOnChanged: (val) {
+                setState(() {
+                  stopwatchSpeakOn = val ?? true;
+                  _lsSave();
+                });
+              },
+              onStopwatchShowMillisecondsChanged: (val) {
+                setState(() {
+                  stopwatchShowMilliseconds = val ?? false;
+                  stopwatchElapsedValue = _formatStopwatchElapsed(
+                    stopwatchElapsedSeconds,
+                    showMilliseconds: stopwatchShowMilliseconds,
+                  );
+                  _lsSave();
+                });
+              },
+              onStopwatchSpeakDelayChanged: (val) {
+                if (val == null) return;
+                setState(() {
+                  stopwatchSpeakDelaySeconds = val;
+                  _lastStopwatchAutoAnnouncedSecond = -1;
+                  _lsSave();
+                });
+              },
             ),
           ],
         ),
@@ -1616,6 +1930,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     nightResumeSpeechTimer?.cancel();
     stopClock();
     stopTimer();
+    stopStopwatch();
     displayTick?.cancel();
     unawaited(_audioService.dispose());
     // Remove callback to avoid memory leaks
@@ -1662,9 +1977,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           ? _buildSpeakClockTab()
           : (currentTabIndex == 1
                 ? _buildTimerSetupTab()
-                : _buildSettingsTab()),
+                : (currentTabIndex == 2
+                      ? _buildStopwatchTab()
+                      : _buildSettingsTab())),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentTabIndex,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: palette.bg,
+        selectedItemColor: palette.primary,
+        unselectedItemColor: palette.primary.withAlpha(150),
+        showUnselectedLabels: true,
+        elevation: 8,
         onTap: (index) {
           setState(() {
             currentTabIndex = index;
@@ -1680,6 +2003,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             icon: Icon(Icons.tune_outlined),
             activeIcon: Icon(Icons.tune),
             label: 'Timer Setup',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.av_timer_outlined),
+            activeIcon: Icon(Icons.av_timer),
+            label: 'Stopwatch',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings_outlined),

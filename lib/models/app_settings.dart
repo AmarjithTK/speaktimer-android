@@ -4,12 +4,16 @@ class AppSettings {
   final double speakVolume;
   final bool clockOn;
   final int clockIntervalMins;
+  final bool clockShowMilliseconds;
   final bool motivationOn;
   final String motivationCategory;
   final int motivationDelaySeconds;
   final bool timerSpeakOn;
   final int timerAnnounceEvery;
+  final bool timerShowMilliseconds;
   final bool timerNoiseOn;
+  final bool stopwatchShowMilliseconds;
+  final int stopwatchSpeakDelaySeconds;
   final bool muteSpeechAfterMidnight;
   final String nightMuteMode;
   final int sleepStartMinutes;
@@ -28,12 +32,16 @@ class AppSettings {
     required this.speakVolume,
     required this.clockOn,
     required this.clockIntervalMins,
+    required this.clockShowMilliseconds,
     required this.motivationOn,
     required this.motivationCategory,
     required this.motivationDelaySeconds,
     required this.timerSpeakOn,
     required this.timerAnnounceEvery,
+    required this.timerShowMilliseconds,
     required this.timerNoiseOn,
+    required this.stopwatchShowMilliseconds,
+    required this.stopwatchSpeakDelaySeconds,
     required this.muteSpeechAfterMidnight,
     required this.nightMuteMode,
     required this.sleepStartMinutes,

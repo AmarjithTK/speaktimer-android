@@ -46,6 +46,8 @@ class SettingsService {
       speakVolume: prefs.getDouble(PrefKeys.speakVolume) ?? 0.8,
       clockOn: prefs.getBool(PrefKeys.clockOn) ?? false,
       clockIntervalMins: prefs.getInt(PrefKeys.clockIntervalMins) ?? 30,
+      clockShowMilliseconds:
+          prefs.getBool(PrefKeys.clockShowMilliseconds) ?? true,
       motivationOn: prefs.getBool(PrefKeys.motivationOn) ?? true,
       motivationCategory:
           prefs.getString(PrefKeys.motivationCategory) ?? 'General',
@@ -53,7 +55,13 @@ class SettingsService {
           prefs.getInt(PrefKeys.motivationDelaySeconds) ?? 10,
       timerSpeakOn: prefs.getBool(PrefKeys.timerSpeakOn) ?? true,
       timerAnnounceEvery: prefs.getInt(PrefKeys.timerAnnounceEvery) ?? 1,
+      timerShowMilliseconds:
+          prefs.getBool(PrefKeys.timerShowMilliseconds) ?? false,
       timerNoiseOn: prefs.getBool(PrefKeys.timerNoiseOn) ?? true,
+      stopwatchShowMilliseconds:
+          prefs.getBool(PrefKeys.stopwatchShowMilliseconds) ?? false,
+      stopwatchSpeakDelaySeconds:
+          prefs.getInt(PrefKeys.stopwatchSpeakDelaySeconds) ?? 60,
       muteSpeechAfterMidnight:
           prefs.getBool(PrefKeys.muteSpeechAfterMidnight) ?? false,
       nightMuteMode: prefs.getString(PrefKeys.nightMuteMode) ?? 'manual',
@@ -79,6 +87,10 @@ class SettingsService {
     await prefs.setDouble(PrefKeys.speakVolume, settings.speakVolume);
     await prefs.setBool(PrefKeys.clockOn, settings.clockOn);
     await prefs.setInt(PrefKeys.clockIntervalMins, settings.clockIntervalMins);
+    await prefs.setBool(
+      PrefKeys.clockShowMilliseconds,
+      settings.clockShowMilliseconds,
+    );
     await prefs.setBool(PrefKeys.motivationOn, settings.motivationOn);
     await prefs.setString(
       PrefKeys.motivationCategory,
@@ -93,7 +105,19 @@ class SettingsService {
       PrefKeys.timerAnnounceEvery,
       settings.timerAnnounceEvery,
     );
+    await prefs.setBool(
+      PrefKeys.timerShowMilliseconds,
+      settings.timerShowMilliseconds,
+    );
     await prefs.setBool(PrefKeys.timerNoiseOn, settings.timerNoiseOn);
+    await prefs.setBool(
+      PrefKeys.stopwatchShowMilliseconds,
+      settings.stopwatchShowMilliseconds,
+    );
+    await prefs.setInt(
+      PrefKeys.stopwatchSpeakDelaySeconds,
+      settings.stopwatchSpeakDelaySeconds,
+    );
     await prefs.setBool(
       PrefKeys.muteSpeechAfterMidnight,
       settings.muteSpeechAfterMidnight,

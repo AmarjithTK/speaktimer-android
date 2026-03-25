@@ -5,11 +5,15 @@ import 'package:flutter/services.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+enum FullscreenFocusMode { clock, timer, moduleC }
+
 class FullscreenFocusView extends StatefulWidget {
   final String Function() clockTextBuilder;
   final String Function() timerTextBuilder;
+  final String Function() stopwatchTextBuilder;
   final bool Function() isTimerRunningBuilder;
-  final bool startInTimerMode;
+  final bool Function() isStopwatchRunningBuilder;
+  final FullscreenFocusMode initialMode;
   final bool initialDarkTheme;
   final bool initialDimBrightness;
   final bool initialForceLandscape;
@@ -21,8 +25,10 @@ class FullscreenFocusView extends StatefulWidget {
     super.key,
     required this.clockTextBuilder,
     required this.timerTextBuilder,
+    required this.stopwatchTextBuilder,
     required this.isTimerRunningBuilder,
-    required this.startInTimerMode,
+    required this.isStopwatchRunningBuilder,
+    required this.initialMode,
     required this.initialDarkTheme,
     required this.initialDimBrightness,
     required this.initialForceLandscape,
@@ -42,16 +48,18 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   bool _alwaysOn = true;
   bool _forceLandscape = false;
   bool _dimBrightness = false;
-  bool _showTimer = false;
+  FullscreenFocusMode _mode = FullscreenFocusMode.clock;
   bool _showControls = true;
   String _clockText = '';
   String _timerText = '00:00';
+  String _stopwatchText = '00:00';
   bool _timerRunning = false;
+  bool _stopwatchRunning = false;
 
   @override
   void initState() {
     super.initState();
-    _showTimer = widget.startInTimerMode;
+    _mode = widget.initialMode;
     _darkTheme = widget.initialDarkTheme;
     _dimBrightness = widget.initialDimBrightness;
     _forceLandscape = widget.initialForceLandscape;
@@ -122,7 +130,9 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
     setState(() {
       _clockText = widget.clockTextBuilder();
       _timerText = widget.timerTextBuilder();
+      _stopwatchText = widget.stopwatchTextBuilder();
       _timerRunning = widget.isTimerRunningBuilder();
+      _stopwatchRunning = widget.isStopwatchRunningBuilder();
     });
   }
 
@@ -134,21 +144,34 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
     return (value, null);
   }
 
-  (String, String) _splitTimer(String value) {
-    final parts = value.split(':');
+  (String, String, String?) _splitTimer(String value) {
+    final dotParts = value.split('.');
+    final base = dotParts.first;
+    final millis = dotParts.length > 1 ? dotParts[1] : null;
+    final parts = base.split(':');
     if (parts.length == 2) {
-      return (parts[0], parts[1]);
+      return (parts[0], parts[1], millis);
     }
-    return ('00', '00');
+    if (parts.length == 3) {
+      return ('${parts[0]}:${parts[1]}', parts[2], millis);
+    }
+    return ('00', '00', null);
   }
 
-  Widget _buildTimerDisplay(Color fg, {required bool immersive}) {
-    final timerParts = _splitTimer(_timerText);
+  Widget _buildTimerLikeDisplay(
+    Color fg, {
+    required bool immersive,
+    required String label,
+    required String value,
+  }) {
+    final timerParts = _splitTimer(value);
     final mins = timerParts.$1;
     final secs = timerParts.$2;
+    final millis = timerParts.$3;
     final labelSize = immersive ? 16.0 : 13.0;
     final valueSize = immersive ? 140.0 : 112.0;
     final separatorSize = immersive ? 112.0 : 88.0;
+    final millisSize = immersive ? 36.0 : 28.0;
     return LayoutBuilder(
       builder: (_, constraints) {
         final maxHeight = constraints.maxHeight;
@@ -158,7 +181,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
           children: [
             if (showLabel) ...[
               Text(
-                'REMAINING',
+                label,
                 style: TextStyle(
                   color: fg.withAlpha(165),
                   fontSize: labelSize,
@@ -207,6 +230,16 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                             height: 1,
                           ),
                         ),
+                        if (millis != null)
+                          TextSpan(
+                            text: '.$millis',
+                            style: TextStyle(
+                              fontSize: millisSize,
+                              fontWeight: FontWeight.w700,
+                              color: fg.withAlpha(190),
+                              height: 1,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -277,7 +310,9 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                               color: fg.withAlpha(190),
                               fontSize: millisSize,
                               fontWeight: FontWeight.w700,
-                              fontFeatures: const [FontFeature.tabularFigures()],
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
                             ),
                           ),
                         ),
@@ -309,8 +344,12 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   Widget build(BuildContext context) {
     final bg = _darkTheme ? Colors.black : Colors.white;
     final fg = _darkTheme ? Colors.white : Colors.black;
-    final cardBg = _darkTheme ? Colors.white.withAlpha(20) : Colors.black.withAlpha(20);
-    final cardBorder = _darkTheme ? Colors.white.withAlpha(45) : Colors.black.withAlpha(45);
+    final cardBg = _darkTheme
+        ? Colors.white.withAlpha(20)
+        : Colors.black.withAlpha(20);
+    final cardBorder = _darkTheme
+        ? Colors.white.withAlpha(45)
+        : Colors.black.withAlpha(45);
 
     return Scaffold(
       backgroundColor: bg,
@@ -333,15 +372,30 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                     ),
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 16,
+                      ),
                       decoration: BoxDecoration(
                         color: cardBg,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: cardBorder, width: 1.6),
                       ),
-                      child: _showTimer
-                          ? _buildTimerDisplay(fg, immersive: !_showControls)
-                          : _buildClockDisplay(fg, immersive: !_showControls),
+                      child: _mode == FullscreenFocusMode.clock
+                          ? _buildClockDisplay(fg, immersive: !_showControls)
+                          : (_mode == FullscreenFocusMode.timer
+                                ? _buildTimerLikeDisplay(
+                                    fg,
+                                    immersive: !_showControls,
+                                    label: 'REMAINING',
+                                    value: _timerText,
+                                  )
+                                : _buildTimerLikeDisplay(
+                                    fg,
+                                    immersive: !_showControls,
+                                    label: 'ELAPSED',
+                                    value: _stopwatchText,
+                                  )),
                     ),
                   ),
                 ),
@@ -355,7 +409,10 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                   child: Column(
                     children: [
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         child: Row(
                           children: [
                             IconButton(
@@ -368,7 +425,10 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                             const Spacer(),
                             Row(
                               children: [
-                                Text('Always On', style: TextStyle(color: fg, fontSize: 12)),
+                                Text(
+                                  'Always On',
+                                  style: TextStyle(color: fg, fontSize: 12),
+                                ),
                                 Switch(
                                   value: _alwaysOn,
                                   onChanged: (val) async {
@@ -390,33 +450,52 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                                 setState(() => _darkTheme = !_darkTheme);
                                 widget.onThemeChanged?.call(_darkTheme);
                               },
-                              icon: Icon(_darkTheme ? Icons.light_mode : Icons.dark_mode, color: fg),
-                            ),
-                            const SizedBox(width: 4),
-                            IconButton(
-                              tooltip: _dimBrightness ? 'Disable Dim' : 'Dim Brightness',
-                              onPressed: () async {
-                                _onControlInteraction();
-                                setState(() => _dimBrightness = !_dimBrightness);
-                                widget.onDimBrightnessChanged?.call(_dimBrightness);
-                                await _applyBrightness();
-                              },
                               icon: Icon(
-                                _dimBrightness ? Icons.brightness_2 : Icons.brightness_6,
+                                _darkTheme ? Icons.light_mode : Icons.dark_mode,
                                 color: fg,
                               ),
                             ),
                             const SizedBox(width: 4),
                             IconButton(
-                              tooltip: _forceLandscape ? 'Unlock Rotation' : 'Rotate Horizontal',
+                              tooltip: _dimBrightness
+                                  ? 'Disable Dim'
+                                  : 'Dim Brightness',
                               onPressed: () async {
                                 _onControlInteraction();
-                                setState(() => _forceLandscape = !_forceLandscape);
-                                widget.onForceLandscapeChanged?.call(_forceLandscape);
+                                setState(
+                                  () => _dimBrightness = !_dimBrightness,
+                                );
+                                widget.onDimBrightnessChanged?.call(
+                                  _dimBrightness,
+                                );
+                                await _applyBrightness();
+                              },
+                              icon: Icon(
+                                _dimBrightness
+                                    ? Icons.brightness_2
+                                    : Icons.brightness_6,
+                                color: fg,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              tooltip: _forceLandscape
+                                  ? 'Unlock Rotation'
+                                  : 'Rotate Horizontal',
+                              onPressed: () async {
+                                _onControlInteraction();
+                                setState(
+                                  () => _forceLandscape = !_forceLandscape,
+                                );
+                                widget.onForceLandscapeChanged?.call(
+                                  _forceLandscape,
+                                );
                                 await _applyOrientation();
                               },
                               icon: Icon(
-                                _forceLandscape ? Icons.stay_current_landscape : Icons.screen_rotation_alt,
+                                _forceLandscape
+                                    ? Icons.stay_current_landscape
+                                    : Icons.screen_rotation_alt,
                                 color: fg,
                               ),
                             ),
@@ -431,12 +510,17 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                               child: OutlinedButton(
                                 onPressed: () {
                                   _onControlInteraction();
-                                  setState(() => _showTimer = false);
+                                  setState(
+                                    () => _mode = FullscreenFocusMode.clock,
+                                  );
                                 },
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: fg,
                                   side: BorderSide(color: fg),
-                                  backgroundColor: !_showTimer ? fg.withAlpha(35) : Colors.transparent,
+                                  backgroundColor:
+                                      _mode == FullscreenFocusMode.clock
+                                      ? fg.withAlpha(35)
+                                      : Colors.transparent,
                                 ),
                                 child: const Text('SpeakClock'),
                               ),
@@ -446,14 +530,39 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                               child: OutlinedButton(
                                 onPressed: () {
                                   _onControlInteraction();
-                                  setState(() => _showTimer = true);
+                                  setState(
+                                    () => _mode = FullscreenFocusMode.timer,
+                                  );
                                 },
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: fg,
                                   side: BorderSide(color: fg),
-                                  backgroundColor: _showTimer ? fg.withAlpha(35) : Colors.transparent,
+                                  backgroundColor:
+                                      _mode == FullscreenFocusMode.timer
+                                      ? fg.withAlpha(35)
+                                      : Colors.transparent,
                                 ),
                                 child: const Text('Timer'),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () {
+                                  _onControlInteraction();
+                                  setState(
+                                    () => _mode = FullscreenFocusMode.moduleC,
+                                  );
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: fg,
+                                  side: BorderSide(color: fg),
+                                  backgroundColor:
+                                      _mode == FullscreenFocusMode.moduleC
+                                      ? fg.withAlpha(35)
+                                      : Colors.transparent,
+                                ),
+                                child: const Text('Stopwatch'),
                               ),
                             ),
                           ],
@@ -463,10 +572,19 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Text(
-                          _showTimer
-                              ? (_timerRunning ? 'Timer Running' : 'Timer Idle')
-                              : 'Speaking Clock',
-                          style: TextStyle(color: fg.withAlpha(180), fontSize: 16),
+                          _mode == FullscreenFocusMode.clock
+                              ? 'Speaking Clock'
+                              : (_mode == FullscreenFocusMode.timer
+                                    ? (_timerRunning
+                                          ? 'Timer Running'
+                                          : 'Timer Idle')
+                                    : (_stopwatchRunning
+                                          ? 'Stopwatch Running'
+                                          : 'Stopwatch Paused')),
+                          style: TextStyle(
+                            color: fg.withAlpha(180),
+                            fontSize: 16,
+                          ),
                         ),
                       ),
                     ],

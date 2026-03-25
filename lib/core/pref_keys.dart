@@ -5,12 +5,16 @@ class PrefKeys {
   static const speakVolume = 'SpeakVolume';
   static const clockOn = 'ClockOn';
   static const clockIntervalMins = 'ClockIntervalMins';
+  static const clockShowMilliseconds = 'ClockShowMilliseconds';
   static const motivationOn = 'MotivationOn';
   static const motivationCategory = 'MotivationCategory';
   static const motivationDelaySeconds = 'MotivationDelaySeconds';
   static const timerSpeakOn = 'TimerSpeakOn';
   static const timerAnnounceEvery = 'TimerAnnounceEvery';
+  static const timerShowMilliseconds = 'TimerShowMilliseconds';
   static const timerNoiseOn = 'TimerNoiseOn';
+  static const stopwatchShowMilliseconds = 'StopwatchShowMilliseconds';
+  static const stopwatchSpeakDelaySeconds = 'StopwatchSpeakDelaySeconds';
   static const muteSpeechAfterMidnight = 'MuteSpeechAfterMidnight';
   static const nightMuteMode = 'NightMuteMode';
   static const sleepStartMinutes = 'SleepStartMinutes';

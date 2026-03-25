@@ -8,6 +8,7 @@ class TimerPanel extends StatelessWidget {
   final int voicesCount;
   final bool timerNoiseOn;
   final bool timerSpeakOn;
+  final bool timerShowMilliseconds;
   final int timerAnnounceEvery;
   final bool muteSpeechAfterMidnight;
   final String nightMuteMode;
@@ -22,6 +23,7 @@ class TimerPanel extends StatelessWidget {
   final ValueChanged<double> onSliderChanged;
   final ValueChanged<bool?> onTimerNoiseOnChanged;
   final ValueChanged<bool?> onTimerSpeakOnChanged;
+  final ValueChanged<bool?> onTimerShowMillisecondsChanged;
   final ValueChanged<int?> onTimerAnnounceEveryChanged;
   final ValueChanged<bool?> onMuteSpeechAfterMidnightChanged;
   final ValueChanged<String?> onNightMuteModeChanged;
@@ -35,6 +37,7 @@ class TimerPanel extends StatelessWidget {
     required this.voicesCount,
     required this.timerNoiseOn,
     required this.timerSpeakOn,
+    required this.timerShowMilliseconds,
     required this.timerAnnounceEvery,
     required this.muteSpeechAfterMidnight,
     required this.nightMuteMode,
@@ -49,6 +52,7 @@ class TimerPanel extends StatelessWidget {
     required this.onSliderChanged,
     required this.onTimerNoiseOnChanged,
     required this.onTimerSpeakOnChanged,
+    required this.onTimerShowMillisecondsChanged,
     required this.onTimerAnnounceEveryChanged,
     required this.onMuteSpeechAfterMidnightChanged,
     required this.onNightMuteModeChanged,
@@ -56,12 +60,15 @@ class TimerPanel extends StatelessWidget {
     required this.onChainPresetChanged,
   });
 
-  (String, String) _splitTimer(String value) {
-    final parts = value.split(':');
+  (String, String, String?) _splitTimer(String value) {
+    final dotParts = value.split('.');
+    final base = dotParts.first;
+    final millis = dotParts.length > 1 ? dotParts[1] : null;
+    final parts = base.split(':');
     if (parts.length == 2) {
-      return (parts[0], parts[1]);
+      return (parts[0], parts[1], millis);
     }
-    return ('00', '00');
+    return ('00', '00', null);
   }
 
   @override
@@ -77,6 +84,7 @@ class TimerPanel extends StatelessWidget {
               final timerParts = _splitTimer(timerValue);
               final minutes = timerParts.$1;
               final seconds = timerParts.$2;
+              final millis = timerParts.$3;
 
               return Container(
                 width: double.infinity,
@@ -137,6 +145,15 @@ class TimerPanel extends StatelessWidget {
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
+                              if (millis != null)
+                                TextSpan(
+                                  text: '.$millis',
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w700,
+                                    color: palette.primary.withAlpha(170),
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -213,6 +230,17 @@ class TimerPanel extends StatelessWidget {
                 onChanged: onTimerSpeakOnChanged,
               ),
               Expanded(child: sectionLabel("Speak remaining — every")),
+            ],
+          ),
+          Row(
+            children: [
+              Checkbox(
+                value: timerShowMilliseconds,
+                activeColor: palette.primary,
+                checkColor: palette.accent,
+                onChanged: onTimerShowMillisecondsChanged,
+              ),
+              Expanded(child: sectionLabel('Show milliseconds in timer')),
             ],
           ),
           Container(

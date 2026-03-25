@@ -6,6 +6,7 @@ class ClockPanel extends StatelessWidget {
   final bool clockOn;
   final String currentTimeDisplay;
   final int clockIntervalMins;
+  final bool clockShowMilliseconds;
   final bool motivationOn;
   final String motivationCategory;
   final int motivationDelaySeconds;
@@ -14,6 +15,7 @@ class ClockPanel extends StatelessWidget {
   final List<int> motivationDelayOptions;
   final VoidCallback toggleClock;
   final ValueChanged<int?> onIntervalChanged;
+  final ValueChanged<bool?> onClockShowMillisecondsChanged;
   final ValueChanged<bool?> onMotivationChanged;
   final ValueChanged<String?> onMotivationCategoryChanged;
   final ValueChanged<int?> onMotivationDelayChanged;
@@ -23,6 +25,7 @@ class ClockPanel extends StatelessWidget {
     required this.clockOn,
     required this.currentTimeDisplay,
     required this.clockIntervalMins,
+    required this.clockShowMilliseconds,
     required this.motivationOn,
     required this.motivationCategory,
     required this.motivationDelaySeconds,
@@ -31,6 +34,7 @@ class ClockPanel extends StatelessWidget {
     required this.motivationDelayOptions,
     required this.toggleClock,
     required this.onIntervalChanged,
+    required this.onClockShowMillisecondsChanged,
     required this.onMotivationChanged,
     required this.onMotivationCategoryChanged,
     required this.onMotivationDelayChanged,
@@ -162,6 +166,20 @@ class ClockPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
+          Row(
+            children: [
+              Checkbox(
+                value: clockShowMilliseconds,
+                activeColor: palette.primary,
+                checkColor: palette.accent,
+                onChanged: onClockShowMillisecondsChanged,
+              ),
+              Expanded(
+                child: sectionLabel('Show milliseconds in Speaking Clock'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
           Row(
             children: [
               Checkbox(
