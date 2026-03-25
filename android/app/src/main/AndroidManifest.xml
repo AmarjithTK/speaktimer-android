@@ -47,6 +47,32 @@
             </intent-filter>
         </activity>
 
+        <!-- Home Screen Widget: Timer Presets -->
+        <receiver
+            android:name=".TimerPresetsWidget"
+            android:exported="true"
+            android:label="Lifer Timer Presets">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/timer_presets_widget_info" />
+        </receiver>
+
+        <!-- Home Screen Widget: Speech Controls -->
+        <receiver
+            android:name=".SpeechControlsWidget"
+            android:exported="true"
+            android:label="Lifer Speech Controls">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/speech_controls_widget_info" />
+        </receiver>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

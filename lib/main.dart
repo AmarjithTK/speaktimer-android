@@ -66,6 +66,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart'
+    show SharedPreferences;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
@@ -218,6 +220,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   /// Manages quick actions (home screen shortcuts) for rapid timer start
   final QuickActions _quickActions = const QuickActions();
+
+  /// MethodChannel for receiving widget button actions from native Android
+  static const MethodChannel _widgetChannel = MethodChannel(
+    'com.example.speakertimer/widget',
+  );
 
   /// Plays ambient background sounds (rain, waterfall, fire, stream)
   /// Handles volume and audio session management
@@ -782,6 +789,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           isTimerRunningBuilder: () => timerInterval != null,
           stopwatchTextBuilder: () => stopwatchElapsedValue,
           isStopwatchRunningBuilder: () => stopwatchInterval != null,
+          onTimerStart: startTimer,
+          onTimerStop: stopTimer,
+          onTimerReset: resetTimer,
+          onStopwatchStart: startStopwatch,
+          onStopwatchStop: stopStopwatch,
+          onStopwatchReset: resetStopwatch,
         ),
       ),
     );
@@ -855,6 +868,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _initTts();
     _initializeForegroundNotification();
     _initQuickActions();
+    _initWidgetChannel();
     // Add callback to handle notification button presses
     FlutterForegroundTask.addTaskDataCallback(_onReceiveTaskData);
 
@@ -963,6 +977,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _applyAudioSettings();
     setAppThemeMode(appDarkTheme);
     _restartGoalReminderTimer();
+    unawaited(_writeWidgetState());
     if (clockOn) {
       Future.delayed(const Duration(milliseconds: 200), startClock);
     }
@@ -1005,6 +1020,100 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   void _lsSave() {
     unawaited(_settingsService.save(_currentSettingsSnapshot()));
+    unawaited(_writeWidgetState());
+  }
+
+  /// Writes current toggle states + timer display to Android SharedPreferences
+  /// so home screen widgets can display correct on/off labels without the app open.
+  Future<void> _writeWidgetState() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('widget_clock_on', clockOn);
+      await prefs.setBool('widget_timer_speak', timerSpeakOn);
+      await prefs.setBool('widget_stopwatch_speak', stopwatchSpeakOn);
+      await prefs.setBool('widget_goals_on', goalReminderOn);
+      await prefs.setString('widget_timer_display', timerDisplayValue);
+      // Ask native to refresh widget UI
+      await _widgetChannel.invokeMethod('refreshWidgets');
+    } catch (_) {}
+  }
+
+  /// Sets up the MethodChannel listener for widget button actions sent from MainActivity.
+  void _initWidgetChannel() {
+    _widgetChannel.setMethodCallHandler((call) async {
+      if (call.method == 'widgetAction') {
+        final action = call.arguments as String?;
+        if (action != null) unawaited(_handleWidgetAction(action));
+      }
+    });
+  }
+
+  /// Handles actions arriving from home screen widget button taps.
+  Future<void> _handleWidgetAction(String type) async {
+    if (!mounted) return;
+    // Map preset durations
+    const presetMap = {
+      'start_5m': 5,
+      'start_10m': 10,
+      'start_15m': 15,
+      'start_20m': 20,
+      'start_25m': 25,
+      'start_30m': 30,
+      'start_45m': 45,
+      'start_60m': 60,
+      'start_90m': 90,
+      'start_120m': 120,
+    };
+
+    if (presetMap.containsKey(type)) {
+      final mins = presetMap[type]!;
+      setState(() {
+        currentTabIndex = 1;
+        chainModeOn = false;
+        seconds = mins * 60;
+        final m = mins.toString().padLeft(2, '0');
+        timerValue = '$m:00';
+      });
+      startTimer();
+      return;
+    }
+
+    switch (type) {
+      case 'resume_last':
+        await _handleQuickAction('resume_last');
+        break;
+      case 'toggle_clock_speech':
+        setState(() {
+          clockOn = !clockOn;
+          _lsSave();
+          if (clockOn)
+            startClock();
+          else
+            stopClock();
+        });
+        unawaited(_syncForegroundNotification(force: true));
+        break;
+      case 'toggle_timer_speech':
+        setState(() {
+          timerSpeakOn = !timerSpeakOn;
+          _lsSave();
+        });
+        break;
+      case 'toggle_stopwatch_speech':
+        setState(() {
+          stopwatchSpeakOn = !stopwatchSpeakOn;
+          _lsSave();
+        });
+        break;
+      case 'toggle_goals_speech':
+        setState(() {
+          goalReminderOn = !goalReminderOn;
+          _lsSave();
+          _restartGoalReminderTimer();
+        });
+        break;
+    }
   }
 
   void _initAudio() {
@@ -1751,6 +1860,49 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               clockOn: clockOn,
               currentTimeDisplay: currentTimeDisplay,
               toggleClock: toggleClock,
+              clockIntervalMins: clockIntervalMins,
+              clockShowMilliseconds: clockShowMilliseconds,
+              motivationOn: motivationOn,
+              motivationCategory: motivationCategory,
+              motivationDelaySeconds: motivationDelaySeconds,
+              clockIntervalOptions: clockIntervalOptions,
+              motivationCategories: motivationCategories,
+              motivationDelayOptions: motivationDelayOptions,
+              onClockIntervalChanged: (val) {
+                if (val == null) return;
+                setState(() {
+                  clockIntervalMins = val;
+                  _lsSave();
+                });
+                if (clockOn) startClock();
+              },
+              onClockShowMillisecondsChanged: (val) {
+                setState(() {
+                  clockShowMilliseconds = val ?? true;
+                  currentTimeDisplay = _formatCurrentTime(DateTime.now());
+                  _lsSave();
+                });
+              },
+              onMotivationChanged: (val) {
+                setState(() {
+                  motivationOn = val ?? true;
+                  _lsSave();
+                });
+              },
+              onMotivationCategoryChanged: (val) {
+                if (val == null) return;
+                setState(() {
+                  motivationCategory = val;
+                  _lsSave();
+                });
+              },
+              onMotivationDelayChanged: (val) {
+                if (val == null) return;
+                setState(() {
+                  motivationDelaySeconds = val;
+                  _lsSave();
+                });
+              },
             ),
           ],
         ),
@@ -1781,6 +1933,58 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   sliderValue = val.toInt();
                 });
               },
+              timerNoiseOn: timerNoiseOn,
+              timerSpeakOn: timerSpeakOn,
+              timerShowMilliseconds: timerShowMilliseconds,
+              timerAnnounceEvery: timerAnnounceEvery,
+              chainModeOn: chainModeOn,
+              chainPresetKey: chainPresetKey,
+              chainPresets: chainPresets,
+              chainIndex: chainIndex,
+              timerAnnounceOptions: timerAnnounceOptions,
+              onTimerNoiseOnChanged: (val) {
+                setState(() {
+                  timerNoiseOn = val ?? true;
+                  audioPlaying = timerInterval != null && timerNoiseOn;
+                  _lsSave();
+                });
+                _applyAudioSettings();
+              },
+              onTimerSpeakOnChanged: (val) {
+                setState(() {
+                  timerSpeakOn = val ?? true;
+                  _lsSave();
+                });
+              },
+              onTimerShowMillisecondsChanged: (val) {
+                setState(() {
+                  timerShowMilliseconds = val ?? false;
+                  timerDisplayValue = _formatTimerDisplayValue(seconds);
+                  _lsSave();
+                });
+              },
+              onTimerAnnounceEveryChanged: (val) {
+                if (val == null) return;
+                setState(() {
+                  timerAnnounceEvery = val;
+                  _lsSave();
+                });
+              },
+              onChainModeChanged: (val) {
+                setState(() {
+                  chainModeOn = val ?? false;
+                  chainIndex = 0;
+                  _lsSave();
+                });
+              },
+              onChainPresetChanged: (val) {
+                if (val == null) return;
+                setState(() {
+                  chainPresetKey = val;
+                  chainIndex = 0;
+                  _lsSave();
+                });
+              },
             ),
           ],
         ),
@@ -1800,6 +2004,34 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               startStopwatch: startStopwatch,
               stopStopwatch: stopStopwatch,
               resetStopwatch: resetStopwatch,
+              stopwatchSpeakOn: stopwatchSpeakOn,
+              stopwatchShowMilliseconds: stopwatchShowMilliseconds,
+              stopwatchSpeakDelaySeconds: stopwatchSpeakDelaySeconds,
+              stopwatchSpeakDelayOptions: stopwatchSpeakDelayOptions,
+              onStopwatchSpeakOnChanged: (val) {
+                setState(() {
+                  stopwatchSpeakOn = val ?? true;
+                  _lsSave();
+                });
+              },
+              onStopwatchShowMillisecondsChanged: (val) {
+                setState(() {
+                  stopwatchShowMilliseconds = val ?? false;
+                  stopwatchElapsedValue = _formatStopwatchElapsed(
+                    stopwatchElapsedSeconds,
+                    showMilliseconds: stopwatchShowMilliseconds,
+                  );
+                  _lsSave();
+                });
+              },
+              onStopwatchSpeakDelayChanged: (val) {
+                if (val == null) return;
+                setState(() {
+                  stopwatchSpeakDelaySeconds = val;
+                  _lastStopwatchAutoAnnouncedSecond = -1;
+                  _lsSave();
+                });
+              },
             ),
           ],
         ),
@@ -1825,27 +2057,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               appDarkTheme: appDarkTheme,
               muteSpeechAfterMidnight: muteSpeechAfterMidnight,
               nightMuteMode: nightMuteMode,
-              clockIntervalMins: clockIntervalMins,
-              clockShowMilliseconds: clockShowMilliseconds,
-              motivationOn: motivationOn,
-              motivationCategory: motivationCategory,
-              motivationDelaySeconds: motivationDelaySeconds,
-              clockIntervalOptions: clockIntervalOptions,
-              motivationCategories: motivationCategories,
-              motivationDelayOptions: motivationDelayOptions,
-              timerNoiseOn: timerNoiseOn,
-              timerSpeakOn: timerSpeakOn,
-              timerShowMilliseconds: timerShowMilliseconds,
-              timerAnnounceEvery: timerAnnounceEvery,
-              timerAnnounceOptions: timerAnnounceOptions,
-              chainModeOn: chainModeOn,
-              chainPresetKey: chainPresetKey,
-              chainPresets: chainPresets,
-              chainIndex: chainIndex,
-              stopwatchSpeakOn: stopwatchSpeakOn,
-              stopwatchShowMilliseconds: stopwatchShowMilliseconds,
-              stopwatchSpeakDelaySeconds: stopwatchSpeakDelaySeconds,
-              stopwatchSpeakDelayOptions: stopwatchSpeakDelayOptions,
               goalReminderOn: goalReminderOn,
               goalReminderIntervalMins: goalReminderIntervalMins,
               goalReminderIntervalOptions: goalReminderIntervalOptions,
@@ -1937,108 +2148,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   if (_isSpeechMutedForSleep()) {
                     speechQueue.clear();
                   }
-                  _lsSave();
-                });
-              },
-              onClockIntervalChanged: (val) {
-                if (val == null) return;
-                setState(() {
-                  clockIntervalMins = val;
-                  _lsSave();
-                });
-                if (clockOn) startClock();
-              },
-              onClockShowMillisecondsChanged: (val) {
-                setState(() {
-                  clockShowMilliseconds = val ?? true;
-                  currentTimeDisplay = _formatCurrentTime(DateTime.now());
-                  _lsSave();
-                });
-              },
-              onMotivationChanged: (val) {
-                setState(() {
-                  motivationOn = val ?? true;
-                  _lsSave();
-                });
-              },
-              onMotivationCategoryChanged: (val) {
-                if (val == null) return;
-                setState(() {
-                  motivationCategory = val;
-                  _lsSave();
-                });
-              },
-              onMotivationDelayChanged: (val) {
-                if (val == null) return;
-                setState(() {
-                  motivationDelaySeconds = val;
-                  _lsSave();
-                });
-              },
-              onTimerNoiseOnChanged: (val) {
-                setState(() {
-                  timerNoiseOn = val ?? true;
-                  audioPlaying = timerInterval != null && timerNoiseOn;
-                  _lsSave();
-                });
-                _applyAudioSettings();
-              },
-              onTimerSpeakOnChanged: (val) {
-                setState(() {
-                  timerSpeakOn = val ?? true;
-                  _lsSave();
-                });
-              },
-              onTimerShowMillisecondsChanged: (val) {
-                setState(() {
-                  timerShowMilliseconds = val ?? false;
-                  timerDisplayValue = _formatTimerDisplayValue(seconds);
-                  _lsSave();
-                });
-              },
-              onTimerAnnounceEveryChanged: (val) {
-                if (val == null) return;
-                setState(() {
-                  timerAnnounceEvery = val;
-                  _lsSave();
-                });
-              },
-              onChainModeChanged: (val) {
-                setState(() {
-                  chainModeOn = val ?? false;
-                  chainIndex = 0;
-                  _lsSave();
-                });
-              },
-              onChainPresetChanged: (val) {
-                if (val == null) return;
-                setState(() {
-                  chainPresetKey = val;
-                  chainIndex = 0;
-                  _lsSave();
-                });
-              },
-              onStopwatchSpeakOnChanged: (val) {
-                setState(() {
-                  stopwatchSpeakOn = val ?? true;
-                  _lsSave();
-                });
-              },
-              onStopwatchShowMillisecondsChanged: (val) {
-                setState(() {
-                  stopwatchShowMilliseconds = val ?? false;
-                  stopwatchElapsedValue = _formatStopwatchElapsed(
-                    stopwatchElapsedSeconds,
-                    showMilliseconds: stopwatchShowMilliseconds,
-                  );
-                  _lsSave();
-                });
-              },
-              onStopwatchSpeakDelayChanged: (val) {
-                if (val == null) return;
-                setState(() {
-                  stopwatchSpeakDelaySeconds = val;
-                  _lastStopwatchAutoAnnouncedSecond = -1;
                   _lsSave();
                 });
               },
@@ -2194,13 +2303,34 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         ],
         centerTitle: true,
       ),
-      body: currentTabIndex == 0
-          ? _buildSpeakClockTab()
-          : (currentTabIndex == 1
-                ? _buildTimerSetupTab()
-                : (currentTabIndex == 2
-                      ? _buildStopwatchTab()
-                      : _buildSettingsTab())),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          final offsetAnim = Tween<Offset>(
+            begin: const Offset(0, 0.03),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          ));
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(position: offsetAnim, child: child),
+          );
+        },
+        child: KeyedSubtree(
+          key: ValueKey<int>(currentTabIndex),
+          child: currentTabIndex == 0
+              ? _buildSpeakClockTab()
+              : (currentTabIndex == 1
+                    ? _buildTimerSetupTab()
+                    : (currentTabIndex == 2
+                          ? _buildStopwatchTab()
+                          : _buildSettingsTab())),
+        ),
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentTabIndex,
         type: BottomNavigationBarType.fixed,
@@ -2218,7 +2348,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           BottomNavigationBarItem(
             icon: Icon(Icons.access_time_outlined),
             activeIcon: Icon(Icons.access_time),
-            label: 'SpeakClock',
+            label: 'Clock',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.tune_outlined),

@@ -21,6 +21,16 @@ class FullscreenFocusView extends StatefulWidget {
   final ValueChanged<bool>? onDimBrightnessChanged;
   final ValueChanged<bool>? onForceLandscapeChanged;
 
+  // Timer controls
+  final VoidCallback? onTimerStart;
+  final VoidCallback? onTimerStop;
+  final VoidCallback? onTimerReset;
+
+  // Stopwatch controls
+  final VoidCallback? onStopwatchStart;
+  final VoidCallback? onStopwatchStop;
+  final VoidCallback? onStopwatchReset;
+
   const FullscreenFocusView({
     super.key,
     required this.clockTextBuilder,
@@ -35,6 +45,12 @@ class FullscreenFocusView extends StatefulWidget {
     this.onThemeChanged,
     this.onDimBrightnessChanged,
     this.onForceLandscapeChanged,
+    this.onTimerStart,
+    this.onTimerStop,
+    this.onTimerReset,
+    this.onStopwatchStart,
+    this.onStopwatchStop,
+    this.onStopwatchReset,
   });
 
   @override
@@ -327,6 +343,126 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
     );
   }
 
+  /// Compact icon+label mode selector button — never overflows.
+  Widget _modeSelectorBtn({
+    required Color fg,
+    required FullscreenFocusMode mode,
+    required IconData icon,
+    required String label,
+  }) {
+    final active = _mode == mode;
+    return Expanded(
+      child: OutlinedButton(
+        onPressed: () {
+          _onControlInteraction();
+          setState(() => _mode = mode);
+        },
+        style: OutlinedButton.styleFrom(
+          foregroundColor: fg,
+          side: BorderSide(color: fg.withAlpha(active ? 255 : 100)),
+          backgroundColor: active ? fg.withAlpha(35) : Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          minimumSize: const Size(0, 36),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 15, color: fg.withAlpha(active ? 255 : 180)),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: fg.withAlpha(active ? 255 : 180),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Start / Stop / Reset row shown at the bottom for Timer and Stopwatch.
+  Widget _buildActionButtons(Color fg, Color bg) {
+    final bool isTimer = _mode == FullscreenFocusMode.timer;
+    final bool running = isTimer ? _timerRunning : _stopwatchRunning;
+
+    Widget actionBtn(
+      String label,
+      IconData icon,
+      VoidCallback? onPressed, {
+      bool primary = false,
+    }) {
+      return Expanded(
+        child: Material(
+          color: primary ? fg.withAlpha(40) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: onPressed == null
+                ? null
+                : () {
+                    _onControlInteraction();
+                    onPressed();
+                  },
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: fg.withAlpha(primary ? 180 : 60),
+                  width: primary ? 1.5 : 1,
+                ),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, color: fg, size: 20),
+                  const SizedBox(height: 3),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: fg,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          actionBtn(
+            running ? 'Stop' : 'Start',
+            running ? Icons.pause_rounded : Icons.play_arrow_rounded,
+            running
+                ? (isTimer ? widget.onTimerStop : widget.onStopwatchStop)
+                : (isTimer ? widget.onTimerStart : widget.onStopwatchStart),
+            primary: true,
+          ),
+          const SizedBox(width: 10),
+          actionBtn(
+            'Reset',
+            Icons.refresh_rounded,
+            isTimer ? widget.onTimerReset : widget.onStopwatchReset,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _tick?.cancel();
@@ -351,6 +487,10 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
         ? Colors.white.withAlpha(45)
         : Colors.black.withAlpha(45);
 
+    final showActionButtons =
+        _mode == FullscreenFocusMode.timer ||
+        _mode == FullscreenFocusMode.moduleC;
+
     return Scaffold(
       backgroundColor: bg,
       body: GestureDetector(
@@ -366,9 +506,9 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                     curve: Curves.easeInOut,
                     padding: EdgeInsets.fromLTRB(
                       12,
-                      _showControls ? 120 : 12,
+                      _showControls ? 116 : 12,
                       12,
-                      _showControls ? 70 : 12,
+                      _showControls ? (showActionButtons ? 120 : 70) : 12,
                     ),
                     child: Container(
                       width: double.infinity,
@@ -408,6 +548,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                   curve: Curves.easeInOut,
                   child: Column(
                     children: [
+                      // ── Top bar: close + settings icons ─────────────────
                       Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -443,7 +584,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                                 ),
                               ],
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 4),
                             IconButton(
                               onPressed: () {
                                 _onControlInteraction();
@@ -451,11 +592,12 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                                 widget.onThemeChanged?.call(_darkTheme);
                               },
                               icon: Icon(
-                                _darkTheme ? Icons.light_mode : Icons.dark_mode,
+                                _darkTheme
+                                    ? Icons.light_mode
+                                    : Icons.dark_mode,
                                 color: fg,
                               ),
                             ),
-                            const SizedBox(width: 4),
                             IconButton(
                               tooltip: _dimBrightness
                                   ? 'Disable Dim'
@@ -477,7 +619,6 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                                 color: fg,
                               ),
                             ),
-                            const SizedBox(width: 4),
                             IconButton(
                               tooltip: _forceLandscape
                                   ? 'Unlock Rotation'
@@ -502,73 +643,45 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                           ],
                         ),
                       ),
+
+                      // ── Mode selector (icon + short label, never overflows) ──
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Row(
                           children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () {
-                                  _onControlInteraction();
-                                  setState(
-                                    () => _mode = FullscreenFocusMode.clock,
-                                  );
-                                },
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: fg,
-                                  side: BorderSide(color: fg),
-                                  backgroundColor:
-                                      _mode == FullscreenFocusMode.clock
-                                      ? fg.withAlpha(35)
-                                      : Colors.transparent,
-                                ),
-                                child: const Text('SpeakClock'),
-                              ),
+                            _modeSelectorBtn(
+                              fg: fg,
+                              mode: FullscreenFocusMode.clock,
+                              icon: Icons.access_time_rounded,
+                              label: 'S.Clock',
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () {
-                                  _onControlInteraction();
-                                  setState(
-                                    () => _mode = FullscreenFocusMode.timer,
-                                  );
-                                },
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: fg,
-                                  side: BorderSide(color: fg),
-                                  backgroundColor:
-                                      _mode == FullscreenFocusMode.timer
-                                      ? fg.withAlpha(35)
-                                      : Colors.transparent,
-                                ),
-                                child: const Text('Timer'),
-                              ),
+                            const SizedBox(width: 8),
+                            _modeSelectorBtn(
+                              fg: fg,
+                              mode: FullscreenFocusMode.timer,
+                              icon: Icons.timer_rounded,
+                              label: 'Timer',
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () {
-                                  _onControlInteraction();
-                                  setState(
-                                    () => _mode = FullscreenFocusMode.moduleC,
-                                  );
-                                },
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: fg,
-                                  side: BorderSide(color: fg),
-                                  backgroundColor:
-                                      _mode == FullscreenFocusMode.moduleC
-                                      ? fg.withAlpha(35)
-                                      : Colors.transparent,
-                                ),
-                                child: const Text('Stopwatch'),
-                              ),
+                            const SizedBox(width: 8),
+                            _modeSelectorBtn(
+                              fg: fg,
+                              mode: FullscreenFocusMode.moduleC,
+                              icon: Icons.av_timer_rounded,
+                              label: 'Stopwatch',
                             ),
                           ],
                         ),
                       ),
+
                       const Spacer(),
+
+                      // ── Start/Stop/Reset (Timer & Stopwatch modes) ────────
+                      if (showActionButtons) ...[
+                        _buildActionButtons(fg, bg),
+                        const SizedBox(height: 10),
+                      ],
+
+                      // ── Status label ──────────────────────────────────────
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Text(
@@ -583,7 +696,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                                           : 'Stopwatch Paused')),
                           style: TextStyle(
                             color: fg.withAlpha(180),
-                            fontSize: 16,
+                            fontSize: 14,
                           ),
                         ),
                       ),

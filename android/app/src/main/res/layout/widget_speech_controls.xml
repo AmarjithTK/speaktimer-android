@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:padding="14dp">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="LIFER SPEECH"
+            android:textColor="#80FFFFFF"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.2" />
+
+        <Button
+            android:id="@+id/btn_open_app"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:text="Open App"
+            android:textAllCaps="false"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textColor="#E6FFFFFF"
+            android:background="@drawable/widget_button_bg"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp" />
+    </LinearLayout>
+
+    <!-- Row 1: Clock Speech + Timer Speech -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:layout_marginBottom="8dp">
+
+        <Button
+            android:id="@+id/btn_clock_speech"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:text="🕐 Clock: OFF"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:textColor="#D9FFFFFF"
+            android:background="@drawable/widget_button_bg" />
+
+        <Button
+            android:id="@+id/btn_timer_speech"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="⏱ Timer: OFF"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:textColor="#D9FFFFFF"
+            android:background="@drawable/widget_button_bg" />
+    </LinearLayout>
+
+    <!-- Row 2: Stopwatch Speech + Goals Speech -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_stopwatch_speech"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:text="⏹ Stopwatch: OFF"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:textColor="#D9FFFFFF"
+            android:background="@drawable/widget_button_bg" />
+
+        <Button
+            android:id="@+id/btn_goals_speech"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="🎯 Goals: OFF"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:textColor="#D9FFFFFF"
+            android:background="@drawable/widget_button_bg" />
+    </LinearLayout>
+
+</LinearLayout>

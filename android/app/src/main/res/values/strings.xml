@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">lifer</string>
+    <string name="timer_presets_widget_description">Quick-start timer presets widget</string>
+    <string name="speech_controls_widget_description">Toggle speech announcements widget</string>
 </resources>
