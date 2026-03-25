@@ -1087,10 +1087,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         setState(() {
           clockOn = !clockOn;
           _lsSave();
-          if (clockOn)
+          if (clockOn) {
             startClock();
-          else
+          } else {
             stopClock();
+          }
         });
         unawaited(_syncForegroundNotification(force: true));
         break;
