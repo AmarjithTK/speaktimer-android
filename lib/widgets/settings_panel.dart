@@ -14,6 +14,11 @@ class SettingsPanel extends StatelessWidget {
   final bool appDarkTheme;
   final bool muteSpeechAfterMidnight;
   final String nightMuteMode;
+  final bool goalReminderOn;
+  final int goalReminderIntervalMins;
+  final List<int> goalReminderIntervalOptions;
+  final List<String> goalReminderItems;
+  final int goalReminderNextIndex;
   final String sleepStartLabel;
   final String sleepEndLabel;
   final List<SoundOption> soundList;
@@ -33,6 +38,13 @@ class SettingsPanel extends StatelessWidget {
   final ValueChanged<bool?> onAppDarkThemeChanged;
   final ValueChanged<bool?> onMuteSpeechAfterMidnightChanged;
   final ValueChanged<String?> onNightMuteModeChanged;
+  final ValueChanged<bool?> onGoalReminderOnChanged;
+  final ValueChanged<int?> onGoalReminderIntervalChanged;
+  final VoidCallback onAddGoal;
+  final VoidCallback onBulkAddGoals;
+  final void Function(int index) onEditGoal;
+  final void Function(int index) onRemoveGoal;
+  final VoidCallback onSpeakNextGoalNow;
   final VoidCallback onPickSleepStart;
   final VoidCallback onPickSleepEnd;
   final ValueChanged<String?> onVoiceListModeChanged;
@@ -50,6 +62,11 @@ class SettingsPanel extends StatelessWidget {
     required this.appDarkTheme,
     required this.muteSpeechAfterMidnight,
     required this.nightMuteMode,
+    required this.goalReminderOn,
+    required this.goalReminderIntervalMins,
+    required this.goalReminderIntervalOptions,
+    required this.goalReminderItems,
+    required this.goalReminderNextIndex,
     required this.sleepStartLabel,
     required this.sleepEndLabel,
     required this.soundList,
@@ -69,6 +86,13 @@ class SettingsPanel extends StatelessWidget {
     required this.onAppDarkThemeChanged,
     required this.onMuteSpeechAfterMidnightChanged,
     required this.onNightMuteModeChanged,
+    required this.onGoalReminderOnChanged,
+    required this.onGoalReminderIntervalChanged,
+    required this.onAddGoal,
+    required this.onBulkAddGoals,
+    required this.onEditGoal,
+    required this.onRemoveGoal,
+    required this.onSpeakNextGoalNow,
     required this.onPickSleepStart,
     required this.onPickSleepEnd,
     required this.onVoiceListModeChanged,
@@ -298,6 +322,143 @@ class SettingsPanel extends StatelessWidget {
                   : null,
             ),
           ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Checkbox(
+                value: goalReminderOn,
+                activeColor: palette.primary,
+                checkColor: palette.accent,
+                onChanged: onGoalReminderOnChanged,
+              ),
+              Expanded(
+                child: sectionLabel('Enable goal reminder (TTS round-robin)'),
+              ),
+            ],
+          ),
+          sectionLabel('Goal reminder interval'),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+            decoration: BoxDecoration(
+              color: palette.accent,
+              border: Border.all(color: palette.primary, width: 2),
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: DropdownButton<int>(
+              value: goalReminderIntervalMins,
+              isExpanded: true,
+              underline: const SizedBox(),
+              iconEnabledColor: palette.primary,
+              dropdownColor: palette.accent,
+              items: goalReminderIntervalOptions
+                  .map(
+                    (mins) => DropdownMenuItem(
+                      value: mins,
+                      child: Text(
+                        mins == 60
+                            ? 'Every 1 hour'
+                            : (mins == 120
+                                  ? 'Every 2 hours'
+                                  : 'Every $mins minutes'),
+                        style: TextStyle(
+                          color: palette.primary,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: onGoalReminderIntervalChanged,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: actionBtn(
+                  'Add goal',
+                  onAddGoal,
+                  icon: Icons.add_task_outlined,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: actionBtn(
+                  'Bulk add lines',
+                  onBulkAddGoals,
+                  icon: Icons.playlist_add_outlined,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          actionBtn(
+            'Speak next goal now',
+            onSpeakNextGoalNow,
+            icon: Icons.record_voice_over_outlined,
+          ),
+          sectionLabel(
+            'Goals (${goalReminderItems.length})${goalReminderItems.isEmpty ? '' : ' · Next: ${(goalReminderNextIndex % goalReminderItems.length) + 1}'}',
+          ),
+          if (goalReminderItems.isEmpty)
+            Text(
+              'No goals yet. Add one goal or bulk add one per line.',
+              style: TextStyle(
+                color: palette.primary.withAlpha(160),
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            )
+          else
+            ...goalReminderItems.asMap().entries.map((entry) {
+              final index = entry.key;
+              final goal = entry.value;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: palette.accent,
+                  border: Border.all(color: palette.primary, width: 2),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${index + 1}. $goal',
+                        style: TextStyle(
+                          color: palette.primary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      tooltip: 'Edit goal',
+                      onPressed: () => onEditGoal(index),
+                      icon: Icon(
+                        Icons.edit_outlined,
+                        color: palette.primary,
+                        size: 18,
+                      ),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      tooltip: 'Delete goal',
+                      onPressed: () => onRemoveGoal(index),
+                      icon: Icon(
+                        Icons.delete_outline,
+                        color: palette.primary,
+                        size: 18,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
           sectionLabel('Sleep time range'),
           Row(
             children: [

@@ -13,6 +13,10 @@ class PrefKeys {
   static const timerAnnounceEvery = 'TimerAnnounceEvery';
   static const timerShowMilliseconds = 'TimerShowMilliseconds';
   static const timerNoiseOn = 'TimerNoiseOn';
+  static const goalReminderOn = 'GoalReminderOn';
+  static const goalReminderIntervalMins = 'GoalReminderIntervalMins';
+  static const goalReminderItems = 'GoalReminderItems';
+  static const goalReminderNextIndex = 'GoalReminderNextIndex';
   static const stopwatchShowMilliseconds = 'StopwatchShowMilliseconds';
   static const stopwatchSpeakDelaySeconds = 'StopwatchSpeakDelaySeconds';
   static const muteSpeechAfterMidnight = 'MuteSpeechAfterMidnight';

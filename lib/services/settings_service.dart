@@ -26,7 +26,7 @@ import '../models/app_settings.dart';
 class SettingsService {
   /// Current schema version: increment when preference structure changes
   /// Used to detect and run migrations for old stored data
-  static const int _currentSchemaVersion = 1;
+  static const int _currentSchemaVersion = 2;
 
   /// Load all settings from persistent storage
   /// Automatically runs migrations if stored version differs from current
@@ -58,6 +58,15 @@ class SettingsService {
       timerShowMilliseconds:
           prefs.getBool(PrefKeys.timerShowMilliseconds) ?? false,
       timerNoiseOn: prefs.getBool(PrefKeys.timerNoiseOn) ?? true,
+      goalReminderOn: prefs.getBool(PrefKeys.goalReminderOn) ?? false,
+      goalReminderIntervalMins:
+          prefs.getInt(PrefKeys.goalReminderIntervalMins) ?? 60,
+      goalReminderItems:
+          (prefs.getStringList(PrefKeys.goalReminderItems) ?? const [])
+              .map((item) => item.trim())
+              .where((item) => item.isNotEmpty)
+              .toList(),
+      goalReminderNextIndex: prefs.getInt(PrefKeys.goalReminderNextIndex) ?? 0,
       stopwatchShowMilliseconds:
           prefs.getBool(PrefKeys.stopwatchShowMilliseconds) ?? false,
       stopwatchSpeakDelaySeconds:
@@ -139,6 +148,19 @@ class SettingsService {
       settings.fullscreenStartLandscape,
     );
     await prefs.setString(PrefKeys.voiceListMode, settings.voiceListMode);
+    await prefs.setBool(PrefKeys.goalReminderOn, settings.goalReminderOn);
+    await prefs.setInt(
+      PrefKeys.goalReminderIntervalMins,
+      settings.goalReminderIntervalMins,
+    );
+    await prefs.setStringList(
+      PrefKeys.goalReminderItems,
+      settings.goalReminderItems,
+    );
+    await prefs.setInt(
+      PrefKeys.goalReminderNextIndex,
+      settings.goalReminderNextIndex,
+    );
 
     if (settings.favoriteVoiceName != null) {
       await prefs.setString(
@@ -169,6 +191,19 @@ class SettingsService {
         await prefs.setString(
           PrefKeys.soundChosen,
           sound.replaceFirst('assets/', ''),
+        );
+      }
+    }
+
+    if (currentVersion < 2) {
+      final goalItems = prefs.getStringList(PrefKeys.goalReminderItems);
+      if (goalItems != null) {
+        await prefs.setStringList(
+          PrefKeys.goalReminderItems,
+          goalItems
+              .map((item) => item.trim())
+              .where((item) => item.isNotEmpty)
+              .toList(),
         );
       }
     }

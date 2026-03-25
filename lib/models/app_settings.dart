@@ -12,6 +12,10 @@ class AppSettings {
   final int timerAnnounceEvery;
   final bool timerShowMilliseconds;
   final bool timerNoiseOn;
+  final bool goalReminderOn;
+  final int goalReminderIntervalMins;
+  final List<String> goalReminderItems;
+  final int goalReminderNextIndex;
   final bool stopwatchShowMilliseconds;
   final int stopwatchSpeakDelaySeconds;
   final bool muteSpeechAfterMidnight;
@@ -40,6 +44,10 @@ class AppSettings {
     required this.timerAnnounceEvery,
     required this.timerShowMilliseconds,
     required this.timerNoiseOn,
+    required this.goalReminderOn,
+    required this.goalReminderIntervalMins,
+    required this.goalReminderItems,
+    required this.goalReminderNextIndex,
     required this.stopwatchShowMilliseconds,
     required this.stopwatchSpeakDelaySeconds,
     required this.muteSpeechAfterMidnight,

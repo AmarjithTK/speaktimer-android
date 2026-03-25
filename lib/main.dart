@@ -344,6 +344,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// Timestamp of last stopwatch announcement (prevents <10s re-announcements)
   int lastStopwatchSpoke = 0;
 
+  /// Timestamp of last goal reminder announcement
+  int lastGoalReminderSpoke = 0;
+
   /// Stopwatch ticker interval
   Timer? stopwatchInterval;
 
@@ -406,6 +409,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// Enable/disable background noise during timer
   bool timerNoiseOn = true;
 
+  /// Enable/disable periodic goal reminders
+  bool goalReminderOn = false;
+
+  /// Goal reminder interval in minutes
+  int goalReminderIntervalMins = 60;
+
+  /// Round-robin list of user goals
+  List<String> goalReminderItems = [];
+
+  /// Next goal index for reminders
+  int goalReminderNextIndex = 0;
+
   /// Use dark theme for app UI
   bool appDarkTheme = false;
 
@@ -429,6 +444,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   /// Timer for resuming speech after auto-mute duration expires
   Timer? nightResumeSpeechTimer;
+
+  /// Periodic timer for goal reminders
+  Timer? goalReminderTimer;
 
   /// Use dark theme in fullscreen focus mode
   bool fullscreenDarkTheme = true;
@@ -505,6 +523,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   /// Delay options between motivational quote announcements (in seconds)
   final List<int> motivationDelayOptions = [5, 10, 20, 30, 40, 60];
+
+  /// Goal reminder interval options in minutes
+  final List<int> goalReminderIntervalOptions = [30, 60, 120, 180, 240];
 
   /// SharedPreferences key for last timer seconds via quick action
   static const String _lastTimerSecondsKey = 'QuickActionLastSeconds';
@@ -887,6 +908,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       timerAnnounceEvery = settings.timerAnnounceEvery;
       timerShowMilliseconds = settings.timerShowMilliseconds;
       timerNoiseOn = settings.timerNoiseOn;
+      goalReminderOn = settings.goalReminderOn;
+      goalReminderIntervalMins = settings.goalReminderIntervalMins;
+      goalReminderItems = List<String>.from(settings.goalReminderItems);
+      goalReminderNextIndex = settings.goalReminderNextIndex;
       stopwatchShowMilliseconds = settings.stopwatchShowMilliseconds;
       stopwatchSpeakDelaySeconds = settings.stopwatchSpeakDelaySeconds;
       appDarkTheme = settings.appDarkTheme;
@@ -910,6 +935,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       if (!stopwatchSpeakDelayOptions.contains(stopwatchSpeakDelaySeconds)) {
         stopwatchSpeakDelaySeconds = 60;
       }
+      if (!goalReminderIntervalOptions.contains(goalReminderIntervalMins)) {
+        goalReminderIntervalMins = 60;
+      }
+      goalReminderItems = goalReminderItems
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList();
+      if (goalReminderItems.isEmpty) {
+        goalReminderNextIndex = 0;
+      } else {
+        goalReminderNextIndex =
+            goalReminderNextIndex % goalReminderItems.length;
+      }
       if (nightMuteMode != 'manual' && nightMuteMode != 'automatic') {
         nightMuteMode = 'manual';
       }
@@ -924,6 +962,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     _applyAudioSettings();
     setAppThemeMode(appDarkTheme);
+    _restartGoalReminderTimer();
     if (clockOn) {
       Future.delayed(const Duration(milliseconds: 200), startClock);
     }
@@ -944,6 +983,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       timerAnnounceEvery: timerAnnounceEvery,
       timerShowMilliseconds: timerShowMilliseconds,
       timerNoiseOn: timerNoiseOn,
+      goalReminderOn: goalReminderOn,
+      goalReminderIntervalMins: goalReminderIntervalMins,
+      goalReminderItems: goalReminderItems,
+      goalReminderNextIndex: goalReminderNextIndex,
       stopwatchShowMilliseconds: stopwatchShowMilliseconds,
       stopwatchSpeakDelaySeconds: stopwatchSpeakDelaySeconds,
       appDarkTheme: appDarkTheme,
@@ -980,6 +1023,176 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     } else {
       unawaited(_audioService.stopBackground());
     }
+  }
+
+  void _restartGoalReminderTimer() {
+    goalReminderTimer?.cancel();
+    goalReminderTimer = null;
+
+    if (!goalReminderOn || goalReminderItems.isEmpty) {
+      return;
+    }
+
+    goalReminderTimer = Timer.periodic(
+      Duration(minutes: goalReminderIntervalMins),
+      (_) {
+        if (!mounted) return;
+        _announceNextGoalReminder();
+      },
+    );
+  }
+
+  Future<void> _showGoalInputDialog({int? editIndex}) async {
+    final isEdit = editIndex != null;
+    final initialText = isEdit ? goalReminderItems[editIndex] : '';
+    final controller = TextEditingController(text: initialText);
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(isEdit ? 'Edit goal' : 'Add goal'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              hintText: 'Write one important goal',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == null) return;
+    final trimmed = result.trim();
+    if (trimmed.isEmpty) return;
+
+    setState(() {
+      if (isEdit) {
+        goalReminderItems[editIndex] = trimmed;
+      } else {
+        goalReminderItems.add(trimmed);
+      }
+
+      if (goalReminderItems.isEmpty) {
+        goalReminderNextIndex = 0;
+      } else {
+        goalReminderNextIndex =
+            goalReminderNextIndex % goalReminderItems.length;
+      }
+      _lsSave();
+    });
+    _restartGoalReminderTimer();
+  }
+
+  Future<void> _showBulkGoalInputDialog() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Bulk add goals'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            minLines: 6,
+            maxLines: 12,
+            decoration: const InputDecoration(hintText: 'One goal per line'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text),
+              child: const Text('Add lines'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == null) return;
+    final lines = result
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+    if (lines.isEmpty) return;
+
+    setState(() {
+      goalReminderItems.addAll(lines);
+      if (goalReminderItems.isEmpty) {
+        goalReminderNextIndex = 0;
+      } else {
+        goalReminderNextIndex =
+            goalReminderNextIndex % goalReminderItems.length;
+      }
+      _lsSave();
+    });
+    _restartGoalReminderTimer();
+  }
+
+  void _removeGoalAt(int index) {
+    if (index < 0 || index >= goalReminderItems.length) return;
+
+    setState(() {
+      goalReminderItems.removeAt(index);
+      if (goalReminderItems.isEmpty) {
+        goalReminderNextIndex = 0;
+      } else {
+        goalReminderNextIndex =
+            goalReminderNextIndex % goalReminderItems.length;
+      }
+      _lsSave();
+    });
+    _restartGoalReminderTimer();
+  }
+
+  void _speakGoalReminderMessage(String text) {
+    if (_isSpeechMutedForSleep()) {
+      speechQueue.clear();
+      return;
+    }
+
+    const gap = 10000;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final latestOtherSpeech = max(
+      max(lastClockSpoke, lastTimerSpoke),
+      lastStopwatchSpoke,
+    );
+    final waitMs = max(0, gap - (nowMs - latestOtherSpeech));
+
+    Future.delayed(Duration(milliseconds: waitMs), () {
+      lastGoalReminderSpoke = DateTime.now().millisecondsSinceEpoch;
+      speak(text);
+    });
+  }
+
+  void _announceNextGoalReminder({bool force = false}) {
+    if ((!goalReminderOn && !force) || goalReminderItems.isEmpty) return;
+
+    final index = goalReminderNextIndex % goalReminderItems.length;
+    final goal = goalReminderItems[index];
+
+    setState(() {
+      goalReminderNextIndex = (index + 1) % goalReminderItems.length;
+      _lsSave();
+    });
+
+    _speakGoalReminderMessage('Goal reminder: $goal');
   }
 
   Future<void> _initTts() async {
@@ -1194,9 +1407,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
 
     const gap = 10000;
+    final latestOtherSpeech = max(
+      max(lastTimerSpoke, lastStopwatchSpoke),
+      lastGoalReminderSpoke,
+    );
     final waitMs = max(
       0,
-      gap - (DateTime.now().millisecondsSinceEpoch - lastTimerSpoke),
+      gap - (DateTime.now().millisecondsSinceEpoch - latestOtherSpeech),
     );
     Future.delayed(Duration(milliseconds: waitMs), () {
       lastClockSpoke = DateTime.now().millisecondsSinceEpoch;
@@ -1239,9 +1456,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
 
     const gap = 10000;
+    final latestOtherSpeech = max(
+      max(lastClockSpoke, lastStopwatchSpoke),
+      lastGoalReminderSpoke,
+    );
     final waitMs = max(
       0,
-      gap - (DateTime.now().millisecondsSinceEpoch - lastClockSpoke),
+      gap - (DateTime.now().millisecondsSinceEpoch - latestOtherSpeech),
     );
     Future.delayed(Duration(milliseconds: waitMs), () {
       lastTimerSpoke = DateTime.now().millisecondsSinceEpoch;
@@ -1324,7 +1545,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     const gap = 10000;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final latestOtherSpeech = max(lastClockSpoke, lastTimerSpoke);
-    final waitMs = max(0, gap - (nowMs - latestOtherSpeech));
+    final latestAnySpeech = max(latestOtherSpeech, lastGoalReminderSpoke);
+    final waitMs = max(0, gap - (nowMs - latestAnySpeech));
     Future.delayed(Duration(milliseconds: waitMs), () {
       lastStopwatchSpoke = DateTime.now().millisecondsSinceEpoch;
       speak(text);
@@ -1760,6 +1982,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               appDarkTheme: appDarkTheme,
               muteSpeechAfterMidnight: muteSpeechAfterMidnight,
               nightMuteMode: nightMuteMode,
+              goalReminderOn: goalReminderOn,
+              goalReminderIntervalMins: goalReminderIntervalMins,
+              goalReminderIntervalOptions: goalReminderIntervalOptions,
+              goalReminderItems: goalReminderItems,
+              goalReminderNextIndex: goalReminderNextIndex,
               sleepStartLabel: _formatMinutesAs12Hour(sleepStartMinutes),
               sleepEndLabel: _formatMinutesAs12Hour(sleepEndMinutes),
               soundList: soundList,
@@ -1849,6 +2076,33 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   _lsSave();
                 });
               },
+              onGoalReminderOnChanged: (val) {
+                setState(() {
+                  goalReminderOn = val ?? false;
+                  _lsSave();
+                });
+                _restartGoalReminderTimer();
+              },
+              onGoalReminderIntervalChanged: (val) {
+                if (val == null) return;
+                setState(() {
+                  goalReminderIntervalMins = val;
+                  _lsSave();
+                });
+                _restartGoalReminderTimer();
+              },
+              onAddGoal: () {
+                unawaited(_showGoalInputDialog());
+              },
+              onBulkAddGoals: () {
+                unawaited(_showBulkGoalInputDialog());
+              },
+              onEditGoal: (index) {
+                if (index < 0 || index >= goalReminderItems.length) return;
+                unawaited(_showGoalInputDialog(editIndex: index));
+              },
+              onRemoveGoal: _removeGoalAt,
+              onSpeakNextGoalNow: () => _announceNextGoalReminder(force: true),
               onPickSleepStart: () {
                 unawaited(_pickSleepStartTime());
               },
@@ -1928,6 +2182,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     foregroundHealthTimer?.cancel();
     nightIdleTimer?.cancel();
     nightResumeSpeechTimer?.cancel();
+    goalReminderTimer?.cancel();
     stopClock();
     stopTimer();
     stopStopwatch();

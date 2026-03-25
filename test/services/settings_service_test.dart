@@ -18,7 +18,7 @@ void main() {
 
       expect(loaded.soundChosen, 'audio/rain.mp3');
       expect(prefs.getString(PrefKeys.soundChosen), 'audio/rain.mp3');
-      expect(prefs.getInt(PrefKeys.settingsSchemaVersion), 1);
+      expect(prefs.getInt(PrefKeys.settingsSchemaVersion), 2);
     });
   });
 
@@ -41,6 +41,10 @@ void main() {
         timerAnnounceEvery: 5,
         timerShowMilliseconds: false,
         timerNoiseOn: true,
+        goalReminderOn: true,
+        goalReminderIntervalMins: 60,
+        goalReminderItems: ['Deep work', 'Ship release'],
+        goalReminderNextIndex: 1,
         stopwatchShowMilliseconds: true,
         stopwatchSpeakDelaySeconds: 120,
         muteSpeechAfterMidnight: true,
