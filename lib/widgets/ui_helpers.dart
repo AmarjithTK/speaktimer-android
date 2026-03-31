@@ -1,102 +1,93 @@
 import 'package:flutter/material.dart';
-import '../theme/palette.dart';
 
-Widget panelContainer({required Widget child, bool active = false}) {
-  return Container(
-    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-    decoration: BoxDecoration(
-      color: palette.bg,
-      border: Border.all(
-        color: palette.primary,
-        width: active ? 3 : 2,
-      ),
-      borderRadius: BorderRadius.circular(6),
+/// Wraps [child] in a Material You surface card (no borders).
+/// When [active] is true, uses a tinted secondaryContainer surface.
+Widget panelContainer(
+  BuildContext context, {
+  required Widget child,
+  bool active = false,
+}) {
+  final cs = Theme.of(context).colorScheme;
+  return Card(
+    elevation: 0,
+    margin: EdgeInsets.zero,
+    color: active ? cs.secondaryContainer : cs.surfaceContainerHighest,
+    surfaceTintColor: Colors.transparent,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
     ),
-    child: child,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      child: child,
+    ),
   );
 }
 
+/// Panel header with optional leading icon, using M3 titleMedium typography.
 Widget headerTitle(
-  String title,
-  String tag, {
+  BuildContext context,
+  String title, {
   IconData? icon,
 }) {
+  final cs = Theme.of(context).colorScheme;
+  final tt = Theme.of(context).textTheme;
   return Row(
     children: [
       if (icon != null) ...[
-        Icon(icon, size: 16, color: palette.primary),
-        const SizedBox(width: 6),
+        Icon(icon, size: 18, color: cs.primary),
+        const SizedBox(width: 8),
       ],
       Text(
         title,
-        style: TextStyle(
-          color: palette.primary,
-          fontWeight: FontWeight.w700,
-          fontSize: 14,
-          letterSpacing: 0.2,
+        style: tt.titleMedium?.copyWith(
+          color: cs.onSurface,
+          fontWeight: FontWeight.w600,
         ),
       ),
-      const SizedBox(width: 6),
-      if (tag.isNotEmpty)
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-          decoration: BoxDecoration(color: palette.primary, borderRadius: BorderRadius.circular(3)),
-          child: Text(
-            tag,
-            style: TextStyle(
-              color: palette.accent,
-              fontWeight: FontWeight.w700,
-              fontSize: 10,
-            ),
-          ),
-        )
     ],
   );
 }
 
-Widget sectionLabel(String text) {
+/// Muted label for form sections, using M3 labelMedium / onSurfaceVariant.
+Widget sectionLabel(BuildContext context, String text) {
+  final cs = Theme.of(context).colorScheme;
+  final tt = Theme.of(context).textTheme;
   return Padding(
     padding: const EdgeInsets.only(top: 8, bottom: 4),
     child: Text(
       text,
-      style: TextStyle(
-        color: palette.primary.withAlpha(150),
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        letterSpacing: 0.15,
-      ),
+      style: tt.labelMedium?.copyWith(color: cs.onSurfaceVariant),
     ),
   );
 }
 
+/// Action button using FilledTonalButton — no borders, M3 compliant.
 Widget actionBtn(
+  BuildContext context,
   String text,
   VoidCallback onPressed, {
   IconData? icon,
 }) {
-  return ElevatedButton(
-    onPressed: onPressed,
-    style: ElevatedButton.styleFrom(
-      backgroundColor: palette.accent,
-      foregroundColor: palette.primary,
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      side: BorderSide(color: palette.primary, width: 2),
-      textStyle: const TextStyle(
-        fontWeight: FontWeight.w700,
-        fontSize: 12,
-        letterSpacing: 0.2,
-      ),
+  const btnStyle = ButtonStyle(
+    padding: WidgetStatePropertyAll(
+      EdgeInsets.symmetric(vertical: 10, horizontal: 12),
     ),
-    child: icon == null
-        ? Text(text)
-        : Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 16),
-              const SizedBox(width: 6),
-              Flexible(child: Text(text, overflow: TextOverflow.ellipsis)),
-            ],
-          ),
+    minimumSize: WidgetStatePropertyAll(Size(0, 40)),
+    textStyle: WidgetStatePropertyAll(
+      TextStyle(fontWeight: FontWeight.w600, fontSize: 13, letterSpacing: 0.1),
+    ),
+  );
+  if (icon != null) {
+    return FilledTonalButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 16),
+      label: Text(text, overflow: TextOverflow.ellipsis),
+      style: btnStyle,
+    );
+  }
+  return FilledTonalButton(
+    onPressed: onPressed,
+    style: btnStyle,
+    child: Text(text),
   );
 }

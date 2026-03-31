@@ -137,11 +137,8 @@ class _FullscreenStopwatchViewState extends State<FullscreenStopwatchView> {
     final bg = _darkTheme ? Colors.black : Colors.white;
     final fg = _darkTheme ? Colors.white : Colors.black;
     final cardBg = _darkTheme
-        ? Colors.white.withAlpha(20)
-        : Colors.black.withAlpha(20);
-    final cardBorder = _darkTheme
-        ? Colors.white.withAlpha(45)
-        : Colors.black.withAlpha(45);
+        ? Colors.white.withAlpha(18)
+        : Colors.black.withAlpha(10);
 
     return Scaffold(
       backgroundColor: bg,
@@ -170,8 +167,7 @@ class _FullscreenStopwatchViewState extends State<FullscreenStopwatchView> {
                       ),
                       decoration: BoxDecoration(
                         color: cardBg,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: cardBorder, width: 1.6),
+                        borderRadius: BorderRadius.circular(20),
                       ),
                       child: Column(
                         children: [

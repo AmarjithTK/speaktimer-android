@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../models/sound_option.dart';
-import '../theme/palette.dart';
 import 'ui_helpers.dart';
 
 class SettingsPanel extends StatelessWidget {
@@ -110,36 +109,38 @@ class SettingsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
     Widget sectionCard({
       required String title,
       required IconData icon,
       required List<Widget> children,
       bool initiallyExpanded = false,
     }) {
-      return Container(
+      return Card(
+        elevation: 0,
         margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: palette.accent,
-          border: Border.all(color: palette.primary, width: 2),
-          borderRadius: BorderRadius.circular(6),
+        color: cs.surfaceContainerHighest,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
         ),
+        clipBehavior: Clip.antiAlias,
         child: Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
           child: ExpansionTile(
             initiallyExpanded: initiallyExpanded,
-            tilePadding: const EdgeInsets.symmetric(horizontal: 10),
-            childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-            iconColor: palette.primary,
-            collapsedIconColor: palette.primary,
-            textColor: palette.primary,
-            collapsedTextColor: palette.primary,
+            tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+            iconColor: cs.onSurfaceVariant,
+            collapsedIconColor: cs.onSurfaceVariant,
             title: Row(
               children: [
-                Icon(icon, color: palette.primary, size: 16),
-                const SizedBox(width: 6),
+                Icon(icon, color: cs.primary, size: 18),
+                const SizedBox(width: 10),
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -149,108 +150,91 @@ class SettingsPanel extends StatelessWidget {
       );
     }
 
-    Widget dropdownContainer(Widget child) {
+    Widget dropdownField<T>({
+      required T value,
+      required List<DropdownMenuItem<T>> items,
+      required ValueChanged<T?> onChanged,
+    }) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: palette.accent,
-          border: Border.all(color: palette.primary, width: 2),
-          borderRadius: BorderRadius.circular(5),
+          color: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: child,
+        child: DropdownButton<T>(
+          value: value,
+          isExpanded: true,
+          underline: const SizedBox(),
+          iconEnabledColor: cs.onSurfaceVariant,
+          dropdownColor: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(12),
+          items: items,
+          onChanged: onChanged,
+        ),
       );
     }
 
     return panelContainer(
+      context,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          headerTitle('Settings', '', icon: Icons.settings_outlined),
+          headerTitle(context, 'Settings', icon: Icons.settings_outlined),
           const SizedBox(height: 8),
           sectionCard(
             title: 'Audio',
             icon: Icons.volume_up_outlined,
             initiallyExpanded: true,
             children: [
-              sectionLabel('Background sound'),
-              dropdownContainer(
-                DropdownButton<String>(
-                  value: soundList.any((e) => e.link == soundChosen)
-                      ? soundChosen
-                      : soundList.first.link,
-                  isExpanded: true,
-                  underline: const SizedBox(),
-                  iconEnabledColor: palette.primary,
-                  dropdownColor: palette.accent,
-                  items: soundList
-                      .map(
-                        (e) => DropdownMenuItem(
-                          value: e.link,
-                          child: Text(
-                            e.title,
-                            style: TextStyle(
-                              color: palette.primary,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 12,
-                            ),
-                          ),
+              sectionLabel(context, 'Background sound'),
+              dropdownField<String>(
+                value: soundList.any((e) => e.link == soundChosen)
+                    ? soundChosen
+                    : soundList.first.link,
+                items: soundList
+                    .map(
+                      (e) => DropdownMenuItem(
+                        value: e.link,
+                        child: Text(
+                          e.title,
+                          style: tt.bodyMedium?.copyWith(color: cs.onSurface),
                         ),
-                      )
-                      .toList(),
-                  onChanged: onSoundChanged,
-                ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: onSoundChanged,
               ),
-              sectionLabel('Noise volume'),
-              dropdownContainer(
-                DropdownButton<double>(
-                  value: noiseVolume,
-                  isExpanded: true,
-                  underline: const SizedBox(),
-                  iconEnabledColor: palette.primary,
-                  dropdownColor: palette.accent,
-                  items: volumeLists
-                      .map(
-                        (e) => DropdownMenuItem(
-                          value: e,
-                          child: Text(
-                            _getVolTitle(e),
-                            style: TextStyle(
-                              color: palette.primary,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 12,
-                            ),
-                          ),
+              sectionLabel(context, 'Noise volume'),
+              dropdownField<double>(
+                value: noiseVolume,
+                items: volumeLists
+                    .map(
+                      (e) => DropdownMenuItem(
+                        value: e,
+                        child: Text(
+                          _getVolTitle(e),
+                          style: tt.bodyMedium?.copyWith(color: cs.onSurface),
                         ),
-                      )
-                      .toList(),
-                  onChanged: onNoiseVolumeChanged,
-                ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: onNoiseVolumeChanged,
               ),
-              sectionLabel('Speech volume'),
-              dropdownContainer(
-                DropdownButton<double>(
-                  value: speakVolume,
-                  isExpanded: true,
-                  underline: const SizedBox(),
-                  iconEnabledColor: palette.primary,
-                  dropdownColor: palette.accent,
-                  items: volumeLists
-                      .map(
-                        (e) => DropdownMenuItem(
-                          value: e,
-                          child: Text(
-                            _getVolTitle(e),
-                            style: TextStyle(
-                              color: palette.primary,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 12,
-                            ),
-                          ),
+              sectionLabel(context, 'Speech volume'),
+              dropdownField<double>(
+                value: speakVolume,
+                items: volumeLists
+                    .map(
+                      (e) => DropdownMenuItem(
+                        value: e,
+                        child: Text(
+                          _getVolTitle(e),
+                          style: tt.bodyMedium?.copyWith(color: cs.onSurface),
                         ),
-                      )
-                      .toList(),
-                  onChanged: onSpeakVolumeChanged,
-                ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: onSpeakVolumeChanged,
               ),
             ],
           ),
@@ -258,63 +242,45 @@ class SettingsPanel extends StatelessWidget {
             title: 'Appearance',
             icon: Icons.palette_outlined,
             children: [
-              Row(
-                children: [
-                  Checkbox(
-                    value: appDarkTheme,
-                    activeColor: palette.primary,
-                    checkColor: palette.accent,
-                    onChanged: onAppDarkThemeChanged,
-                  ),
-                  Expanded(
-                    child: sectionLabel(
-                      'Use dark theme for app (Material You)',
-                    ),
-                  ),
-                ],
+              SwitchListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                value: appDarkTheme,
+                onChanged: (val) => onAppDarkThemeChanged(val),
+                title: Text(
+                  'Dark theme for app',
+                  style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                ),
               ),
-              Row(
-                children: [
-                  Checkbox(
-                    value: fullscreenDarkTheme,
-                    activeColor: palette.primary,
-                    checkColor: palette.accent,
-                    onChanged: onFullscreenDarkThemeChanged,
-                  ),
-                  Expanded(
-                    child: sectionLabel(
-                      'Use dark theme in fullscreen by default',
-                    ),
-                  ),
-                ],
+              SwitchListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                value: fullscreenDarkTheme,
+                onChanged: (val) => onFullscreenDarkThemeChanged(val),
+                title: Text(
+                  'Dark theme in fullscreen by default',
+                  style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                ),
               ),
-              Row(
-                children: [
-                  Checkbox(
-                    value: fullscreenDimBrightness,
-                    activeColor: palette.primary,
-                    checkColor: palette.accent,
-                    onChanged: onFullscreenDimBrightnessChanged,
-                  ),
-                  Expanded(
-                    child: sectionLabel('Dim screen brightness in fullscreen'),
-                  ),
-                ],
+              SwitchListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                value: fullscreenDimBrightness,
+                onChanged: (val) => onFullscreenDimBrightnessChanged(val),
+                title: Text(
+                  'Dim screen brightness in fullscreen',
+                  style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                ),
               ),
-              Row(
-                children: [
-                  Checkbox(
-                    value: fullscreenStartLandscape,
-                    activeColor: palette.primary,
-                    checkColor: palette.accent,
-                    onChanged: onFullscreenStartLandscapeChanged,
-                  ),
-                  Expanded(
-                    child: sectionLabel(
-                      'Start fullscreen in horizontal orientation',
-                    ),
-                  ),
-                ],
+              SwitchListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                value: fullscreenStartLandscape,
+                onChanged: (val) => onFullscreenStartLandscapeChanged(val),
+                title: Text(
+                  'Start fullscreen in landscape orientation',
+                  style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                ),
               ),
             ],
           ),
@@ -322,52 +288,45 @@ class SettingsPanel extends StatelessWidget {
             title: 'Sleep Mode',
             icon: Icons.nightlight_outlined,
             children: [
-              Row(
-                children: [
-                  Checkbox(
-                    value: muteSpeechAfterMidnight,
-                    activeColor: palette.primary,
-                    checkColor: palette.accent,
-                    onChanged: onMuteSpeechAfterMidnightChanged,
-                  ),
-                  Expanded(
-                    child: sectionLabel('Enable sleep mode (custom range)'),
-                  ),
-                ],
+              SwitchListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                value: muteSpeechAfterMidnight,
+                onChanged: (val) => onMuteSpeechAfterMidnightChanged(val),
+                title: Text(
+                  'Enable sleep mode',
+                  style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                ),
               ),
               if (muteSpeechAfterMidnight) ...[
-                dropdownContainer(
-                  DropdownButton<String>(
-                    value: nightMuteMode,
-                    isExpanded: true,
-                    underline: const SizedBox(),
-                    iconEnabledColor: palette.primary,
-                    dropdownColor: palette.accent,
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'manual',
-                        child: Text('Manual mode'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'automatic',
-                        child: Text('Automatic mode (idle 5 min)'),
-                      ),
-                    ],
-                    onChanged: onNightMuteModeChanged,
-                  ),
+                dropdownField<String>(
+                  value: nightMuteMode,
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'manual',
+                      child: Text('Manual mode'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'automatic',
+                      child: Text('Automatic mode (idle 5 min)'),
+                    ),
+                  ],
+                  onChanged: onNightMuteModeChanged,
                 ),
-                sectionLabel('Sleep time range'),
+                sectionLabel(context, 'Sleep time range'),
                 Row(
                   children: [
                     Expanded(
                       child: actionBtn(
+                        context,
                         'Start: $sleepStartLabel',
                         onPickSleepStart,
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: actionBtn('End: $sleepEndLabel', onPickSleepEnd),
+                      child: actionBtn(
+                          context, 'End: $sleepEndLabel', onPickSleepEnd),
                     ),
                   ],
                 ),
@@ -378,139 +337,126 @@ class SettingsPanel extends StatelessWidget {
             title: 'Goal Reminder',
             icon: Icons.flag_outlined,
             children: [
-              Row(
-                children: [
-                  Checkbox(
-                    value: goalReminderOn,
-                    activeColor: palette.primary,
-                    checkColor: palette.accent,
-                    onChanged: onGoalReminderOnChanged,
-                  ),
-                  Expanded(
-                    child: sectionLabel(
-                      'Enable goal reminder (TTS round-robin)',
-                    ),
-                  ),
-                ],
+              SwitchListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                value: goalReminderOn,
+                onChanged: (val) => onGoalReminderOnChanged(val),
+                title: Text(
+                  'Enable goal reminder (TTS round-robin)',
+                  style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                ),
               ),
               if (goalReminderOn) ...[
-                sectionLabel('Goal reminder interval'),
-                dropdownContainer(
-                  DropdownButton<int>(
-                    value: goalReminderIntervalMins,
-                    isExpanded: true,
-                    underline: const SizedBox(),
-                    iconEnabledColor: palette.primary,
-                    dropdownColor: palette.accent,
-                    items: goalReminderIntervalOptions
-                        .map(
-                          (mins) => DropdownMenuItem(
-                            value: mins,
-                            child: Text(
-                              mins == 60
-                                  ? 'Every 1 hour'
-                                  : (mins == 120
-                                        ? 'Every 2 hours'
-                                        : 'Every $mins minutes'),
-                              style: TextStyle(
-                                color: palette.primary,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 12,
-                              ),
-                            ),
+                sectionLabel(context, 'Goal reminder interval'),
+                dropdownField<int>(
+                  value: goalReminderIntervalMins,
+                  items: goalReminderIntervalOptions
+                      .map(
+                        (mins) => DropdownMenuItem(
+                          value: mins,
+                          child: Text(
+                            mins == 60
+                                ? 'Every 1 hour'
+                                : (mins == 120
+                                    ? 'Every 2 hours'
+                                    : 'Every $mins minutes'),
+                            style:
+                                tt.bodyMedium?.copyWith(color: cs.onSurface),
                           ),
-                        )
-                        .toList(),
-                    onChanged: onGoalReminderIntervalChanged,
-                  ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: onGoalReminderIntervalChanged,
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(
                       child: actionBtn(
+                        context,
                         'Add goal',
                         onAddGoal,
                         icon: Icons.add_task_outlined,
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: actionBtn(
-                        'Bulk add lines',
+                        context,
+                        'Bulk add',
                         onBulkAddGoals,
                         icon: Icons.playlist_add_outlined,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 actionBtn(
+                  context,
                   'Speak next goal now',
                   onSpeakNextGoalNow,
                   icon: Icons.record_voice_over_outlined,
                 ),
                 sectionLabel(
-                  'Goals (${goalReminderItems.length})${goalReminderItems.isEmpty ? '' : ' · Next: ${(goalReminderNextIndex % goalReminderItems.length) + 1}'}',
+                  context,
+                  'Goals (${goalReminderItems.length})'
+                  '${goalReminderItems.isEmpty ? '' : ' · Next: ${(goalReminderNextIndex % goalReminderItems.length) + 1}'}',
                 ),
                 if (goalReminderItems.isEmpty)
                   Text(
                     'No goals yet. Add one goal or bulk add one per line.',
-                    style: TextStyle(
-                      color: palette.primary.withAlpha(160),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                   )
                 else
                   ...goalReminderItems.asMap().entries.map((entry) {
                     final index = entry.key;
                     final goal = entry.value;
-                    return Container(
+                    return Card(
+                      elevation: 0,
                       margin: const EdgeInsets.only(bottom: 6),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
+                      color: cs.surfaceContainerHigh,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      decoration: BoxDecoration(
-                        color: palette.accent,
-                        border: Border.all(color: palette.primary, width: 2),
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${index + 1}. $goal',
-                              style: TextStyle(
-                                color: palette.primary,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 12,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${index + 1}. $goal',
+                                style: tt.bodyMedium?.copyWith(
+                                  color: cs.onSurface,
+                                ),
                               ),
                             ),
-                          ),
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            tooltip: 'Edit goal',
-                            onPressed: () => onEditGoal(index),
-                            icon: Icon(
-                              Icons.edit_outlined,
-                              color: palette.primary,
-                              size: 18,
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              tooltip: 'Edit goal',
+                              onPressed: () => onEditGoal(index),
+                              icon: Icon(
+                                Icons.edit_outlined,
+                                color: cs.onSurfaceVariant,
+                                size: 18,
+                              ),
                             ),
-                          ),
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            tooltip: 'Delete goal',
-                            onPressed: () => onRemoveGoal(index),
-                            icon: Icon(
-                              Icons.delete_outline,
-                              color: palette.primary,
-                              size: 18,
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              tooltip: 'Delete goal',
+                              onPressed: () => onRemoveGoal(index),
+                              icon: Icon(
+                                Icons.delete_outline,
+                                color: cs.error,
+                                size: 18,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     );
                   }),
@@ -521,102 +467,70 @@ class SettingsPanel extends StatelessWidget {
             title: 'Voice',
             icon: Icons.record_voice_over_outlined,
             children: [
-              sectionLabel('Voice list'),
-              dropdownContainer(
-                DropdownButton<String>(
-                  value: voiceListMode,
-                  isExpanded: true,
-                  underline: const SizedBox(),
-                  iconEnabledColor: palette.primary,
-                  dropdownColor: palette.accent,
-                  items: [
-                    DropdownMenuItem(
-                      value: 'pleasant',
-                      child: Text(
-                        'Pleasant voices',
-                        style: TextStyle(
-                          color: palette.primary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                        ),
-                      ),
+              sectionLabel(context, 'Voice list'),
+              dropdownField<String>(
+                value: voiceListMode,
+                items: [
+                  DropdownMenuItem(
+                    value: 'pleasant',
+                    child: Text(
+                      'Pleasant voices',
+                      style: tt.bodyMedium?.copyWith(color: cs.onSurface),
                     ),
-                    DropdownMenuItem(
-                      value: 'all',
-                      child: Text(
-                        'All English voices',
-                        style: TextStyle(
-                          color: palette.primary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                        ),
-                      ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'all',
+                    child: Text(
+                      'All English voices',
+                      style: tt.bodyMedium?.copyWith(color: cs.onSurface),
                     ),
-                    DropdownMenuItem(
-                      value: 'malayalam',
-                      child: Text(
-                        'Malayalam voices',
-                        style: TextStyle(
-                          color: palette.primary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                        ),
-                      ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'malayalam',
+                    child: Text(
+                      'Malayalam voices',
+                      style: tt.bodyMedium?.copyWith(color: cs.onSurface),
                     ),
-                  ],
-                  onChanged: onVoiceListModeChanged,
-                ),
+                  ),
+                ],
+                onChanged: onVoiceListModeChanged,
               ),
-              sectionLabel('Favorite voice'),
-              dropdownContainer(
-                DropdownButton<String>(
-                  value: () {
-                    if (favoriteVoiceName == null ||
-                        favoriteVoiceLocale == null) {
-                      return '__auto__';
-                    }
-                    final key = '${favoriteVoiceName!}|${favoriteVoiceLocale!}';
-                    final exists = voices.any(
-                      (voice) => '${voice['name']}|${voice['locale']}' == key,
-                    );
-                    return exists ? key : '__auto__';
-                  }(),
-                  isExpanded: true,
-                  underline: const SizedBox(),
-                  iconEnabledColor: palette.primary,
-                  dropdownColor: palette.accent,
-                  items: [
-                    DropdownMenuItem(
-                      value: '__auto__',
-                      child: Text(
-                        'Auto select',
-                        style: TextStyle(
-                          color: palette.primary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                        ),
-                      ),
+              sectionLabel(context, 'Favorite voice'),
+              dropdownField<String>(
+                value: () {
+                  if (favoriteVoiceName == null ||
+                      favoriteVoiceLocale == null) {
+                    return '__auto__';
+                  }
+                  final key = '${favoriteVoiceName!}|${favoriteVoiceLocale!}';
+                  final exists = voices.any(
+                    (voice) => '${voice['name']}|${voice['locale']}' == key,
+                  );
+                  return exists ? key : '__auto__';
+                }(),
+                items: [
+                  DropdownMenuItem(
+                    value: '__auto__',
+                    child: Text(
+                      'Auto select',
+                      style: tt.bodyMedium?.copyWith(color: cs.onSurface),
                     ),
-                    ...voices.map((voice) {
-                      final name = voice['name']?.toString() ?? 'Unknown';
-                      final locale = voice['locale']?.toString() ?? 'en';
-                      final key = '$name|$locale';
-                      return DropdownMenuItem(
-                        value: key,
-                        child: Text(
-                          '$name ($locale)',
-                          style: TextStyle(
-                            color: palette.primary,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 12,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    }),
-                  ],
-                  onChanged: onFavoriteVoiceChanged,
-                ),
+                  ),
+                  ...voices.map((voice) {
+                    final name = voice['name']?.toString() ?? 'Unknown';
+                    final locale = voice['locale']?.toString() ?? 'en';
+                    final key = '$name|$locale';
+                    return DropdownMenuItem(
+                      value: key,
+                      child: Text(
+                        '$name ($locale)',
+                        style: tt.bodyMedium?.copyWith(color: cs.onSurface),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }),
+                ],
+                onChanged: onFavoriteVoiceChanged,
               ),
             ],
           ),
@@ -624,14 +538,16 @@ class SettingsPanel extends StatelessWidget {
             title: 'Help & Status',
             icon: Icons.help_outline,
             children: [
-              actionBtn('❓ Help / How it works', onOpenHelp),
-              const SizedBox(height: 8),
+              actionBtn(context, 'Help / How it works', onOpenHelp,
+                  icon: Icons.help_outline),
+              const SizedBox(height: 10),
               Text(
-                "${isSpeechActive ? '🔉 Speaking…' : (speechQueueLength > 0 ? '⏳ $speechQueueLength queued' : '✔ Ready')}  ·  A↔B gap: 10 s",
-                style: TextStyle(
-                  fontSize: 10,
-                  color: palette.primary.withAlpha(140),
-                ),
+                isSpeechActive
+                    ? 'Speaking…'
+                    : (speechQueueLength > 0
+                        ? '$speechQueueLength queued'
+                        : 'Ready'),
+                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
               ),
             ],
           ),

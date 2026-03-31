@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/palette.dart';
 import 'ui_helpers.dart';
 
 class ClockPanel extends StatelessWidget {
@@ -52,23 +51,41 @@ class ClockPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget dropdownContainer(Widget child) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: palette.accent,
-        border: Border.all(color: palette.primary, width: 2),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: child,
-    );
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    Widget dropdownField<T>({
+      required T value,
+      required List<DropdownMenuItem<T>> items,
+      required ValueChanged<T?> onChanged,
+    }) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: DropdownButton<T>(
+          value: value,
+          isExpanded: true,
+          underline: const SizedBox(),
+          iconEnabledColor: cs.onSurfaceVariant,
+          dropdownColor: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(12),
+          items: items,
+          onChanged: onChanged,
+        ),
+      );
+    }
 
     return panelContainer(
+      context,
       active: clockOn,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          headerTitle('Speaking Clock', 'A', icon: Icons.schedule),
-          const SizedBox(height: 8),
+          headerTitle(context, 'Speaking Clock', icon: Icons.schedule),
+          const SizedBox(height: 12),
           Builder(
             builder: (_) {
               final display = _splitClockDisplay(currentTimeDisplay);
@@ -78,27 +95,24 @@ class ClockPanel extends StatelessWidget {
               return Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
+                  horizontal: 16,
+                  vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: palette.accent,
-                  border: Border.all(color: palette.primary, width: 2),
-                  borderRadius: BorderRadius.circular(6),
+                  color: cs.surfaceContainer,
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'CURRENT TIME',
-                      style: TextStyle(
-                        color: palette.primary.withAlpha(150),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
+                      style: tt.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
                         letterSpacing: 1.1,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     SizedBox(
                       width: double.infinity,
                       child: FittedBox(
@@ -110,12 +124,11 @@ class ClockPanel extends StatelessWidget {
                           children: [
                             Text(
                               mainTime,
-                              style: TextStyle(
-                                fontSize: 44,
+                              style: tt.displayMedium?.copyWith(
+                                color: cs.onSurface,
+                                fontWeight: FontWeight.w300,
                                 height: 1,
-                                fontWeight: FontWeight.w800,
-                                color: palette.primary,
-                                letterSpacing: 1.4,
+                                letterSpacing: 1.2,
                                 fontFeatures: const [
                                   FontFeature.tabularFigures(),
                                 ],
@@ -126,10 +139,8 @@ class ClockPanel extends StatelessWidget {
                                 padding: const EdgeInsets.only(bottom: 6),
                                 child: Text(
                                   '.$millis',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: palette.primary.withAlpha(170),
+                                  style: tt.bodyMedium?.copyWith(
+                                    color: cs.onSurfaceVariant,
                                     fontFeatures: const [
                                       FontFeature.tabularFigures(),
                                     ],
@@ -145,45 +156,61 @@ class ClockPanel extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: 8),
-          ElevatedButton.icon(
-            onPressed: toggleClock,
-            icon: Icon(
-              clockOn ? Icons.notifications_active : Icons.notifications_off,
-              size: 18,
-            ),
-            label: Text(
-              clockOn ? 'Clock On' : 'Clock Off',
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: clockOn ? palette.primary : palette.accent,
-              foregroundColor: clockOn ? palette.accent : palette.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
-              side: BorderSide(color: palette.primary, width: 2),
-            ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: clockOn
+                ? FilledButton.icon(
+                    onPressed: toggleClock,
+                    icon: const Icon(Icons.notifications_active, size: 18),
+                    label: const Text('Clock On'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      textStyle: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                  )
+                : FilledTonalButton.icon(
+                    onPressed: toggleClock,
+                    icon: const Icon(Icons.notifications_off_outlined, size: 18),
+                    label: const Text('Clock Off'),
+                    style: FilledTonalButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      textStyle: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
 
-          // ── Advanced Controls (collapsed by default) ────────────────────
-          Container(
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(6),
+          // ── Advanced Controls ──────────────────────────────────────────
+          Card(
+            elevation: 0,
+            margin: EdgeInsets.zero,
+            color: cs.surfaceContainerHigh,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
+            clipBehavior: Clip.antiAlias,
             child: Theme(
-              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              data: Theme.of(context).copyWith(
+                dividerColor: Colors.transparent,
+              ),
               child: ExpansionTile(
-                tilePadding: const EdgeInsets.symmetric(horizontal: 10),
-                childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                iconColor: palette.primary,
-                collapsedIconColor: palette.primary,
-                textColor: palette.primary,
-                collapsedTextColor: palette.primary,
+                tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                iconColor: cs.onSurfaceVariant,
+                collapsedIconColor: cs.onSurfaceVariant,
                 expansionAnimationStyle: AnimationStyle(
                   curve: Curves.easeOutCubic,
                   reverseCurve: Curves.easeInCubic,
@@ -192,119 +219,100 @@ class ClockPanel extends StatelessWidget {
                 ),
                 title: Row(
                   children: [
-                    Icon(Icons.tune_outlined, color: palette.primary, size: 15),
-                    const SizedBox(width: 6),
+                    Icon(
+                      Icons.tune_outlined,
+                      color: cs.onSurfaceVariant,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
                     Text(
                       'Advanced',
-                      style: TextStyle(
-                        color: palette.primary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
+                      style: tt.titleSmall?.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
                 children: [
-                  sectionLabel('Announcement interval'),
-                  dropdownContainer(
-                    DropdownButton<int>(
-                      value: clockIntervalMins,
-                      isExpanded: true,
-                      underline: const SizedBox(),
-                      iconEnabledColor: palette.primary,
-                      dropdownColor: palette.accent,
-                      items: clockIntervalOptions
+                  sectionLabel(context, 'Announcement interval'),
+                  dropdownField<int>(
+                    value: clockIntervalMins,
+                    items: clockIntervalOptions
+                        .map(
+                          (mins) => DropdownMenuItem(
+                            value: mins,
+                            child: Text(
+                              'Announce every $mins min',
+                              style: tt.bodyMedium?.copyWith(
+                                color: cs.onSurface,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: onClockIntervalChanged,
+                  ),
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    value: clockShowMilliseconds,
+                    onChanged: onClockShowMillisecondsChanged,
+                    title: Text(
+                      'Show milliseconds',
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    value: motivationOn,
+                    onChanged: onMotivationChanged,
+                    title: Text(
+                      'Speak motivational quotes',
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  if (motivationOn) ...[
+                    const SizedBox(height: 4),
+                    dropdownField<String>(
+                      value: motivationCategory,
+                      items: motivationCategories
                           .map(
-                            (mins) => DropdownMenuItem(
-                              value: mins,
+                            (cat) => DropdownMenuItem(
+                              value: cat,
                               child: Text(
-                                'Announce every $mins min',
-                                style: TextStyle(
-                                  color: palette.primary,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 12,
+                                cat,
+                                style: tt.bodyMedium?.copyWith(
+                                  color: cs.onSurface,
                                 ),
                               ),
                             ),
                           )
                           .toList(),
-                      onChanged: onClockIntervalChanged,
+                      onChanged: onMotivationCategoryChanged,
                     ),
-                  ),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: clockShowMilliseconds,
-                        activeColor: palette.primary,
-                        checkColor: palette.accent,
-                        onChanged: onClockShowMillisecondsChanged,
-                      ),
-                      Expanded(child: sectionLabel('Show milliseconds')),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: motivationOn,
-                        activeColor: palette.primary,
-                        checkColor: palette.accent,
-                        onChanged: onMotivationChanged,
-                      ),
-                      Expanded(child: sectionLabel('Speak motivational quotes')),
-                    ],
-                  ),
-                  if (motivationOn) ...[
-                    const SizedBox(height: 4),
-                    dropdownContainer(
-                      DropdownButton<String>(
-                        value: motivationCategory,
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        iconEnabledColor: palette.primary,
-                        dropdownColor: palette.accent,
-                        items: motivationCategories
-                            .map(
-                              (cat) => DropdownMenuItem(
-                                value: cat,
-                                child: Text(
-                                  cat,
-                                  style: TextStyle(
-                                    color: palette.primary,
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 12,
-                                  ),
+                    const SizedBox(height: 8),
+                    dropdownField<int>(
+                      value: motivationDelaySeconds,
+                      items: motivationDelayOptions
+                          .map(
+                            (s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(
+                                'Motivation delay: $s sec',
+                                style: tt.bodyMedium?.copyWith(
+                                  color: cs.onSurface,
                                 ),
                               ),
-                            )
-                            .toList(),
-                        onChanged: onMotivationCategoryChanged,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    dropdownContainer(
-                      DropdownButton<int>(
-                        value: motivationDelaySeconds,
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        iconEnabledColor: palette.primary,
-                        dropdownColor: palette.accent,
-                        items: motivationDelayOptions
-                            .map(
-                              (s) => DropdownMenuItem(
-                                value: s,
-                                child: Text(
-                                  'Motivation delay: $s sec',
-                                  style: TextStyle(
-                                    color: palette.primary,
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: onMotivationDelayChanged,
-                      ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: onMotivationDelayChanged,
                     ),
                   ],
                 ],

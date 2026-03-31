@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/palette.dart';
 import 'ui_helpers.dart';
 
 class PresetsPanel extends StatelessWidget {
@@ -14,53 +13,54 @@ class PresetsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
     return panelContainer(
+      context,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          headerTitle('Quick Presets', '', icon: Icons.flash_on_outlined),
-          sectionLabel('Tap to start quickly'),
+          headerTitle(context, 'Quick Presets', icon: Icons.flash_on_outlined),
+          sectionLabel(context, 'Tap to start quickly'),
+          const SizedBox(height: 4),
           GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisCount: 5,
-            mainAxisSpacing: 4,
-            crossAxisSpacing: 4,
+            mainAxisSpacing: 6,
+            crossAxisSpacing: 6,
             childAspectRatio: 1.8,
             children: presetValues.map((p) {
-              return InkWell(
-                onTap: () => choosePreset(p),
-                child: Container(
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: palette.bg,
-                    border: Border.all(
-                      color: palette.primary,
-                      width: p == 25 ? 2 : 1,
-                    ),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    p.toString(),
-                    style: TextStyle(
-                      color: palette.primary,
-                      fontWeight: p >= 90 ? FontWeight.bold : FontWeight.w500,
-                      fontSize: 12,
+              final isHighlighted = p == 25;
+              return Material(
+                color: isHighlighted
+                    ? cs.secondaryContainer
+                    : cs.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(10),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => choosePreset(p),
+                  child: Center(
+                    child: Text(
+                      p.toString(),
+                      style: tt.labelMedium?.copyWith(
+                        color: isHighlighted
+                            ? cs.onSecondaryContainer
+                            : cs.onSurface,
+                        fontWeight:
+                            p >= 90 ? FontWeight.w700 : FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),
               );
             }).toList(),
           ),
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              '25 = Pomodoro • bold values = deep work',
-              style: TextStyle(
-                fontSize: 10,
-                color: palette.primary.withAlpha(140),
-              ),
-            ),
+          const SizedBox(height: 6),
+          Text(
+            '25 = Pomodoro  ·  bold = deep work',
+            style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
           ),
         ],
       ),

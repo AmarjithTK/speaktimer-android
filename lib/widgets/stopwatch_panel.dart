@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/palette.dart';
 import 'ui_helpers.dart';
 
 class StopwatchPanel extends StatelessWidget {
@@ -36,42 +35,57 @@ class StopwatchPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget dropdownContainer(Widget child) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: palette.accent,
-        border: Border.all(color: palette.primary, width: 2),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: child,
-    );
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    Widget dropdownField<T>({
+      required T value,
+      required List<DropdownMenuItem<T>> items,
+      required ValueChanged<T?> onChanged,
+    }) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: DropdownButton<T>(
+          value: value,
+          isExpanded: true,
+          underline: const SizedBox(),
+          iconEnabledColor: cs.onSurfaceVariant,
+          dropdownColor: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(12),
+          items: items,
+          onChanged: onChanged,
+        ),
+      );
+    }
 
     return panelContainer(
+      context,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          headerTitle('Stopwatch', 'C', icon: Icons.av_timer_outlined),
-          const SizedBox(height: 8),
+          headerTitle(context, 'Stopwatch', icon: Icons.av_timer_outlined),
+          const SizedBox(height: 12),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(6),
+              color: cs.tertiaryContainer,
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
               children: [
                 Text(
                   'ELAPSED',
-                  style: TextStyle(
-                    color: palette.primary.withAlpha(150),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                  style: tt.labelSmall?.copyWith(
+                    color: cs.onTertiaryContainer.withAlpha(180),
                     letterSpacing: 1.2,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 SizedBox(
                   width: double.infinity,
                   child: FittedBox(
@@ -79,9 +93,10 @@ class StopwatchPanel extends StatelessWidget {
                     child: Text(
                       elapsedValue,
                       style: TextStyle(
-                        color: palette.primary,
-                        fontSize: 46,
-                        fontWeight: FontWeight.w800,
+                        color: cs.onTertiaryContainer,
+                        fontSize: 52,
+                        fontWeight: FontWeight.w300,
+                        height: 1,
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
@@ -90,44 +105,49 @@ class StopwatchPanel extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: actionBtn(
+                  context,
                   isRunning ? 'Running' : 'Start',
                   startStopwatch,
                   icon: Icons.play_arrow,
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
               Expanded(
-                child: actionBtn('Stop', stopStopwatch, icon: Icons.pause),
+                child: actionBtn(context, 'Stop', stopStopwatch,
+                    icon: Icons.pause),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
               Expanded(
-                child: actionBtn('Reset', resetStopwatch, icon: Icons.refresh),
+                child: actionBtn(context, 'Reset', resetStopwatch,
+                    icon: Icons.refresh),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
 
-          // ── Advanced Controls (collapsed by default) ──────────────────
-          Container(
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(6),
+          // ── Advanced Controls ──────────────────────────────────────────
+          Card(
+            elevation: 0,
+            margin: EdgeInsets.zero,
+            color: cs.surfaceContainerHigh,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
+            clipBehavior: Clip.antiAlias,
             child: Theme(
-              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              data: Theme.of(context).copyWith(
+                dividerColor: Colors.transparent,
+              ),
               child: ExpansionTile(
-                tilePadding: const EdgeInsets.symmetric(horizontal: 10),
-                childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                iconColor: palette.primary,
-                collapsedIconColor: palette.primary,
-                textColor: palette.primary,
-                collapsedTextColor: palette.primary,
+                tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                iconColor: cs.onSurfaceVariant,
+                collapsedIconColor: cs.onSurfaceVariant,
                 expansionAnimationStyle: AnimationStyle(
                   curve: Curves.easeOutCubic,
                   reverseCurve: Curves.easeInCubic,
@@ -136,71 +156,70 @@ class StopwatchPanel extends StatelessWidget {
                 ),
                 title: Row(
                   children: [
-                    Icon(Icons.tune_outlined, color: palette.primary, size: 15),
-                    const SizedBox(width: 6),
+                    Icon(
+                      Icons.tune_outlined,
+                      color: cs.onSurfaceVariant,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
                     Text(
                       'Advanced',
-                      style: TextStyle(
-                        color: palette.primary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
+                      style: tt.titleSmall?.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
                 children: [
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: stopwatchSpeakOn,
-                        activeColor: palette.primary,
-                        checkColor: palette.accent,
-                        onChanged: onStopwatchSpeakOnChanged,
-                      ),
-                      Expanded(
-                        child: sectionLabel('Speak elapsed time automatically'),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: stopwatchShowMilliseconds,
-                        activeColor: palette.primary,
-                        checkColor: palette.accent,
-                        onChanged: onStopwatchShowMillisecondsChanged,
-                      ),
-                      Expanded(child: sectionLabel('Show milliseconds')),
-                    ],
-                  ),
-                  if (stopwatchSpeakOn)
-                    dropdownContainer(
-                      DropdownButton<int>(
-                        value: stopwatchSpeakDelaySeconds,
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        iconEnabledColor: palette.primary,
-                        dropdownColor: palette.accent,
-                        items: stopwatchSpeakDelayOptions
-                            .map(
-                              (e) => DropdownMenuItem(
-                                value: e,
-                                child: Text(
-                                  e >= 60
-                                      ? (e % 60 == 0 ? '${e ~/ 60} min' : '${e}s')
-                                      : '$e sec',
-                                  style: TextStyle(
-                                    color: palette.primary,
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: onStopwatchSpeakDelayChanged,
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    value: stopwatchSpeakOn,
+                    onChanged: onStopwatchSpeakOnChanged,
+                    title: Text(
+                      'Speak elapsed time automatically',
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
+                  ),
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    value: stopwatchShowMilliseconds,
+                    onChanged: onStopwatchShowMillisecondsChanged,
+                    title: Text(
+                      'Show milliseconds',
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  if (stopwatchSpeakOn) ...[
+                    const SizedBox(height: 4),
+                    dropdownField<int>(
+                      value: stopwatchSpeakDelaySeconds,
+                      items: stopwatchSpeakDelayOptions
+                          .map(
+                            (e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(
+                                e >= 60
+                                    ? (e % 60 == 0
+                                        ? '${e ~/ 60} min'
+                                        : '${e}s')
+                                    : '$e sec',
+                                style: tt.bodyMedium?.copyWith(
+                                  color: cs.onSurface,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: onStopwatchSpeakDelayChanged,
+                    ),
+                  ],
                 ],
               ),
             ),

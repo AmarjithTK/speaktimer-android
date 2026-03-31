@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/palette.dart';
 import 'ui_helpers.dart';
 
 class TimerPanel extends StatelessWidget {
@@ -67,22 +66,40 @@ class TimerPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget dropdownContainer(Widget child) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: palette.accent,
-        border: Border.all(color: palette.primary, width: 2),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: child,
-    );
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    Widget dropdownField<T>({
+      required T value,
+      required List<DropdownMenuItem<T>> items,
+      required ValueChanged<T?> onChanged,
+    }) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: DropdownButton<T>(
+          value: value,
+          isExpanded: true,
+          underline: const SizedBox(),
+          iconEnabledColor: cs.onSurfaceVariant,
+          dropdownColor: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(12),
+          items: items,
+          onChanged: onChanged,
+        ),
+      );
+    }
 
     return panelContainer(
+      context,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          headerTitle("Timer", "B", icon: Icons.timer_outlined),
-          const SizedBox(height: 8),
+          headerTitle(context, 'Timer', icon: Icons.timer_outlined),
+          const SizedBox(height: 12),
           Builder(
             builder: (_) {
               final timerParts = _splitTimer(timerValue);
@@ -93,26 +110,23 @@ class TimerPanel extends StatelessWidget {
               return Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
+                  horizontal: 16,
+                  vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: palette.accent,
-                  border: Border.all(color: palette.primary, width: 2),
-                  borderRadius: BorderRadius.circular(6),
+                  color: cs.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   children: [
                     Text(
                       'REMAINING',
-                      style: TextStyle(
-                        color: palette.primary.withAlpha(150),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
+                      style: tt.labelSmall?.copyWith(
+                        color: cs.onPrimaryContainer.withAlpha(180),
                         letterSpacing: 1.2,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     SizedBox(
                       width: double.infinity,
                       child: FittedBox(
@@ -121,7 +135,7 @@ class TimerPanel extends StatelessWidget {
                           textAlign: TextAlign.center,
                           text: TextSpan(
                             style: TextStyle(
-                              color: palette.primary,
+                              color: cs.onPrimaryContainer,
                               fontFeatures: const [
                                 FontFeature.tabularFigures(),
                               ],
@@ -130,32 +144,36 @@ class TimerPanel extends StatelessWidget {
                               TextSpan(
                                 text: minutes,
                                 style: const TextStyle(
-                                  fontSize: 46,
-                                  fontWeight: FontWeight.w800,
+                                  fontSize: 52,
+                                  fontWeight: FontWeight.w300,
+                                  height: 1,
                                 ),
                               ),
                               TextSpan(
                                 text: ':',
                                 style: TextStyle(
-                                  fontSize: 38,
-                                  fontWeight: FontWeight.w700,
-                                  color: palette.primary.withAlpha(180),
+                                  fontSize: 44,
+                                  fontWeight: FontWeight.w300,
+                                  color: cs.onPrimaryContainer.withAlpha(180),
+                                  height: 1,
                                 ),
                               ),
                               TextSpan(
                                 text: seconds,
                                 style: const TextStyle(
-                                  fontSize: 46,
-                                  fontWeight: FontWeight.w800,
+                                  fontSize: 52,
+                                  fontWeight: FontWeight.w300,
+                                  height: 1,
                                 ),
                               ),
                               if (millis != null)
                                 TextSpan(
                                   text: '.$millis',
                                   style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w700,
-                                    color: palette.primary.withAlpha(170),
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.w400,
+                                    color: cs.onPrimaryContainer.withAlpha(170),
+                                    height: 1,
                                   ),
                                 ),
                             ],
@@ -173,23 +191,20 @@ class TimerPanel extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                sectionLabel("$sliderValue min"),
                 Text(
-                  "$voicesCount voice${voicesCount != 1 ? 's' : ''} loaded",
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: palette.primary.withAlpha(140),
-                  ),
+                  '$sliderValue minutes',
+                  style: tt.labelMedium?.copyWith(color: cs.onSurfaceVariant),
+                ),
+                Text(
+                  '$voicesCount voice${voicesCount != 1 ? 's' : ''} loaded',
+                  style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
                 ),
               ],
             ),
           ),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
-              activeTrackColor: palette.accent,
-              inactiveTrackColor: palette.accent,
-              thumbColor: palette.accent,
-              trackHeight: 8,
+              trackHeight: 4,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
             ),
             child: Slider(
@@ -202,34 +217,40 @@ class TimerPanel extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: actionBtn('Start', startTimer, icon: Icons.play_arrow),
+                child: actionBtn(context, 'Start', startTimer,
+                    icon: Icons.play_arrow),
               ),
-              const SizedBox(width: 4),
-              Expanded(child: actionBtn('Stop', stopTimer, icon: Icons.pause)),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
               Expanded(
-                child: actionBtn('Reset', resetTimer, icon: Icons.refresh),
+                  child:
+                      actionBtn(context, 'Stop', stopTimer, icon: Icons.pause)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: actionBtn(context, 'Reset', resetTimer,
+                    icon: Icons.refresh),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
 
-          // ── Advanced Controls (collapsed by default) ──────────────────
-          Container(
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(6),
+          // ── Advanced Controls ──────────────────────────────────────────
+          Card(
+            elevation: 0,
+            margin: EdgeInsets.zero,
+            color: cs.surfaceContainerHigh,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
+            clipBehavior: Clip.antiAlias,
             child: Theme(
-              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              data: Theme.of(context).copyWith(
+                dividerColor: Colors.transparent,
+              ),
               child: ExpansionTile(
-                tilePadding: const EdgeInsets.symmetric(horizontal: 10),
-                childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                iconColor: palette.primary,
-                collapsedIconColor: palette.primary,
-                textColor: palette.primary,
-                collapsedTextColor: palette.primary,
+                tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                iconColor: cs.onSurfaceVariant,
+                collapsedIconColor: cs.onSurfaceVariant,
                 expansionAnimationStyle: AnimationStyle(
                   curve: Curves.easeOutCubic,
                   reverseCurve: Curves.easeInCubic,
@@ -238,124 +259,114 @@ class TimerPanel extends StatelessWidget {
                 ),
                 title: Row(
                   children: [
-                    Icon(Icons.tune_outlined, color: palette.primary, size: 15),
-                    const SizedBox(width: 6),
+                    Icon(
+                      Icons.tune_outlined,
+                      color: cs.onSurfaceVariant,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
                     Text(
                       'Advanced',
-                      style: TextStyle(
-                        color: palette.primary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
+                      style: tt.titleSmall?.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
                 children: [
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: timerNoiseOn,
-                        activeColor: palette.primary,
-                        checkColor: palette.accent,
-                        onChanged: onTimerNoiseOnChanged,
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    value: timerNoiseOn,
+                    onChanged: onTimerNoiseOnChanged,
+                    title: Text(
+                      'Background noise during timer',
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
-                      Expanded(child: sectionLabel('Background noise during timer')),
-                    ],
+                    ),
                   ),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: timerSpeakOn,
-                        activeColor: palette.primary,
-                        checkColor: palette.accent,
-                        onChanged: onTimerSpeakOnChanged,
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    value: timerSpeakOn,
+                    onChanged: onTimerSpeakOnChanged,
+                    title: Text(
+                      'Speak remaining time',
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
-                      Expanded(child: sectionLabel('Speak remaining time')),
-                    ],
+                    ),
                   ),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: timerShowMilliseconds,
-                        activeColor: palette.primary,
-                        checkColor: palette.accent,
-                        onChanged: onTimerShowMillisecondsChanged,
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    value: timerShowMilliseconds,
+                    onChanged: onTimerShowMillisecondsChanged,
+                    title: Text(
+                      'Show milliseconds',
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
-                      Expanded(child: sectionLabel('Show milliseconds')),
-                    ],
+                    ),
                   ),
                   if (timerSpeakOn) ...[
                     const SizedBox(height: 4),
-                    dropdownContainer(
-                      DropdownButton<int>(
-                        value: timerAnnounceEvery,
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        iconEnabledColor: palette.primary,
-                        dropdownColor: palette.accent,
-                        items: timerAnnounceOptions
-                            .map(
-                              (mins) => DropdownMenuItem(
-                                value: mins,
-                                child: Text(
-                                  'Speak every $mins min',
-                                  style: TextStyle(
-                                    color: palette.primary,
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 12,
-                                  ),
+                    dropdownField<int>(
+                      value: timerAnnounceEvery,
+                      items: timerAnnounceOptions
+                          .map(
+                            (mins) => DropdownMenuItem(
+                              value: mins,
+                              child: Text(
+                                'Speak every $mins min',
+                                style: tt.bodyMedium?.copyWith(
+                                  color: cs.onSurface,
                                 ),
                               ),
-                            )
-                            .toList(),
-                        onChanged: onTimerAnnounceEveryChanged,
-                      ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: onTimerAnnounceEveryChanged,
                     ),
                   ],
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: chainModeOn,
-                        activeColor: palette.primary,
-                        checkColor: palette.accent,
-                        onChanged: onChainModeChanged,
-                      ),
-                      Expanded(child: sectionLabel('Enable chain timers')),
-                    ],
-                  ),
-                  if (chainModeOn) ...[
-                    dropdownContainer(
-                      DropdownButton<String>(
-                        value: chainPresetKey,
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        iconEnabledColor: palette.primary,
-                        dropdownColor: palette.accent,
-                        items: chainPresets.keys
-                            .map(
-                              (key) => DropdownMenuItem(
-                                value: key,
-                                child: Text(
-                                  key,
-                                  style: TextStyle(
-                                    color: palette.primary,
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: onChainPresetChanged,
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    value: chainModeOn,
+                    onChanged: onChainModeChanged,
+                    title: Text(
+                      'Enable chain timers',
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
+                  ),
+                  if (chainModeOn) ...[
+                    dropdownField<String>(
+                      value: chainPresetKey,
+                      items: chainPresets.keys
+                          .map(
+                            (key) => DropdownMenuItem(
+                              value: key,
+                              child: Text(
+                                key,
+                                style: tt.bodyMedium?.copyWith(
+                                  color: cs.onSurface,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: onChainPresetChanged,
+                    ),
                     Padding(
-                      padding: const EdgeInsets.only(top: 6),
+                      padding: const EdgeInsets.only(top: 8),
                       child: Text(
                         'Chain step ${chainIndex + 1}/${chainPresets[chainPresetKey]?.length ?? 1}',
-                        style: TextStyle(
-                          color: palette.primary.withAlpha(170),
-                          fontSize: 11,
+                        style: tt.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
                         ),
                       ),
                     ),

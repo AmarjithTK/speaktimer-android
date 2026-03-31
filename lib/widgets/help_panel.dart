@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../theme/palette.dart';
 import 'ui_helpers.dart';
 
 class HelpPanel extends StatelessWidget {
@@ -17,205 +16,217 @@ class HelpPanel extends StatelessWidget {
     required this.sleepEndLabel,
   });
 
-  Widget _quickStep(int index, String title, String subtitle) {
-    return Container(
-      width: double.infinity,
+  Widget _quickStep(
+    BuildContext context,
+    int index,
+    String title,
+    String subtitle,
+  ) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Card(
+      elevation: 0,
       margin: const EdgeInsets.only(top: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-      decoration: BoxDecoration(
-        color: palette.accent,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: palette.primary.withAlpha(120), width: 1),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 22,
-            height: 22,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: palette.primary,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '$index',
-              style: TextStyle(
-                color: palette.accent,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
+      color: cs.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: cs.primary,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                '$index',
+                style: tt.labelSmall?.copyWith(
+                  color: cs.onPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: palette.primary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: tt.titleSmall?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: palette.primary.withAlpha(190),
-                    fontSize: 11,
-                    height: 1.3,
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      height: 1.4,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _faqItem({
+  Widget _faqItem(
+    BuildContext context, {
     required String title,
     required List<String> points,
     bool initiallyExpanded = false,
   }) {
-    return Container(
-      width: double.infinity,
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Card(
+      elevation: 0,
       margin: const EdgeInsets.only(top: 8),
-      decoration: BoxDecoration(
-        color: palette.accent,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: palette.primary, width: 1.4),
-      ),
-      child: ExpansionTile(
-        initiallyExpanded: initiallyExpanded,
-        shape: const RoundedRectangleBorder(side: BorderSide.none),
-        collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
-        tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-        iconColor: palette.primary,
-        collapsedIconColor: palette.primary,
-        title: Text(
-          title,
-          style: TextStyle(
-            color: palette.primary,
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
+      color: cs.surfaceContainerHighest,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: initiallyExpanded,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+          iconColor: cs.onSurfaceVariant,
+          collapsedIconColor: cs.onSurfaceVariant,
+          title: Text(
+            title,
+            style: tt.titleSmall?.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-        children: points
-            .map(
-              (text) => Padding(
-                padding: const EdgeInsets.only(bottom: 5),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: Icon(
-                        Icons.check_circle_outline,
-                        size: 13,
-                        color: palette.primary.withAlpha(190),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        text,
-                        style: TextStyle(
-                          color: palette.primary.withAlpha(210),
-                          fontSize: 12,
-                          height: 1.3,
+          children: points
+              .map(
+                (text) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Icon(
+                          Icons.check_circle_outline,
+                          size: 14,
+                          color: cs.primary,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          text,
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            )
-            .toList(),
+              )
+              .toList(),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
     final range = '$sleepStartLabel → $sleepEndLabel';
     final sleepModeStatus = !muteSpeechAfterMidnight
         ? 'Sleep mode is OFF'
         : (nightMuteMode == 'manual'
-              ? 'Sleep mode is ON • Manual'
-              : 'Sleep mode is ON • Automatic');
+            ? 'Sleep mode is ON · Manual'
+            : 'Sleep mode is ON · Automatic');
 
     return panelContainer(
+      context,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          headerTitle('Help & Guide', '', icon: Icons.help_outline),
-          const SizedBox(height: 6),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 1.5),
-              borderRadius: BorderRadius.circular(6),
+          headerTitle(context, 'Help & Guide', icon: Icons.help_outline),
+          const SizedBox(height: 10),
+          Card(
+            elevation: 0,
+            margin: EdgeInsets.zero,
+            color: cs.secondaryContainer,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.info_outline, size: 16, color: palette.primary),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: Text(
-                    '$sleepModeStatus\nCurrent range: $range',
-                    style: TextStyle(
-                      color: palette.primary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      height: 1.35,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline, size: 18, color: cs.onSecondaryContainer),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '$sleepModeStatus\nCurrent range: $range',
+                      style: tt.bodySmall?.copyWith(
+                        color: cs.onSecondaryContainer,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             'Quick Start',
-            style: TextStyle(
-              color: palette.primary,
-              fontWeight: FontWeight.w800,
-              fontSize: 13,
+            style: tt.titleSmall?.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w700,
             ),
           ),
           _quickStep(
+            context,
             1,
             'Configure timer and speech',
             'Open Timer Setup, choose minutes, speech interval, and optional chain preset.',
           ),
           _quickStep(
+            context,
             2,
             'Set sleep behavior',
             'Open Settings, enable Sleep mode, pick Manual or Automatic, and choose time range.',
           ),
           _quickStep(
+            context,
             3,
             'Use widget controls',
             'From home screen widget, toggle speech, start/stop timer, or launch quick 25m/resume.',
           ),
           _faqItem(
-            title: 'SpeakClock (Tab A)',
+            context,
+            title: 'SpeakClock (Clock tab)',
             points: [
               'Turn ON SpeakClock to hear time announcements at your selected interval.',
               'Optional motivation quotes are spoken after each time announcement.',
             ],
           ),
           _faqItem(
-            title: 'Timer Setup (Tab B)',
+            context,
+            title: 'Timer Setup',
             points: [
               'Set minutes with slider or quick presets.',
               'Enable speech to hear remaining-time messages.',
@@ -223,6 +234,7 @@ class HelpPanel extends StatelessWidget {
             ],
           ),
           _faqItem(
+            context,
             title: 'Sleep Mode (Settings)',
             initiallyExpanded: true,
             points: [
@@ -233,6 +245,7 @@ class HelpPanel extends StatelessWidget {
             ],
           ),
           _faqItem(
+            context,
             title: 'Home Screen Widget',
             points: [
               'Speech button instantly turns timer speech ON/OFF.',
@@ -242,9 +255,10 @@ class HelpPanel extends StatelessWidget {
             ],
           ),
           _faqItem(
+            context,
             title: 'Tips',
             points: [
-              'If widget command feels delayed, wait 1-2 seconds for sync.',
+              'If widget command feels delayed, wait 1–2 seconds for sync.',
               'Keep notification and battery permissions allowed for stable background behavior.',
             ],
           ),

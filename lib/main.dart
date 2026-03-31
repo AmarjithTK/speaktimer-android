@@ -135,6 +135,44 @@ void main() {
 class LiferApp extends StatelessWidget {
   const LiferApp({super.key});
 
+  static ThemeData _buildTheme(Brightness brightness) {
+    final cs = ColorScheme.fromSeed(
+      seedColor: const Color(0xFF6750A4), // Material Design 3 reference purple seed
+      brightness: brightness,
+    );
+    return ThemeData(
+      colorScheme: cs,
+      useMaterial3: true,
+      // M3 typography scale — letterSpacing and weights follow the spec
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(fontWeight: FontWeight.w300, letterSpacing: -0.5),
+        displayMedium: TextStyle(fontWeight: FontWeight.w300),
+        displaySmall: TextStyle(fontWeight: FontWeight.w300),
+        headlineLarge: TextStyle(fontWeight: FontWeight.w400),
+        headlineMedium: TextStyle(fontWeight: FontWeight.w400),
+        headlineSmall: TextStyle(fontWeight: FontWeight.w400),
+        titleLarge: TextStyle(fontWeight: FontWeight.w500, letterSpacing: 0.0),
+        titleMedium: TextStyle(fontWeight: FontWeight.w500, letterSpacing: 0.15),
+        titleSmall: TextStyle(fontWeight: FontWeight.w500, letterSpacing: 0.1),
+        bodyLarge: TextStyle(letterSpacing: 0.5),
+        bodyMedium: TextStyle(letterSpacing: 0.25),
+        bodySmall: TextStyle(letterSpacing: 0.4),
+        labelLarge: TextStyle(fontWeight: FontWeight.w500, letterSpacing: 0.1),
+        labelMedium: TextStyle(fontWeight: FontWeight.w500, letterSpacing: 0.5),
+        labelSmall: TextStyle(fontWeight: FontWeight.w500, letterSpacing: 0.5),
+      ),
+      appBarTheme: const AppBarTheme(
+        centerTitle: false,
+        scrolledUnderElevation: 0,
+        titleTextStyle: TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.w400,
+          letterSpacing: 0,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return WithForegroundTask(
@@ -148,54 +186,8 @@ class LiferApp extends StatelessWidget {
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             themeMode: themeMode,
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF4F46E5),
-                brightness: Brightness.light,
-              ),
-              useMaterial3: true,
-              appBarTheme: AppBarTheme(
-                centerTitle: false,
-                titleTextStyle: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                ),
-              ),
-              elevatedButtonTheme: ElevatedButtonThemeData(
-                style: ElevatedButton.styleFrom(
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ),
-            ),
-            darkTheme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF4F46E5),
-                brightness: Brightness.dark,
-              ),
-              useMaterial3: true,
-              appBarTheme: AppBarTheme(
-                centerTitle: false,
-                titleTextStyle: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                ),
-              ),
-              elevatedButtonTheme: ElevatedButtonThemeData(
-                style: ElevatedButton.styleFrom(
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ),
-            ),
+            theme: _buildTheme(Brightness.light),
+            darkTheme: _buildTheme(Brightness.dark),
             home: const MainScreen(),
           );
         },
@@ -1854,7 +1846,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Widget _buildSpeakClockTab() {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: ListView(
           children: [
             ClockPanel(
@@ -1914,14 +1906,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Widget _buildTimerSetupTab() {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: ListView(
           children: [
             PresetsPanel(
               presetValues: presetValues,
               choosePreset: choosePreset,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             TimerPanel(
               timerValue: timerDisplayValue,
               sliderValue: sliderValue,
@@ -1996,7 +1988,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Widget _buildStopwatchTab() {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: ListView(
           children: [
             StopwatchPanel(
@@ -2045,7 +2037,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: ListView(
           children: [
             SettingsPanel(
@@ -2222,21 +2214,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Widget _buildHelpTab() {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: palette.bg,
-        elevation: 0,
-        iconTheme: IconThemeData(color: palette.primary),
         title: Text(
           AppLocalizations.of(context)?.helpTitle ?? 'Help / Working',
-          style: TextStyle(
-            color: palette.primary,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
         ),
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: ListView(
             children: [
               HelpPanel(
@@ -2273,36 +2257,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 48,
-        backgroundColor: palette.bg,
-        elevation: 0,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              AppLocalizations.of(context)?.appTitle ?? 'Lifer',
-              style: TextStyle(
-                color: palette.primary,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
+        title: Text(AppLocalizations.of(context)?.appTitle ?? 'lifer'),
         actions: [
           IconButton(
             onPressed: () => unawaited(_exitAppFully()),
             tooltip: 'Shutdown app',
-            icon: Icon(Icons.power_settings_new, color: palette.primary),
+            icon: const Icon(Icons.power_settings_new),
           ),
           IconButton(
             onPressed: _openFullscreenFocus,
             tooltip: 'Open Focus Fullscreen',
-            icon: Icon(Icons.fullscreen, color: palette.primary),
+            icon: const Icon(Icons.fullscreen),
           ),
         ],
-        centerTitle: true,
       ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 220),
@@ -2332,38 +2299,32 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           : _buildSettingsTab())),
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: currentTabIndex,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: palette.bg,
-        selectedItemColor: palette.primary,
-        unselectedItemColor: palette.primary.withAlpha(150),
-        showUnselectedLabels: true,
-        elevation: 8,
-        onTap: (index) {
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: currentTabIndex,
+        onDestinationSelected: (index) {
           setState(() {
             currentTabIndex = index;
           });
         },
-        items: const [
-          BottomNavigationBarItem(
+        destinations: const [
+          NavigationDestination(
             icon: Icon(Icons.access_time_outlined),
-            activeIcon: Icon(Icons.access_time),
+            selectedIcon: Icon(Icons.access_time),
             label: 'Clock',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.tune_outlined),
-            activeIcon: Icon(Icons.tune),
+          NavigationDestination(
+            icon: Icon(Icons.timer_outlined),
+            selectedIcon: Icon(Icons.timer),
             label: 'Timer',
           ),
-          BottomNavigationBarItem(
+          NavigationDestination(
             icon: Icon(Icons.av_timer_outlined),
-            activeIcon: Icon(Icons.av_timer),
+            selectedIcon: Icon(Icons.av_timer),
             label: 'Stopwatch',
           ),
-          BottomNavigationBarItem(
+          NavigationDestination(
             icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings),
+            selectedIcon: Icon(Icons.settings),
             label: 'Settings',
           ),
         ],
