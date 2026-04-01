@@ -100,9 +100,15 @@ final ValueNotifier<ThemeMode> appThemeModeNotifier = ValueNotifier(
   ThemeMode.light,
 );
 
+final ValueNotifier<double> appFontSizeNotifier = ValueNotifier(1.0);
+
 void setAppThemeMode(bool isDark) {
   appThemeModeNotifier.value = isDark ? ThemeMode.dark : ThemeMode.light;
   setPaletteDarkMode(isDark);
+}
+
+void setAppFontSizeMultiplier(double multiplier) {
+  appFontSizeNotifier.value = multiplier;
 }
 
 @pragma('vm:entry-point')
@@ -141,62 +147,75 @@ class LiferApp extends StatelessWidget {
       child: ValueListenableBuilder<ThemeMode>(
         valueListenable: appThemeModeNotifier,
         builder: (context, themeMode, _) {
-          final l10n = AppLocalizations.of(context);
-          return MaterialApp(
-            title: l10n?.appTitle ?? 'lifer',
-            debugShowCheckedModeBanner: false,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            themeMode: themeMode,
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF4F46E5),
-                brightness: Brightness.light,
-              ),
-              useMaterial3: true,
-              appBarTheme: AppBarTheme(
-                centerTitle: false,
-                titleTextStyle: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                ),
-              ),
-              elevatedButtonTheme: ElevatedButtonThemeData(
-                style: ElevatedButton.styleFrom(
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
+          return ValueListenableBuilder<double>(
+            valueListenable: appFontSizeNotifier,
+            builder: (context, fontSizeMultiplier, _) {
+              final l10n = AppLocalizations.of(context);
+              return MaterialApp(
+                title: l10n?.appTitle ?? 'lifer',
+                debugShowCheckedModeBanner: false,
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                themeMode: themeMode,
+                builder: (context, child) {
+                  return MediaQuery(
+                    data: MediaQuery.of(context).copyWith(
+                      textScaler: TextScaler.linear(fontSizeMultiplier),
+                    ),
+                    child: child!,
+                  );
+                },
+                theme: ThemeData(
+                  colorScheme: ColorScheme.fromSeed(
+                    seedColor: const Color(0xFF4F46E5),
+                    brightness: Brightness.light,
+                  ),
+                  useMaterial3: true,
+                  appBarTheme: AppBarTheme(
+                    centerTitle: false,
+                    titleTextStyle: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  elevatedButtonTheme: ElevatedButtonThemeData(
+                    style: ElevatedButton.styleFrom(
+                      textStyle: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            darkTheme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF4F46E5),
-                brightness: Brightness.dark,
-              ),
-              useMaterial3: true,
-              appBarTheme: AppBarTheme(
-                centerTitle: false,
-                titleTextStyle: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                ),
-              ),
-              elevatedButtonTheme: ElevatedButtonThemeData(
-                style: ElevatedButton.styleFrom(
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
+                darkTheme: ThemeData(
+                  colorScheme: ColorScheme.fromSeed(
+                    seedColor: const Color(0xFF4F46E5),
+                    brightness: Brightness.dark,
+                  ),
+                  useMaterial3: true,
+                  appBarTheme: AppBarTheme(
+                    centerTitle: false,
+                    titleTextStyle: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  elevatedButtonTheme: ElevatedButtonThemeData(
+                    style: ElevatedButton.styleFrom(
+                      textStyle: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            home: const MainScreen(),
+                home: const MainScreen(),
+              );
+            },
           );
         },
       ),
@@ -404,6 +423,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// Show milliseconds in speaking clock display
   bool clockShowMilliseconds = true;
 
+  /// Enable/disable announcing the time (speech) during clock
+  bool clockSpeakTime = true;
+
+  /// Enable/disable background noise during clock
+  bool clockNoiseOn = false;
+
   /// Enable/disable motivational quote announcements
   bool motivationOn = true;
 
@@ -537,9 +562,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// SharedPreferences key for last timer seconds via quick action
   static const String _lastTimerSecondsKey = 'QuickActionLastSeconds';
 
+  // Flag to avoid asking for battery optimization multiple times
+  static const String _batteryOptimizationAskedKey = 'BatteryOptAsked';
+
   Future<void> _requestPermissions() async {
-    if (await FlutterForegroundTask.isIgnoringBatteryOptimizations == false) {
+    final prefs = await SharedPreferences.getInstance();
+    final bool hasAskedBattery = prefs.getBool(_batteryOptimizationAskedKey) ?? false;
+
+    if (!hasAskedBattery && await FlutterForegroundTask.isIgnoringBatteryOptimizations == false) {
       await FlutterForegroundTask.requestIgnoreBatteryOptimization();
+      await prefs.setBool(_batteryOptimizationAskedKey, true);
     }
     final NotificationPermission status =
         await FlutterForegroundTask.checkNotificationPermission();
@@ -840,6 +872,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               stopClock();
             }
           });
+          _applyAudioSettings();
           _syncForegroundNotification(force: true);
           break;
         case 'btn_stopwatch_toggle':
@@ -915,6 +948,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       clockOn = settings.clockOn;
       clockIntervalMins = settings.clockIntervalMins;
       clockShowMilliseconds = settings.clockShowMilliseconds;
+      clockSpeakTime = settings.clockSpeakTime;
+      clockNoiseOn = settings.clockNoiseOn;
       motivationOn = settings.motivationOn;
       motivationCategory = settings.motivationCategory;
       motivationDelaySeconds = settings.motivationDelaySeconds;
@@ -939,6 +974,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       voiceListMode = settings.voiceListMode;
       favoriteVoiceName = settings.favoriteVoiceName;
       favoriteVoiceLocale = settings.favoriteVoiceLocale;
+      setAppFontSizeMultiplier(settings.appFontSizeMultiplier);
 
       if (!motivationCategories.contains(motivationCategory)) {
         motivationCategory = 'General';
@@ -991,6 +1027,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       clockOn: clockOn,
       clockIntervalMins: clockIntervalMins,
       clockShowMilliseconds: clockShowMilliseconds,
+      clockSpeakTime: clockSpeakTime,
+      clockNoiseOn: clockNoiseOn,
       motivationOn: motivationOn,
       motivationCategory: motivationCategory,
       motivationDelaySeconds: motivationDelaySeconds,
@@ -1015,6 +1053,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       voiceListMode: voiceListMode,
       favoriteVoiceName: favoriteVoiceName,
       favoriteVoiceLocale: favoriteVoiceLocale,
+      appFontSizeMultiplier: appFontSizeNotifier.value,
     );
   }
 
@@ -1093,6 +1132,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             stopClock();
           }
         });
+        _applyAudioSettings();
         unawaited(_syncForegroundNotification(force: true));
         break;
       case 'toggle_timer_speech':
@@ -1122,7 +1162,21 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _applyAudioSettings() {
-    if (audioPlaying && timerNoiseOn) {
+    final bool shouldTimerPlay = timerInterval != null && timerNoiseOn;
+    final bool shouldClockPlay = clockOn && clockNoiseOn;
+    final bool shouldPlay = shouldTimerPlay || shouldClockPlay;
+
+    if (audioPlaying != shouldPlay) {
+      if (mounted) {
+        setState(() {
+          audioPlaying = shouldPlay;
+        });
+      } else {
+        audioPlaying = shouldPlay;
+      }
+    }
+
+    if (shouldPlay) {
       unawaited(
         _audioService.applyBackground(
           shouldPlay: true,
@@ -1487,9 +1541,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   void startClock() {
     stopClock();
-    speakClock(timeToWords());
-    clockTimer = Timer.periodic(Duration(minutes: clockIntervalMins), (timer) {
+    if (clockSpeakTime) {
       speakClock(timeToWords());
+    }
+    clockTimer = Timer.periodic(Duration(minutes: clockIntervalMins), (timer) {
+      if (clockSpeakTime) {
+        speakClock(timeToWords());
+      }
     });
   }
 
@@ -1508,6 +1566,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         stopClock();
       }
     });
+    _applyAudioSettings();
   }
 
   void speakClock(String text) {
@@ -1813,7 +1872,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     setState(() {
       timerInterval = Timer.periodic(const Duration(seconds: 1), tick);
-      audioPlaying = timerNoiseOn;
     });
     unawaited(_saveLastTimerSeconds(seconds > 0 ? seconds : sliderValue * 60));
     _applyAudioSettings();
@@ -1826,10 +1884,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
     timerInterval?.cancel();
     timerInterval = null;
-    setState(() {
-      audioPlaying = false;
-    });
-    unawaited(_audioService.stopBackground());
+    _applyAudioSettings();
     _syncForegroundNotification(force: true);
   }
 
@@ -1863,6 +1918,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               toggleClock: toggleClock,
               clockIntervalMins: clockIntervalMins,
               clockShowMilliseconds: clockShowMilliseconds,
+              clockSpeakTime: clockSpeakTime,
+              clockNoiseOn: clockNoiseOn,
               motivationOn: motivationOn,
               motivationCategory: motivationCategory,
               motivationDelaySeconds: motivationDelaySeconds,
@@ -1883,6 +1940,22 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   currentTimeDisplay = _formatCurrentTime(DateTime.now());
                   _lsSave();
                 });
+              },
+              onClockSpeakTimeChanged: (val) {
+                setState(() {
+                  clockSpeakTime = val ?? true;
+                  _lsSave();
+                });
+                if (clockOn && clockSpeakTime) {
+                  speakClock(timeToWords());
+                }
+              },
+              onClockNoiseOnChanged: (val) {
+                setState(() {
+                  clockNoiseOn = val ?? false;
+                  _lsSave();
+                });
+                _applyAudioSettings();
               },
               onMotivationChanged: (val) {
                 setState(() {
@@ -1923,6 +1996,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 8),
             TimerPanel(
+              onFullscreenPressed: _openFullscreenFocus,
               timerValue: timerDisplayValue,
               sliderValue: sliderValue,
               voicesCount: voices.length,
@@ -1946,7 +2020,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               onTimerNoiseOnChanged: (val) {
                 setState(() {
                   timerNoiseOn = val ?? true;
-                  audioPlaying = timerInterval != null && timerNoiseOn;
                   _lsSave();
                 });
                 _applyAudioSettings();
@@ -2052,6 +2125,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               soundChosen: soundChosen,
               noiseVolume: noiseVolume,
               speakVolume: speakVolume,
+              appFontSizeMultiplier: appFontSizeNotifier.value,
+              onAppFontSizeMultiplierChanged: (val) {
+                if (val != null) {
+                  setState(() {
+                    setAppFontSizeMultiplier(val);
+                    _lsSave();
+                  });
+                }
+              },
               fullscreenDarkTheme: fullscreenDarkTheme,
               fullscreenDimBrightness: fullscreenDimBrightness,
               fullscreenStartLandscape: fullscreenStartLandscape,
@@ -2309,13 +2391,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         switchInCurve: Curves.easeOutCubic,
         switchOutCurve: Curves.easeInCubic,
         transitionBuilder: (child, animation) {
-          final offsetAnim = Tween<Offset>(
-            begin: const Offset(0, 0.03),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutCubic,
-          ));
+          final offsetAnim =
+              Tween<Offset>(
+                begin: const Offset(0, 0.03),
+                end: Offset.zero,
+              ).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+              );
           return FadeTransition(
             opacity: animation,
             child: SlideTransition(position: offsetAnim, child: child),
