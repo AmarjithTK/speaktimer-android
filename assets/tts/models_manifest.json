@@ -1,37 +1,49 @@
 {
   "version": 1,
-  "notes": "Desktop Sherpa-ONNX model manifest for Linux/Windows. Replace modelPath/tokensPath with real local paths.",
+  "notes": "Desktop Sherpa-ONNX model manifest for Linux/Windows. Place models under assets/tts/models and binaries under assets/tts/bin or install sherpa in PATH.",
+  "commands": {
+    "linux": [
+      "assets/tts/bin/linux-x64/sherpa-onnx-offline-tts-play",
+      "sherpa-onnx-offline-tts-play",
+      "sherpa-onnx-tts-play"
+    ],
+    "windows": [
+      "assets/tts/bin/windows-x64/sherpa-onnx-offline-tts-play.exe",
+      "sherpa-onnx-offline-tts-play.exe",
+      "sherpa-onnx-tts-play.exe"
+    ]
+  },
   "models": [
     {
       "id": "en_primary",
       "language": "en",
       "tier": "primary",
-      "modelPath": "models/sherpa/en/primary/model.onnx",
-      "tokensPath": "models/sherpa/en/primary/tokens.txt",
+      "modelPath": "assets/tts/models/en/primary/model.onnx",
+      "tokensPath": "assets/tts/models/en/primary/tokens.txt",
       "description": "English smooth primary"
     },
     {
       "id": "en_backup",
       "language": "en",
       "tier": "backup",
-      "modelPath": "models/sherpa/en/backup/model.onnx",
-      "tokensPath": "models/sherpa/en/backup/tokens.txt",
+      "modelPath": "assets/tts/models/en/backup/model.onnx",
+      "tokensPath": "assets/tts/models/en/backup/tokens.txt",
       "description": "English backup"
     },
     {
       "id": "ml_primary",
       "language": "ml",
       "tier": "primary",
-      "modelPath": "models/sherpa/ml/primary/model.onnx",
-      "tokensPath": "models/sherpa/ml/primary/tokens.txt",
+      "modelPath": "assets/tts/models/ml/primary/model.onnx",
+      "tokensPath": "assets/tts/models/ml/primary/tokens.txt",
       "description": "Malayalam smooth primary"
     },
     {
       "id": "ml_backup",
       "language": "ml",
       "tier": "backup",
-      "modelPath": "models/sherpa/ml/backup/model.onnx",
-      "tokensPath": "models/sherpa/ml/backup/tokens.txt",
+      "modelPath": "assets/tts/models/ml/backup/model.onnx",
+      "tokensPath": "assets/tts/models/ml/backup/tokens.txt",
       "description": "Malayalam backup"
     }
   ]

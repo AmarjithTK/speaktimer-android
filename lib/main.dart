@@ -1501,16 +1501,25 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       await Future.delayed(Duration(milliseconds: item.delayMs));
     }
 
-    final ready = await _ensureTtsReady();
-    if (!ready) {
-      if (mounted) {
-        setState(() {
-          isSpeechActive = false;
-        });
+    final normalizedEngineMode = _speechService.normalizeSpeechEngineMode(
+      speechEngineMode,
+    );
+    final desktopSherpaOnly =
+        (Platform.isLinux || Platform.isWindows) &&
+        normalizedEngineMode == 'sherpa_only';
+
+    if (!desktopSherpaOnly) {
+      final ready = await _ensureTtsReady();
+      if (!ready) {
+        if (mounted) {
+          setState(() {
+            isSpeechActive = false;
+          });
+        }
+        // Drop pending items when engine is unavailable to prevent retry loops.
+        speechQueue.clear();
+        return;
       }
-      // Drop pending items when engine is unavailable to prevent retry loops.
-      speechQueue.clear();
-      return;
     }
 
     final pv = getPreferredVoice();
@@ -2289,6 +2298,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               speechQueueLength: speechQueue.length,
               voiceListMode: voiceListMode,
               speechEngineMode: speechEngineMode,
+              speechEngineRuntime: _speechService.lastEngineUsed,
+              speechEngineRuntimeDetail: _speechService.lastEngineDetail,
               voices: settingsVoices,
               favoriteVoiceName: favoriteVoiceName,
               favoriteVoiceLocale: favoriteVoiceLocale,

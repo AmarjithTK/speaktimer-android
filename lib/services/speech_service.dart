@@ -3,15 +3,20 @@ import 'dart:convert';
 
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter/services.dart';
-import 'package:process_run/shell.dart';
 
 import '../models/speech_item.dart';
 
 class SpeechService {
   Map<String, dynamic>? _sherpaManifestCache;
+  String _lastEngineUsed = 'system';
+  String _lastEngineDetail = 'System TTS ready';
 
-  String _shellSingleQuoteEscape(String text) {
-    return text.replaceAll("'", "'\\''");
+  String get lastEngineUsed => _lastEngineUsed;
+  String get lastEngineDetail => _lastEngineDetail;
+
+  void _setEngineStatus(String used, String detail) {
+    _lastEngineUsed = used;
+    _lastEngineDetail = detail;
   }
 
   String normalizeSpeechEngineMode(String mode) {
@@ -30,30 +35,114 @@ class SpeechService {
     return useMalayalamNuance ? 'ml' : 'en';
   }
 
+  String _platformKey() {
+    if (Platform.isWindows) return 'windows';
+    if (Platform.isLinux) return 'linux';
+    if (Platform.isMacOS) return 'macos';
+    return 'unknown';
+  }
+
+  bool _looksAbsolutePath(String value) {
+    if (value.startsWith('/')) return true;
+    return RegExp(r'^[A-Za-z]:[\\/]').hasMatch(value);
+  }
+
+  String _normalizeSep(String value) {
+    return value.replaceAll('\\\\', Platform.pathSeparator).replaceAll('/', Platform.pathSeparator);
+  }
+
+  String _joinPath(String base, String relative) {
+    if (base.endsWith(Platform.pathSeparator)) {
+      return '$base${_normalizeSep(relative)}';
+    }
+    return '$base${Platform.pathSeparator}${_normalizeSep(relative)}';
+  }
+
+  List<String> _desktopBaseDirs() {
+    final bases = <String>{
+      Directory.current.path,
+      File(Platform.resolvedExecutable).parent.path,
+    };
+
+    final execParent = File(Platform.resolvedExecutable).parent;
+    if (execParent.parent.path != execParent.path) {
+      bases.add(execParent.parent.path);
+    }
+    return bases.toList();
+  }
+
+  String? _resolveDesktopPath(String pathLike) {
+    if (pathLike.trim().isEmpty) return null;
+    final normalized = _normalizeSep(pathLike.trim());
+
+    if (_looksAbsolutePath(normalized)) {
+      return File(normalized).existsSync() ? normalized : null;
+    }
+
+    final candidates = <String>{};
+    for (final base in _desktopBaseDirs()) {
+      candidates.add(_joinPath(base, normalized));
+      candidates.add(_joinPath(base, 'assets${Platform.pathSeparator}$normalized'));
+      candidates.add(_joinPath(base, 'flutter_assets${Platform.pathSeparator}$normalized'));
+      candidates.add(
+        _joinPath(
+          base,
+          'data${Platform.pathSeparator}flutter_assets${Platform.pathSeparator}$normalized',
+        ),
+      );
+    }
+
+    for (final candidate in candidates) {
+      if (File(candidate).existsSync()) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _ensureExecutableBitIfNeeded(String executablePath) async {
+    if (!Platform.isLinux) return;
+    try {
+      await Process.run('chmod', ['+x', executablePath]);
+    } catch (_) {
+      // Non-fatal; execution may still work depending on packaging.
+    }
+  }
+
+  Future<bool> _runExternal(
+    String executable,
+    List<String> args,
+  ) async {
+    try {
+      final result = await Process.run(executable, args);
+      return result.exitCode == 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> _speakOnLinuxFallback({
     required String text,
     required bool useMalayalamNuance,
   }) async {
-    final shell = Shell();
-    final escapedText = _shellSingleQuoteEscape(text);
     final voice = _linuxEspeakVoice(useMalayalamNuance: useMalayalamNuance);
 
     // Ordered fallback chain for Linux desktop distributions.
-    final commands = <String>[
-      "espeak-ng -v $voice '$escapedText'",
-      "spd-say -w -l $voice '$escapedText'",
-      "spd-say -w '$escapedText'",
+    final commands = <({String exe, List<String> args})>[
+      (exe: 'espeak-ng', args: ['-v', voice, text]),
+      (exe: 'spd-say', args: ['-w', '-l', voice, text]),
+      (exe: 'spd-say', args: ['-w', text]),
     ];
 
     for (final command in commands) {
-      try {
-        await shell.run(command);
+      final ok = await _runExternal(command.exe, command.args);
+      if (ok) {
+        _setEngineStatus('linux_fallback', '${command.exe} succeeded');
         return true;
-      } catch (_) {
-        // Try next fallback command.
       }
     }
 
+    _setEngineStatus('failed', 'Linux fallback speech engines unavailable');
     return false;
   }
 
@@ -85,6 +174,64 @@ class SpeechService {
         .toList();
   }
 
+  List<String> _manifestSherpaCommands(Map<String, dynamic> manifest) {
+    final key = _platformKey();
+    final commands = manifest['commands'];
+    if (commands is! Map) return const [];
+
+    final platformEntry = commands[key];
+    if (platformEntry is! List) return const [];
+
+    return platformEntry.whereType<String>().map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+  }
+
+  Future<List<String>> _commandCandidatesForModel(
+    Map<String, dynamic> manifest,
+    Map<String, dynamic> model,
+  ) async {
+    final names = <String>[];
+
+    final modelCommand = model['command']?.toString();
+    if (modelCommand != null && modelCommand.trim().isNotEmpty) {
+      names.add(modelCommand.trim());
+    }
+
+    names.addAll(_manifestSherpaCommands(manifest));
+
+    if (Platform.isWindows) {
+      names.addAll([
+        'sherpa-onnx-offline-tts-play.exe',
+        'sherpa-onnx-tts-play.exe',
+      ]);
+    } else {
+      names.addAll([
+        'sherpa-onnx-offline-tts-play',
+        'sherpa-onnx-tts-play',
+      ]);
+    }
+
+    final ordered = <String>[];
+    final seen = <String>{};
+    for (final candidate in names) {
+      if (seen.add(candidate)) ordered.add(candidate);
+    }
+
+    final resolved = <String>[];
+    for (final candidate in ordered) {
+      final hasSeparator = candidate.contains('/') || candidate.contains('\\\\');
+      final resolvedPath = hasSeparator || _looksAbsolutePath(candidate)
+          ? _resolveDesktopPath(candidate)
+          : null;
+      if (resolvedPath != null) {
+        await _ensureExecutableBitIfNeeded(resolvedPath);
+        resolved.add(resolvedPath);
+      } else {
+        resolved.add(candidate);
+      }
+    }
+    return resolved;
+  }
+
   Future<bool> _speakWithSherpaDesktop({
     required String text,
     required bool useMalayalamNuance,
@@ -110,30 +257,60 @@ class SpeechService {
         return tierA.compareTo(tierB);
       });
 
-    final escapedText = _shellSingleQuoteEscape(text);
-    final shell = Shell();
-
     for (final model in sorted) {
-      final modelPath = model['modelPath']?.toString();
-      final tokensPath = model['tokensPath']?.toString();
-      if (modelPath == null || tokensPath == null) continue;
+      final modelPathRaw = model['modelPath']?.toString();
+      final tokensPathRaw = model['tokensPath']?.toString();
+      if (modelPathRaw == null || tokensPathRaw == null) continue;
 
-      final attempts = <String>[
-        "sherpa-onnx-offline-tts-play --vits-model '$modelPath' --vits-tokens '$tokensPath' --sid 0 --text '$escapedText'",
-        "sherpa-onnx-offline-tts-play --model '$modelPath' --tokens '$tokensPath' --sid 0 --text '$escapedText'",
-        "sherpa-onnx-tts-play --vits-model '$modelPath' --vits-tokens '$tokensPath' --sid 0 --text '$escapedText'",
+      final modelPath = _resolveDesktopPath(modelPathRaw);
+      final tokensPath = _resolveDesktopPath(tokensPathRaw);
+      if (modelPath == null || tokensPath == null) {
+        _setEngineStatus(
+          'sherpa_unavailable',
+          'Missing model files for ${model['id'] ?? language}',
+        );
+        continue;
+      }
+
+      final commands = await _commandCandidatesForModel(manifest, model);
+      final attempts = <List<String>>[
+        ['--vits-model', modelPath, '--vits-tokens', tokensPath, '--sid', '0', '--text', text],
+        ['--model', modelPath, '--tokens', tokensPath, '--sid', '0', '--text', text],
       ];
 
-      for (final cmd in attempts) {
-        try {
-          await shell.run(cmd);
+      for (final command in commands) {
+        for (final args in attempts) {
+          final ok = await _runExternal(command, args);
+          if (ok) {
+            _setEngineStatus(
+              'sherpa',
+              'Sherpa model ${model['id'] ?? language} via $command',
+            );
+            return true;
+          }
+        }
+      }
+
+      // Last attempt: optional model-specific args from manifest.
+      final extraArgs = model['commandArgs'];
+      if (extraArgs is List && extraArgs.isNotEmpty) {
+        for (final command in commands) {
+          final ok = await _runExternal(
+            command,
+            extraArgs.map((e) => e.toString()).toList(),
+          );
+          if (ok) {
+            _setEngineStatus(
+              'sherpa',
+              'Sherpa custom args model ${model['id'] ?? language}',
+            );
           return true;
-        } catch (_) {
-          // Try next command/model.
+          }
         }
       }
     }
 
+    _setEngineStatus('sherpa_unavailable', 'Sherpa command or model not available');
     return false;
   }
 
@@ -287,6 +464,7 @@ class SpeechService {
 
     if (mode == 'sherpa_only') {
       // Strict mode requested Sherpa but it was unavailable.
+      _setEngineStatus('sherpa_only_silent', 'Sherpa-only selected; no fallback');
       return;
     }
 
@@ -321,5 +499,6 @@ class SpeechService {
 
     await flutterTts.setVolume(speakVolume);
     await flutterTts.speak(item.text);
+    _setEngineStatus('system', 'System TTS (${useMalayalamNuance ? 'ml-IN' : 'en-IN'})');
   }
 }

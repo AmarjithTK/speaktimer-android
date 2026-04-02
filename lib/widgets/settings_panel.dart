@@ -24,6 +24,8 @@ class SettingsPanel extends StatelessWidget {
   final int speechQueueLength;
   final String voiceListMode;
   final String speechEngineMode;
+  final String speechEngineRuntime;
+  final String speechEngineRuntimeDetail;
   final List<Map<dynamic, dynamic>> voices;
   final String? favoriteVoiceName;
   final String? favoriteVoiceLocale;
@@ -62,6 +64,8 @@ class SettingsPanel extends StatelessWidget {
     required this.speechQueueLength,
     required this.voiceListMode,
     required this.speechEngineMode,
+    required this.speechEngineRuntime,
+    required this.speechEngineRuntimeDetail,
     required this.voices,
     required this.favoriteVoiceName,
     required this.favoriteVoiceLocale,
@@ -456,6 +460,24 @@ class SettingsPanel extends StatelessWidget {
                       ),
                   ],
                   onChanged: onSpeechEngineModeChanged,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Runtime engine: $speechEngineRuntime',
+                style: TextStyle(
+                  color: palette.primary.withAlpha(190),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                speechEngineRuntimeDetail,
+                style: TextStyle(
+                  color: palette.primary.withAlpha(150),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
               sectionLabel('Language list'),
