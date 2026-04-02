@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/sound_option.dart';
 import '../theme/palette.dart';
@@ -8,17 +9,13 @@ class SettingsPanel extends StatelessWidget {
   final String soundChosen;
   final double noiseVolume;
   final double speakVolume;
+  final double appFontSizeMultiplier;
+  final ValueChanged<double?> onAppFontSizeMultiplierChanged;
   final bool fullscreenDarkTheme;
   final bool fullscreenDimBrightness;
   final bool fullscreenStartLandscape;
-  final bool appDarkTheme;
   final bool muteSpeechAfterMidnight;
   final String nightMuteMode;
-  final bool goalReminderOn;
-  final int goalReminderIntervalMins;
-  final List<int> goalReminderIntervalOptions;
-  final List<String> goalReminderItems;
-  final int goalReminderNextIndex;
   final String sleepStartLabel;
   final String sleepEndLabel;
   final List<SoundOption> soundList;
@@ -26,6 +23,7 @@ class SettingsPanel extends StatelessWidget {
   final bool isSpeechActive;
   final int speechQueueLength;
   final String voiceListMode;
+  final String speechEngineMode;
   final List<Map<dynamic, dynamic>> voices;
   final String? favoriteVoiceName;
   final String? favoriteVoiceLocale;
@@ -35,19 +33,12 @@ class SettingsPanel extends StatelessWidget {
   final ValueChanged<bool?> onFullscreenDarkThemeChanged;
   final ValueChanged<bool?> onFullscreenDimBrightnessChanged;
   final ValueChanged<bool?> onFullscreenStartLandscapeChanged;
-  final ValueChanged<bool?> onAppDarkThemeChanged;
   final ValueChanged<bool?> onMuteSpeechAfterMidnightChanged;
   final ValueChanged<String?> onNightMuteModeChanged;
-  final ValueChanged<bool?> onGoalReminderOnChanged;
-  final ValueChanged<int?> onGoalReminderIntervalChanged;
-  final VoidCallback onAddGoal;
-  final VoidCallback onBulkAddGoals;
-  final void Function(int index) onEditGoal;
-  final void Function(int index) onRemoveGoal;
-  final VoidCallback onSpeakNextGoalNow;
   final VoidCallback onPickSleepStart;
   final VoidCallback onPickSleepEnd;
   final ValueChanged<String?> onVoiceListModeChanged;
+  final ValueChanged<String?> onSpeechEngineModeChanged;
   final ValueChanged<String?> onFavoriteVoiceChanged;
   final VoidCallback onOpenHelp;
 
@@ -56,17 +47,13 @@ class SettingsPanel extends StatelessWidget {
     required this.soundChosen,
     required this.noiseVolume,
     required this.speakVolume,
+    required this.appFontSizeMultiplier,
+    required this.onAppFontSizeMultiplierChanged,
     required this.fullscreenDarkTheme,
     required this.fullscreenDimBrightness,
     required this.fullscreenStartLandscape,
-    required this.appDarkTheme,
     required this.muteSpeechAfterMidnight,
     required this.nightMuteMode,
-    required this.goalReminderOn,
-    required this.goalReminderIntervalMins,
-    required this.goalReminderIntervalOptions,
-    required this.goalReminderItems,
-    required this.goalReminderNextIndex,
     required this.sleepStartLabel,
     required this.sleepEndLabel,
     required this.soundList,
@@ -74,6 +61,7 @@ class SettingsPanel extends StatelessWidget {
     required this.isSpeechActive,
     required this.speechQueueLength,
     required this.voiceListMode,
+    required this.speechEngineMode,
     required this.voices,
     required this.favoriteVoiceName,
     required this.favoriteVoiceLocale,
@@ -83,19 +71,12 @@ class SettingsPanel extends StatelessWidget {
     required this.onFullscreenDarkThemeChanged,
     required this.onFullscreenDimBrightnessChanged,
     required this.onFullscreenStartLandscapeChanged,
-    required this.onAppDarkThemeChanged,
     required this.onMuteSpeechAfterMidnightChanged,
     required this.onNightMuteModeChanged,
-    required this.onGoalReminderOnChanged,
-    required this.onGoalReminderIntervalChanged,
-    required this.onAddGoal,
-    required this.onBulkAddGoals,
-    required this.onEditGoal,
-    required this.onRemoveGoal,
-    required this.onSpeakNextGoalNow,
     required this.onPickSleepStart,
     required this.onPickSleepEnd,
     required this.onVoiceListModeChanged,
+    required this.onSpeechEngineModeChanged,
     required this.onFavoriteVoiceChanged,
     required this.onOpenHelp,
   });
@@ -106,6 +87,34 @@ class SettingsPanel extends StatelessWidget {
     if (v == 0.6) return 'Medium';
     if (v == 0.8) return 'High';
     return 'Very High';
+  }
+
+  String _voiceCharacterName(String name, String locale) {
+    final lower = name.toLowerCase();
+    if (lower.contains('veena')) return 'Veena';
+    if (lower.contains('rishi')) return 'Rishi';
+    if (lower.contains('female')) return 'Female';
+    if (lower.contains('male')) return 'Male';
+    if (locale.startsWith('ml')) return 'Malayalam Native';
+    if (locale.startsWith('en-in')) return 'Indian English';
+    if (locale.startsWith('en-us')) return 'US English';
+    if (locale.startsWith('en-gb')) return 'UK English';
+    return 'Standard';
+  }
+
+  String _voiceReason(String name, String locale) {
+    final lower = name.toLowerCase();
+    if (lower.contains('neural') ||
+        lower.contains('network') ||
+        lower.contains('wavenet')) {
+      return 'Natural neural quality';
+    }
+    if (lower.contains('google') || lower.contains('samsung')) {
+      return 'High clarity device voice';
+    }
+    if (locale.startsWith('ml')) return 'Best fit for Malayalam pronunciation';
+    if (locale.startsWith('en-in')) return 'Best fit for Indian English accent';
+    return 'Stable default voice';
   }
 
   @override
@@ -258,20 +267,44 @@ class SettingsPanel extends StatelessWidget {
             title: 'Appearance',
             icon: Icons.palette_outlined,
             children: [
-              Row(
-                children: [
-                  Checkbox(
-                    value: appDarkTheme,
-                    activeColor: palette.primary,
-                    checkColor: palette.accent,
-                    onChanged: onAppDarkThemeChanged,
-                  ),
-                  Expanded(
-                    child: sectionLabel(
-                      'Use dark theme for app (Material You)',
+              sectionLabel('App font size'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Multiplier',
+                          style: TextStyle(
+                            color: palette.primary.withAlpha(170),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          '${appFontSizeMultiplier.toStringAsFixed(1)}x',
+                          style: TextStyle(
+                            color: palette.primary.withAlpha(170),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    Slider(
+                      value: appFontSizeMultiplier,
+                      min: 0.8,
+                      max: 1.5,
+                      divisions: 7,
+                      activeColor: palette.primary,
+                      inactiveColor: palette.primary.withAlpha(50),
+                      onChanged: onAppFontSizeMultiplierChanged,
+                    ),
+                  ],
+                ),
               ),
               Row(
                 children: [
@@ -375,153 +408,57 @@ class SettingsPanel extends StatelessWidget {
             ],
           ),
           sectionCard(
-            title: 'Goal Reminder',
-            icon: Icons.flag_outlined,
-            children: [
-              Row(
-                children: [
-                  Checkbox(
-                    value: goalReminderOn,
-                    activeColor: palette.primary,
-                    checkColor: palette.accent,
-                    onChanged: onGoalReminderOnChanged,
-                  ),
-                  Expanded(
-                    child: sectionLabel(
-                      'Enable goal reminder (TTS round-robin)',
-                    ),
-                  ),
-                ],
-              ),
-              if (goalReminderOn) ...[
-                sectionLabel('Goal reminder interval'),
-                dropdownContainer(
-                  DropdownButton<int>(
-                    value: goalReminderIntervalMins,
-                    isExpanded: true,
-                    underline: const SizedBox(),
-                    iconEnabledColor: palette.primary,
-                    dropdownColor: palette.accent,
-                    items: goalReminderIntervalOptions
-                        .map(
-                          (mins) => DropdownMenuItem(
-                            value: mins,
-                            child: Text(
-                              mins == 60
-                                  ? 'Every 1 hour'
-                                  : (mins == 120
-                                        ? 'Every 2 hours'
-                                        : 'Every $mins minutes'),
-                              style: TextStyle(
-                                color: palette.primary,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: onGoalReminderIntervalChanged,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: actionBtn(
-                        'Add goal',
-                        onAddGoal,
-                        icon: Icons.add_task_outlined,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: actionBtn(
-                        'Bulk add lines',
-                        onBulkAddGoals,
-                        icon: Icons.playlist_add_outlined,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                actionBtn(
-                  'Speak next goal now',
-                  onSpeakNextGoalNow,
-                  icon: Icons.record_voice_over_outlined,
-                ),
-                sectionLabel(
-                  'Goals (${goalReminderItems.length})${goalReminderItems.isEmpty ? '' : ' · Next: ${(goalReminderNextIndex % goalReminderItems.length) + 1}'}',
-                ),
-                if (goalReminderItems.isEmpty)
-                  Text(
-                    'No goals yet. Add one goal or bulk add one per line.',
-                    style: TextStyle(
-                      color: palette.primary.withAlpha(160),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  )
-                else
-                  ...goalReminderItems.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final goal = entry.value;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 6),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: palette.accent,
-                        border: Border.all(color: palette.primary, width: 2),
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${index + 1}. $goal',
-                              style: TextStyle(
-                                color: palette.primary,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            tooltip: 'Edit goal',
-                            onPressed: () => onEditGoal(index),
-                            icon: Icon(
-                              Icons.edit_outlined,
-                              color: palette.primary,
-                              size: 18,
-                            ),
-                          ),
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            tooltip: 'Delete goal',
-                            onPressed: () => onRemoveGoal(index),
-                            icon: Icon(
-                              Icons.delete_outline,
-                              color: palette.primary,
-                              size: 18,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-              ],
-            ],
-          ),
-          sectionCard(
             title: 'Voice',
             icon: Icons.record_voice_over_outlined,
             children: [
-              sectionLabel('Voice list'),
+              sectionLabel('Speech engine'),
+              dropdownContainer(
+                DropdownButton<String>(
+                  value: speechEngineMode,
+                  isExpanded: true,
+                  underline: const SizedBox(),
+                  iconEnabledColor: palette.primary,
+                  dropdownColor: palette.accent,
+                  items: [
+                    DropdownMenuItem(
+                      value: 'auto',
+                      child: Text(
+                        'Auto (System + Sherpa fallback)',
+                        style: TextStyle(
+                          color: palette.primary,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'system_only',
+                      child: Text(
+                        'System TTS only',
+                        style: TextStyle(
+                          color: palette.primary,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    if (!kIsWeb)
+                      DropdownMenuItem(
+                        value: 'sherpa_only',
+                        child: Text(
+                          'Sherpa-ONNX only (Linux/Windows)',
+                          style: TextStyle(
+                            color: palette.primary,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                  ],
+                  onChanged: onSpeechEngineModeChanged,
+                ),
+              ),
+              sectionLabel('Language list'),
               dropdownContainer(
                 DropdownButton<String>(
                   value: voiceListMode,
@@ -531,9 +468,9 @@ class SettingsPanel extends StatelessWidget {
                   dropdownColor: palette.accent,
                   items: [
                     DropdownMenuItem(
-                      value: 'pleasant',
+                      value: 'auto',
                       child: Text(
-                        'Pleasant voices',
+                        'Auto (English + Malayalam)',
                         style: TextStyle(
                           color: palette.primary,
                           fontWeight: FontWeight.w500,
@@ -542,9 +479,9 @@ class SettingsPanel extends StatelessWidget {
                       ),
                     ),
                     DropdownMenuItem(
-                      value: 'all',
+                      value: 'english',
                       child: Text(
-                        'All English voices',
+                        'English',
                         style: TextStyle(
                           color: palette.primary,
                           fontWeight: FontWeight.w500,
@@ -555,7 +492,7 @@ class SettingsPanel extends StatelessWidget {
                     DropdownMenuItem(
                       value: 'malayalam',
                       child: Text(
-                        'Malayalam voices',
+                        'Malayalam',
                         style: TextStyle(
                           color: palette.primary,
                           fontWeight: FontWeight.w500,
@@ -567,7 +504,7 @@ class SettingsPanel extends StatelessWidget {
                   onChanged: onVoiceListModeChanged,
                 ),
               ),
-              sectionLabel('Favorite voice'),
+              sectionLabel('Voice list'),
               dropdownContainer(
                 DropdownButton<String>(
                   value: () {
@@ -589,7 +526,7 @@ class SettingsPanel extends StatelessWidget {
                     DropdownMenuItem(
                       value: '__auto__',
                       child: Text(
-                        'Auto select',
+                        'Best voice for selected language',
                         style: TextStyle(
                           color: palette.primary,
                           fontWeight: FontWeight.w500,
@@ -601,10 +538,12 @@ class SettingsPanel extends StatelessWidget {
                       final name = voice['name']?.toString() ?? 'Unknown';
                       final locale = voice['locale']?.toString() ?? 'en';
                       final key = '$name|$locale';
+                      final character = _voiceCharacterName(name, locale);
+                      final reason = _voiceReason(name, locale);
                       return DropdownMenuItem(
                         value: key,
                         child: Text(
-                          '$name ($locale)',
+                          '$character ($name) · $locale · $reason',
                           style: TextStyle(
                             color: palette.primary,
                             fontWeight: FontWeight.w500,

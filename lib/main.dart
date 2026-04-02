@@ -95,6 +95,7 @@ import 'widgets/stopwatch_panel.dart';
 import 'widgets/presets_panel.dart';
 import 'widgets/settings_panel.dart';
 import 'widgets/help_panel.dart';
+import 'widgets/ui_helpers.dart';
 
 final ValueNotifier<ThemeMode> appThemeModeNotifier = ValueNotifier(
   ThemeMode.light,
@@ -285,6 +286,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// Flutter TTS instance for speech synthesis
   FlutterTts flutterTts = FlutterTts();
 
+  /// True when TTS engine is initialized and callable.
+  bool _ttsReady = false;
+
+  /// Single-flight guard to prevent concurrent init races.
+  Future<void>? _ttsInitInFlight;
+
+  /// Backoff gate for repeated initialization failures.
+  DateTime _nextTtsInitAllowedAt = DateTime.fromMillisecondsSinceEpoch(0);
+
   /// Queue of pending speech items (announcements, quotes, affirmations)
   List<SpeechItem> speechQueue = [];
 
@@ -297,8 +307,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// Current voice index in the voices list
   int voiceIndex = 0;
 
-  /// Voice filtering mode: 'pleasant' for audio quality, others for specific locales
-  String voiceListMode = 'pleasant';
+  /// Voice language mode: auto / english / malayalam
+  String voiceListMode = 'auto';
+
+  /// Speech engine mode: auto / system_only / sherpa_only
+  String speechEngineMode = 'auto';
 
   /// User's preferred voice name (cached from settings)
   String? favoriteVoiceName;
@@ -353,7 +366,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// Timestamp of last notification sync to prevent excessive updates
   int lastNotificationSyncMs = 0;
 
-  /// Currently active tab index (0=SpeakClock, 1=Timer Setup, 2=Stopwatch, 3=Settings)
+  /// Currently active tab index (0=SpeakClock, 1=Timer Setup, 2=Stopwatch, 3=Goals, 4=Settings)
   int currentTabIndex = 0;
 
   /// ============================================================================
@@ -782,19 +795,24 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _startForegroundHealthCheck();
   }
 
-  Future<void> _openFullscreenFocus() async {
-    final initialMode = currentTabIndex == 2
+  Future<void> _openFullscreenFocus({
+    FullscreenFocusMode? specificMode,
+    bool forceHorizontal = false,
+    bool startImmersive = false,
+  }) async {
+    final initialMode = specificMode ?? (currentTabIndex == 2
         ? FullscreenFocusMode.moduleC
         : (timerInterval != null || currentTabIndex == 1
               ? FullscreenFocusMode.timer
-              : FullscreenFocusMode.clock);
+              : FullscreenFocusMode.clock));
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => FullscreenFocusView(
           initialMode: initialMode,
           initialDarkTheme: fullscreenDarkTheme,
           initialDimBrightness: fullscreenDimBrightness,
-          initialForceLandscape: fullscreenStartLandscape,
+          initialForceLandscape: forceHorizontal ? true : fullscreenStartLandscape,
+          startImmersive: startImmersive,
           onThemeChanged: (isDark) {
             if (!mounted) return;
             setState(() {
@@ -971,7 +989,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       fullscreenDarkTheme = settings.fullscreenDarkTheme;
       fullscreenDimBrightness = settings.fullscreenDimBrightness;
       fullscreenStartLandscape = settings.fullscreenStartLandscape;
-      voiceListMode = settings.voiceListMode;
+      voiceListMode = _speechService.normalizeVoiceLanguageMode(
+        settings.voiceListMode,
+      );
+      speechEngineMode = _speechService.normalizeSpeechEngineMode(
+        settings.speechEngineMode,
+      );
       favoriteVoiceName = settings.favoriteVoiceName;
       favoriteVoiceLocale = settings.favoriteVoiceLocale;
       setAppFontSizeMultiplier(settings.appFontSizeMultiplier);
@@ -1001,6 +1024,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       if (nightMuteMode != 'manual' && nightMuteMode != 'automatic') {
         nightMuteMode = 'manual';
       }
+      speechEngineMode = _speechService.normalizeSpeechEngineMode(
+        speechEngineMode,
+      );
       sleepStartMinutes = sleepStartMinutes.clamp(0, 1439);
       sleepEndMinutes = sleepEndMinutes.clamp(0, 1439);
       timerDisplayValue = _formatTimerDisplayValue(seconds);
@@ -1051,6 +1077,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       fullscreenDimBrightness: fullscreenDimBrightness,
       fullscreenStartLandscape: fullscreenStartLandscape,
       voiceListMode: voiceListMode,
+      speechEngineMode: speechEngineMode,
       favoriteVoiceName: favoriteVoiceName,
       favoriteVoiceLocale: favoriteVoiceLocale,
       appFontSizeMultiplier: appFontSizeNotifier.value,
@@ -1359,19 +1386,74 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _speakGoalReminderMessage('Goal reminder: $goal');
   }
 
-  Future<void> _initTts() async {
-    final v = await flutterTts.getVoices;
-    if (v != null) {
-      final loadedVoices = _speechService.parseSupportedVoices(v);
-      if (mounted) {
-        setState(() {
-          voices = loadedVoices;
-        });
-      } else {
-        voices = loadedVoices;
-      }
+  Future<bool> _initTts({bool forceRebind = false}) async {
+    if (forceRebind) {
+      _ttsReady = false;
+      _nextTtsInitAllowedAt = DateTime.fromMillisecondsSinceEpoch(0);
+      flutterTts = FlutterTts();
     }
-    await flutterTts.awaitSpeakCompletion(true);
+
+    if (!_ttsReady && DateTime.now().isBefore(_nextTtsInitAllowedAt)) {
+      return false;
+    }
+
+    if (_ttsInitInFlight != null) {
+      await _ttsInitInFlight;
+      return _ttsReady;
+    }
+
+    final completer = Completer<void>();
+    _ttsInitInFlight = completer.future;
+
+    try {
+      _ttsReady = false;
+
+      flutterTts.setErrorHandler((message) {
+        _ttsReady = false;
+        debugPrint('TTS error: $message');
+      });
+
+      await flutterTts.awaitSpeakCompletion(true);
+
+      dynamic fetchedVoices;
+      const maxAttempts = 4;
+      for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          fetchedVoices = await flutterTts.getVoices;
+          final loadedVoices = _speechService.parseSupportedVoices(fetchedVoices);
+          if (loadedVoices.isNotEmpty) {
+            if (mounted) {
+              setState(() {
+                voices = loadedVoices;
+              });
+            } else {
+              voices = loadedVoices;
+            }
+            _ttsReady = true;
+            break;
+          }
+        } catch (e) {
+          debugPrint('TTS getVoices attempt $attempt failed: $e');
+        }
+        await Future.delayed(Duration(milliseconds: 250 * attempt));
+      }
+
+      if (!_ttsReady) {
+        // Avoid hammering the TTS engine if it is unavailable on device.
+        _nextTtsInitAllowedAt = DateTime.now().add(const Duration(seconds: 12));
+        debugPrint('TTS init unavailable; next retry after cooldown.');
+      }
+    } finally {
+      completer.complete();
+      _ttsInitInFlight = null;
+    }
+
+    return _ttsReady;
+  }
+
+  Future<bool> _ensureTtsReady({bool forceRebind = false}) async {
+    if (_ttsReady && !forceRebind) return true;
+    return _initTts(forceRebind: forceRebind);
   }
 
   List<Map<dynamic, dynamic>> _availableVoicesForSettings() {
@@ -1419,15 +1501,49 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       await Future.delayed(Duration(milliseconds: item.delayMs));
     }
 
+    final ready = await _ensureTtsReady();
+    if (!ready) {
+      if (mounted) {
+        setState(() {
+          isSpeechActive = false;
+        });
+      }
+      // Drop pending items when engine is unavailable to prevent retry loops.
+      speechQueue.clear();
+      return;
+    }
+
     final pv = getPreferredVoice();
     final useMalayalam = _isMalayalamActive(pv);
-    await _speechService.speakItem(
-      flutterTts: flutterTts,
-      item: item,
-      speakVolume: speakVolume,
-      preferredVoice: pv,
-      useMalayalamNuance: useMalayalam,
-    );
+    try {
+      await _speechService.speakItem(
+        flutterTts: flutterTts,
+        item: item,
+        speakVolume: speakVolume,
+        preferredVoice: pv,
+        useMalayalamNuance: useMalayalam,
+        speechEngineMode: speechEngineMode,
+      );
+    } catch (e) {
+      debugPrint('TTS speak failed, retrying after rebind: $e');
+      try {
+        final rebound = await _ensureTtsReady(forceRebind: true);
+        if (!rebound) {
+          throw Exception('TTS rebind unavailable');
+        }
+        final retryVoice = getPreferredVoice();
+        await _speechService.speakItem(
+          flutterTts: flutterTts,
+          item: item,
+          speakVolume: speakVolume,
+          preferredVoice: retryVoice,
+          useMalayalamNuance: _isMalayalamActive(retryVoice),
+          speechEngineMode: speechEngineMode,
+        );
+      } catch (retryError) {
+        debugPrint('TTS retry failed: $retryError');
+      }
+    }
 
     // Done speaking
     setState(() {
@@ -1913,6 +2029,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         child: ListView(
           children: [
             ClockPanel(
+              onFullscreenPressed: () => _openFullscreenFocus(
+                specificMode: FullscreenFocusMode.clock,
+                forceHorizontal: true,
+              ),
+              onFullscreenImmersivePressed: () => _openFullscreenFocus(
+                specificMode: FullscreenFocusMode.clock,
+                forceHorizontal: true,
+                startImmersive: true,
+              ),
               clockOn: clockOn,
               currentTimeDisplay: currentTimeDisplay,
               toggleClock: toggleClock,
@@ -1996,7 +2121,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 8),
             TimerPanel(
-              onFullscreenPressed: _openFullscreenFocus,
+              onFullscreenPressed: () => _openFullscreenFocus(
+                specificMode: FullscreenFocusMode.timer,
+                forceHorizontal: true,
+              ),
+              onFullscreenImmersivePressed: () => _openFullscreenFocus(
+                specificMode: FullscreenFocusMode.timer,
+                forceHorizontal: true,
+                startImmersive: true,
+              ),
               timerValue: timerDisplayValue,
               sliderValue: sliderValue,
               voicesCount: voices.length,
@@ -2073,6 +2206,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         child: ListView(
           children: [
             StopwatchPanel(
+              onFullscreenPressed: () => _openFullscreenFocus(
+                specificMode: FullscreenFocusMode.moduleC,
+                forceHorizontal: true,
+              ),
+              onFullscreenImmersivePressed: () => _openFullscreenFocus(
+                specificMode: FullscreenFocusMode.moduleC,
+                forceHorizontal: true,
+                startImmersive: true,
+              ),
               elapsedValue: stopwatchElapsedValue,
               isRunning: stopwatchInterval != null,
               startStopwatch: startStopwatch,
@@ -2137,14 +2279,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               fullscreenDarkTheme: fullscreenDarkTheme,
               fullscreenDimBrightness: fullscreenDimBrightness,
               fullscreenStartLandscape: fullscreenStartLandscape,
-              appDarkTheme: appDarkTheme,
               muteSpeechAfterMidnight: muteSpeechAfterMidnight,
               nightMuteMode: nightMuteMode,
-              goalReminderOn: goalReminderOn,
-              goalReminderIntervalMins: goalReminderIntervalMins,
-              goalReminderIntervalOptions: goalReminderIntervalOptions,
-              goalReminderItems: goalReminderItems,
-              goalReminderNextIndex: goalReminderNextIndex,
               sleepStartLabel: _formatMinutesAs12Hour(sleepStartMinutes),
               sleepEndLabel: _formatMinutesAs12Hour(sleepEndMinutes),
               soundList: soundList,
@@ -2152,6 +2288,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               isSpeechActive: isSpeechActive,
               speechQueueLength: speechQueue.length,
               voiceListMode: voiceListMode,
+              speechEngineMode: speechEngineMode,
               voices: settingsVoices,
               favoriteVoiceName: favoriteVoiceName,
               favoriteVoiceLocale: favoriteVoiceLocale,
@@ -2180,13 +2317,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   fullscreenDarkTheme = val ?? true;
                   _lsSave();
                 });
-              },
-              onAppDarkThemeChanged: (val) {
-                setState(() {
-                  appDarkTheme = val ?? false;
-                  _lsSave();
-                });
-                setAppThemeMode(appDarkTheme);
               },
               onFullscreenDimBrightnessChanged: (val) {
                 setState(() {
@@ -2234,33 +2364,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   _lsSave();
                 });
               },
-              onGoalReminderOnChanged: (val) {
-                setState(() {
-                  goalReminderOn = val ?? false;
-                  _lsSave();
-                });
-                _restartGoalReminderTimer();
-              },
-              onGoalReminderIntervalChanged: (val) {
-                if (val == null) return;
-                setState(() {
-                  goalReminderIntervalMins = val;
-                  _lsSave();
-                });
-                _restartGoalReminderTimer();
-              },
-              onAddGoal: () {
-                unawaited(_showGoalInputDialog());
-              },
-              onBulkAddGoals: () {
-                unawaited(_showBulkGoalInputDialog());
-              },
-              onEditGoal: (index) {
-                if (index < 0 || index >= goalReminderItems.length) return;
-                unawaited(_showGoalInputDialog(editIndex: index));
-              },
-              onRemoveGoal: _removeGoalAt,
-              onSpeakNextGoalNow: () => _announceNextGoalReminder(force: true),
               onPickSleepStart: () {
                 unawaited(_pickSleepStartTime());
               },
@@ -2270,7 +2373,25 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               onVoiceListModeChanged: (val) {
                 if (val == null) return;
                 setState(() {
-                  voiceListMode = val;
+                  voiceListMode = _speechService.normalizeVoiceLanguageMode(val);
+
+                  final available = _availableVoicesForSettings();
+                  final hasFavorite = available.any(
+                    (voice) =>
+                        voice['name']?.toString() == favoriteVoiceName &&
+                        voice['locale']?.toString() == favoriteVoiceLocale,
+                  );
+                  if (!hasFavorite) {
+                    favoriteVoiceName = null;
+                    favoriteVoiceLocale = null;
+                  }
+                  _lsSave();
+                });
+              },
+              onSpeechEngineModeChanged: (val) {
+                if (val == null) return;
+                setState(() {
+                  speechEngineMode = _speechService.normalizeSpeechEngineMode(val);
                   _lsSave();
                 });
               },
@@ -2295,6 +2416,204 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 ).push(MaterialPageRoute(builder: (_) => _buildHelpTab()));
               },
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGoalsTab() {
+    final hasGoals = goalReminderItems.isNotEmpty;
+    final nextGoal = hasGoals
+        ? goalReminderItems[goalReminderNextIndex % goalReminderItems.length]
+        : null;
+
+    Widget dropdownContainer(Widget child) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: palette.accent,
+        border: Border.all(color: palette.primary, width: 2),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: child,
+    );
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: ListView(
+          children: [
+            panelContainer(
+              active: goalReminderOn,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  headerTitle('Goals Reminder', 'D', icon: Icons.flag_outlined),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: goalReminderOn,
+                        activeColor: palette.primary,
+                        checkColor: palette.accent,
+                        onChanged: (val) {
+                          setState(() {
+                            goalReminderOn = val ?? false;
+                            _lsSave();
+                          });
+                          _restartGoalReminderTimer();
+                        },
+                      ),
+                      Expanded(
+                        child: sectionLabel(
+                          'Enable goal reminders (round-robin speech)',
+                        ),
+                      ),
+                    ],
+                  ),
+                  sectionLabel('Reminder interval'),
+                  dropdownContainer(
+                    DropdownButton<int>(
+                      value: goalReminderIntervalMins,
+                      isExpanded: true,
+                      underline: const SizedBox(),
+                      iconEnabledColor: palette.primary,
+                      dropdownColor: palette.accent,
+                      items: goalReminderIntervalOptions
+                          .map(
+                            (mins) => DropdownMenuItem(
+                              value: mins,
+                              child: Text(
+                                mins == 60
+                                    ? 'Every 1 hour'
+                                    : (mins == 120
+                                          ? 'Every 2 hours'
+                                          : 'Every $mins minutes'),
+                                style: TextStyle(
+                                  color: palette.primary,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (val) {
+                        if (val == null) return;
+                        setState(() {
+                          goalReminderIntervalMins = val;
+                          _lsSave();
+                        });
+                        _restartGoalReminderTimer();
+                      },
+                    ),
+                  ),
+                  if (nextGoal != null) ...[
+                    sectionLabel('Next goal'),
+                    Text(
+                      nextGoal,
+                      style: TextStyle(
+                        color: palette.primary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: actionBtn(
+                    'Add goal',
+                    () => unawaited(_showGoalInputDialog()),
+                    icon: Icons.add_task_outlined,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: actionBtn(
+                    'Bulk add lines',
+                    () => unawaited(_showBulkGoalInputDialog()),
+                    icon: Icons.playlist_add_outlined,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (hasGoals)
+              actionBtn(
+                'Speak next goal now',
+                () => _announceNextGoalReminder(force: true),
+                icon: Icons.record_voice_over_outlined,
+              ),
+            const SizedBox(height: 8),
+            if (!hasGoals)
+              panelContainer(
+                child: Text(
+                  'No goals yet. Add one goal or bulk add one per line.',
+                  style: TextStyle(
+                    color: palette.primary.withAlpha(190),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              )
+            else
+              ...List.generate(goalReminderItems.length, (index) {
+                final goal = goalReminderItems[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: panelContainer(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${index + 1}. ',
+                          style: TextStyle(
+                            color: palette.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            goal,
+                            style: TextStyle(
+                              color: palette.primary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          tooltip: 'Edit goal',
+                          onPressed: () => unawaited(
+                            _showGoalInputDialog(editIndex: index),
+                          ),
+                          icon: Icon(
+                            Icons.edit_outlined,
+                            color: palette.primary,
+                            size: 18,
+                          ),
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          tooltip: 'Delete goal',
+                          onPressed: () => _removeGoalAt(index),
+                          icon: Icon(
+                            Icons.delete_outline,
+                            color: palette.primary,
+                            size: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
           ],
         ),
       ),
@@ -2410,8 +2729,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               : (currentTabIndex == 1
                     ? _buildTimerSetupTab()
                     : (currentTabIndex == 2
-                          ? _buildStopwatchTab()
-                          : _buildSettingsTab())),
+                  ? _buildStopwatchTab()
+                  : (currentTabIndex == 3
+                    ? _buildGoalsTab()
+                    : _buildSettingsTab()))),
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -2442,6 +2763,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             icon: Icon(Icons.av_timer_outlined),
             activeIcon: Icon(Icons.av_timer),
             label: 'Stopwatch',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.flag_outlined),
+            activeIcon: Icon(Icons.flag),
+            label: 'Goals',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings_outlined),

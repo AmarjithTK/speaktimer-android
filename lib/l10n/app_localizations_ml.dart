@@ -12,7 +12,7 @@ class AppLocalizationsMl extends AppLocalizations {
   String get appTitle => 'ലൈഫർ';
 
   @override
-  String get helpTitle => 'സഹായം / പ്രവർത്തനം';
+  String get helpTitle => 'സഹായം / വിവരങ്ങൾ';
 
   @override
   String get timerTab => 'ടൈമർ';
@@ -27,88 +27,88 @@ class AppLocalizationsMl extends AppLocalizations {
   String get presetTab => 'പ്രിസെറ്റ്';
 
   @override
-  String get startButton => 'ആരംഭിക്കുക';
+  String get startButton => 'തുടങ്ങുക';
 
   @override
-  String get pauseButton => 'നിര്‍ത്തുക';
+  String get pauseButton => 'താൽക്കാലികമായി നിർത്തുക';
 
   @override
   String get resumeButton => 'തുടരുക';
 
   @override
-  String get stopButton => 'നിർത്തുക';
+  String get stopButton => 'അവസാനിപ്പിക്കുക';
 
   @override
   String get resetButton => 'പുനരാരംഭിക്കുക';
 
   @override
-  String get skipButton => 'ഉത്സർജ്ജിക്കുക';
+  String get skipButton => 'ഒഴിവാക്കുക';
 
   @override
   String get addTimeButton => 'സമയം ചേർക്കുക';
 
   @override
-  String get chainModeLabel => 'ശൃങ്ഖല മോഡ്';
+  String get chainModeLabel => 'ചെയിൻ മോഡ്';
 
   @override
   String get chainModeDescription =>
-      'തുടർച്ചയായ ടൈമർ പ്രിസെറ്റ് പ്രവർത്തിപ്പിക്കുക';
+      'ടൈമർ പ്രിസെറ്റുകൾ തുടർച്ചയായി പ്രവർത്തിപ്പിക്കുക';
 
   @override
-  String get timerNotificationTitle => 'ടൈമർ പ്രവർത്തനരതമാണ്';
+  String get timerNotificationTitle => 'ടൈമർ പ്രവർത്തിക്കുന്നു';
 
   @override
   String get clockNotificationTitle => 'സമയ പരിശോധന';
 
   @override
-  String get focusMode => 'കേന്ദ്രീകരണ മോഡ്';
+  String get focusMode => 'ഏകാഗ്രതാ മോഡ്';
 
   @override
-  String get fullscreenMode => 'പൂർണ സ്ക്രീൻ';
+  String get fullscreenMode => 'പൂർണ്ണ സ്ക്രീൻ';
 
   @override
-  String get soundLabel => 'പശ്ച ശബ്ദം';
+  String get soundLabel => 'പശ്ചാത്തല ശബ്ദം';
 
   @override
-  String get volumeLabel => 'സ്വരം';
+  String get volumeLabel => 'ശബ്ദ തീവ്രത';
 
   @override
-  String get voiceLabel => 'വോയിസ് തിരഞ്ഞെടുപ്പ്';
+  String get voiceLabel => 'വോയിസ്';
 
   @override
-  String get darkThemeLabel => 'ഇരുണ്ട തീമ്';
+  String get darkThemeLabel => 'ഡാർക്ക് തീം';
 
   @override
-  String get motivationLabel => 'പ്രേരണ കാണിക്കുക';
+  String get motivationLabel => 'പ്രചോദനം കാണിക്കുക';
 
   @override
-  String get motivationCategoryLabel => 'പ്രേരണ വിഭാഗം';
+  String get motivationCategoryLabel => 'പ്രചോദന വിഭാഗം';
 
   @override
-  String get motivationDelayLabel => 'കോട്ട് വിേളം (സെക്കന്റ്)';
+  String get motivationDelayLabel => 'ഉദ്ധരണി ഇടവേള (സെക്കൻഡിൽ)';
 
   @override
-  String get clockIntervalLabel => 'ക്ലോക്ക് ഇടവേള (മിനിറ്റ്)';
+  String get clockIntervalLabel => 'ക്ലോക്ക് ഇടവേള (മിനിറ്റിൽ)';
 
   @override
-  String get timerAnnouncementLabel => 'പ്രഖ്യാപിതമാക്കുക (മിനിറ്റ് കൂടുതൽ)';
+  String get timerAnnouncementLabel => 'സമയം അറിയിക്കുക (ശേഷിക്കുന്ന മിനിറ്റ്)';
 
   @override
-  String get nightMuteMode => 'രാത്രി നിശ്ശബ്ദ മോഡ്';
+  String get nightMuteMode => 'രാത്രിയിലെ നിശ്ശബ്ദ മോഡ്';
 
   @override
-  String get sleepStartLabel => 'ഉറക്ക സമയം ആരംഭിക്കുക';
+  String get sleepStartLabel => 'ഉറങ്ങാൻ തുടങ്ങുന്ന സമയം';
 
   @override
-  String get sleepEndLabel => 'ഉറക്ക സമയം അവസാനം';
+  String get sleepEndLabel => 'ഉറക്കമുണരുന്ന സമയം';
 
   @override
   String get longPressToDone =>
-      'സമ്പൂർണ്ണമായി അടയാളപ്പെടുത്താൻ ടൈമർ നീണ്ടതായി അമർത്തുക';
+      'പൂർത്തിയായെന്ന് അടയാളപ്പെടുത്താൻ ടൈമറിൽ ദീർഘനേരം അമർത്തുക';
 
   @override
   String get sessionCompleted => 'സെഷൻ പൂർത്തിയായി!';
 
   @override
-  String get motivationQuote => 'പ്രേരണ';
+  String get motivationQuote => 'പ്രചോദനം';
 }

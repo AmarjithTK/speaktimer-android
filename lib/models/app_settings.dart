@@ -5,6 +5,8 @@ class AppSettings {
   final bool clockOn;
   final int clockIntervalMins;
   final bool clockShowMilliseconds;
+  final bool clockSpeakTime;
+  final bool clockNoiseOn;
   final bool motivationOn;
   final String motivationCategory;
   final int motivationDelaySeconds;
@@ -27,8 +29,10 @@ class AppSettings {
   final bool fullscreenDimBrightness;
   final bool fullscreenStartLandscape;
   final String voiceListMode;
+  final String speechEngineMode;
   final String? favoriteVoiceName;
   final String? favoriteVoiceLocale;
+  final double appFontSizeMultiplier;
 
   const AppSettings({
     required this.soundChosen,
@@ -37,6 +41,8 @@ class AppSettings {
     required this.clockOn,
     required this.clockIntervalMins,
     required this.clockShowMilliseconds,
+    required this.clockSpeakTime,
+    required this.clockNoiseOn,
     required this.motivationOn,
     required this.motivationCategory,
     required this.motivationDelaySeconds,
@@ -59,7 +65,9 @@ class AppSettings {
     required this.fullscreenDimBrightness,
     required this.fullscreenStartLandscape,
     required this.voiceListMode,
+    required this.speechEngineMode,
     required this.favoriteVoiceName,
     required this.favoriteVoiceLocale,
+    required this.appFontSizeMultiplier,
   });
 }

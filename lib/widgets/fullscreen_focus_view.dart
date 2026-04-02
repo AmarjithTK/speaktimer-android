@@ -17,6 +17,7 @@ class FullscreenFocusView extends StatefulWidget {
   final bool initialDarkTheme;
   final bool initialDimBrightness;
   final bool initialForceLandscape;
+  final bool startImmersive;
   final ValueChanged<bool>? onThemeChanged;
   final ValueChanged<bool>? onDimBrightnessChanged;
   final ValueChanged<bool>? onForceLandscapeChanged;
@@ -42,6 +43,7 @@ class FullscreenFocusView extends StatefulWidget {
     required this.initialDarkTheme,
     required this.initialDimBrightness,
     required this.initialForceLandscape,
+    this.startImmersive = false,
     this.onThemeChanged,
     this.onDimBrightnessChanged,
     this.onForceLandscapeChanged,
@@ -60,10 +62,11 @@ class FullscreenFocusView extends StatefulWidget {
 class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   Timer? _tick;
   Timer? _controlsHideTimer;
-  bool _darkTheme = true;
   bool _alwaysOn = true;
   bool _forceLandscape = false;
   bool _dimBrightness = false;
+  bool _showEntryHint = true;
+  bool _showExitHint = true;
   FullscreenFocusMode _mode = FullscreenFocusMode.clock;
   bool _showControls = true;
   String _clockText = '';
@@ -76,19 +79,39 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   void initState() {
     super.initState();
     _mode = widget.initialMode;
-    _darkTheme = widget.initialDarkTheme;
     _dimBrightness = widget.initialDimBrightness;
     _forceLandscape = widget.initialForceLandscape;
+    _showControls = !widget.startImmersive;
+    _showEntryHint = !widget.startImmersive;
+    _showExitHint = !widget.startImmersive;
 
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     unawaited(WakelockPlus.enable());
     unawaited(_applyBrightness());
     unawaited(_applyOrientation());
-    _restartControlsHideTimer();
+    if (_showControls) {
+      _restartControlsHideTimer();
+    }
     _refresh();
     _tick = Timer.periodic(const Duration(milliseconds: 120), (_) {
       _refresh();
     });
+
+    if (!widget.startImmersive) {
+      Timer(const Duration(seconds: 4), () {
+        if (!mounted) return;
+        setState(() {
+          _showEntryHint = false;
+        });
+      });
+
+      Timer(const Duration(seconds: 7), () {
+        if (!mounted) return;
+        setState(() {
+          _showExitHint = false;
+        });
+      });
+    }
   }
 
   void _restartControlsHideTimer() {
@@ -478,14 +501,10 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = _darkTheme ? Colors.black : Colors.white;
-    final fg = _darkTheme ? Colors.white : Colors.black;
-    final cardBg = _darkTheme
-        ? Colors.white.withAlpha(20)
-        : Colors.black.withAlpha(20);
-    final cardBorder = _darkTheme
-        ? Colors.white.withAlpha(45)
-        : Colors.black.withAlpha(45);
+    final bg = Colors.white;
+    final fg = Colors.black;
+    final cardBg = Colors.black.withAlpha(20);
+    final cardBorder = Colors.black.withAlpha(45);
 
     final showActionButtons =
         _mode == FullscreenFocusMode.timer ||
@@ -496,6 +515,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _onScreenTap,
+        onDoubleTap: () => Navigator.of(context).pop(),
         child: SafeArea(
           child: Stack(
             children: [
@@ -505,16 +525,16 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                     duration: const Duration(milliseconds: 250),
                     curve: Curves.easeInOut,
                     padding: EdgeInsets.fromLTRB(
-                      12,
-                      _showControls ? 116 : 12,
-                      12,
-                      _showControls ? (showActionButtons ? 120 : 70) : 12,
+                        4,
+                        _showControls ? 104 : 4,
+                        4,
+                        _showControls ? (showActionButtons ? 112 : 64) : 4,
                     ),
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 16,
+                          horizontal: 8,
+                          vertical: 10,
                       ),
                       decoration: BoxDecoration(
                         color: cardBg,
@@ -585,19 +605,6 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                               ],
                             ),
                             const SizedBox(width: 4),
-                            IconButton(
-                              onPressed: () {
-                                _onControlInteraction();
-                                setState(() => _darkTheme = !_darkTheme);
-                                widget.onThemeChanged?.call(_darkTheme);
-                              },
-                              icon: Icon(
-                                _darkTheme
-                                    ? Icons.light_mode
-                                    : Icons.dark_mode,
-                                color: fg,
-                              ),
-                            ),
                             IconButton(
                               tooltip: _dimBrightness
                                   ? 'Disable Dim'
@@ -704,6 +711,62 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                   ),
                 ),
               ),
+              if (_showEntryHint)
+                Positioned(
+                  top: 14,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withAlpha(170),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          'Fullscreen mode entered',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              if (_showExitHint)
+                Positioned(
+                  bottom: 20,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withAlpha(170),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          'Double tap anywhere to exit',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

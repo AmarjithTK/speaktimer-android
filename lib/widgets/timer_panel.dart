@@ -27,6 +27,8 @@ class TimerPanel extends StatelessWidget {
   final ValueChanged<int?> onTimerAnnounceEveryChanged;
   final ValueChanged<bool?> onChainModeChanged;
   final ValueChanged<String?> onChainPresetChanged;
+  final VoidCallback onFullscreenPressed;
+  final VoidCallback onFullscreenImmersivePressed;
 
   const TimerPanel({
     super.key,
@@ -52,6 +54,8 @@ class TimerPanel extends StatelessWidget {
     required this.onTimerAnnounceEveryChanged,
     required this.onChainModeChanged,
     required this.onChainPresetChanged,
+    required this.onFullscreenPressed,
+    required this.onFullscreenImmersivePressed,
   });
 
   (String, String, String?) _splitTimer(String value) {
@@ -90,80 +94,93 @@ class TimerPanel extends StatelessWidget {
               final seconds = timerParts.$2;
               final millis = timerParts.$3;
 
-              return Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: palette.accent,
-                  border: Border.all(color: palette.primary, width: 2),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'REMAINING',
-                      style: TextStyle(
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onFullscreenPressed,
+                onDoubleTap: onFullscreenImmersivePressed,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: palette.accent,
+                    border: Border.all(color: palette.primary, width: 2),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'REMAINING',
+                        style: TextStyle(
                         color: palette.primary.withAlpha(150),
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: RichText(
-                          textAlign: TextAlign.center,
-                          text: TextSpan(
-                            style: TextStyle(
-                              color: palette.primary,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
-                            children: [
-                              TextSpan(
-                                text: minutes,
-                                style: const TextStyle(
-                                  fontSize: 46,
-                                  fontWeight: FontWeight.w800,
-                                ),
+                      Text(
+                        'Tap fullscreen • Double tap clean fullscreen',
+                        style: TextStyle(
+                          color: palette.primary.withAlpha(130),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: RichText(
+                            textAlign: TextAlign.center,
+                            text: TextSpan(
+                              style: TextStyle(
+                                color: palette.primary,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
                               ),
-                              TextSpan(
-                                text: ':',
-                                style: TextStyle(
-                                  fontSize: 38,
-                                  fontWeight: FontWeight.w700,
-                                  color: palette.primary.withAlpha(180),
-                                ),
-                              ),
-                              TextSpan(
-                                text: seconds,
-                                style: const TextStyle(
-                                  fontSize: 46,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              if (millis != null)
+                              children: [
                                 TextSpan(
-                                  text: '.$millis',
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w700,
-                                    color: palette.primary.withAlpha(170),
+                                  text: minutes,
+                                  style: const TextStyle(
+                                    fontSize: 46,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                            ],
+                                TextSpan(
+                                  text: ':',
+                                  style: TextStyle(
+                                    fontSize: 38,
+                                    fontWeight: FontWeight.w700,
+                                    color: palette.primary.withAlpha(180),
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: seconds,
+                                  style: const TextStyle(
+                                    fontSize: 46,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                if (millis != null)
+                                  TextSpan(
+                                    text: '.$millis',
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w700,
+                                      color: palette.primary.withAlpha(170),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },

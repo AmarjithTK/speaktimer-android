@@ -3,6 +3,8 @@ import '../theme/palette.dart';
 import 'ui_helpers.dart';
 
 class StopwatchPanel extends StatelessWidget {
+  final VoidCallback onFullscreenPressed;
+  final VoidCallback onFullscreenImmersivePressed;
   final String elapsedValue;
   final bool isRunning;
   final VoidCallback startStopwatch;
@@ -20,6 +22,8 @@ class StopwatchPanel extends StatelessWidget {
 
   const StopwatchPanel({
     super.key,
+    required this.onFullscreenPressed,
+    required this.onFullscreenImmersivePressed,
     required this.elapsedValue,
     required this.isRunning,
     required this.startStopwatch,
@@ -52,42 +56,55 @@ class StopwatchPanel extends StatelessWidget {
         children: [
           headerTitle('Stopwatch', 'C', icon: Icons.av_timer_outlined),
           const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Column(
-              children: [
-                Text(
-                  'ELAPSED',
-                  style: TextStyle(
-                    color: palette.primary.withAlpha(150),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onFullscreenPressed,
+            onDoubleTap: onFullscreenImmersivePressed,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: palette.accent,
+                border: Border.all(color: palette.primary, width: 2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'ELAPSED',
+                    style: TextStyle(
+                      color: palette.primary.withAlpha(150),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                SizedBox(
-                  width: double.infinity,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      elapsedValue,
-                      style: TextStyle(
-                        color: palette.primary,
-                        fontSize: 46,
-                        fontWeight: FontWeight.w800,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                  Text(
+                    'Tap fullscreen • Double tap clean fullscreen',
+                    style: TextStyle(
+                      color: palette.primary.withAlpha(130),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        elapsedValue,
+                        style: TextStyle(
+                          color: palette.primary,
+                          fontSize: 46,
+                          fontWeight: FontWeight.w800,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 8),

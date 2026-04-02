@@ -18,7 +18,7 @@ void main() {
 
       expect(loaded.soundChosen, 'audio/rain.mp3');
       expect(prefs.getString(PrefKeys.soundChosen), 'audio/rain.mp3');
-      expect(prefs.getInt(PrefKeys.settingsSchemaVersion), 2);
+      expect(prefs.getInt(PrefKeys.settingsSchemaVersion), 4);
     });
   });
 
@@ -32,6 +32,9 @@ void main() {
         noiseVolume: 0.2,
         speakVolume: 0.9,
         clockOn: true,
+        clockSpeakTime: true,
+        clockNoiseOn: false,
+        appFontSizeMultiplier: 1.0,
         clockIntervalMins: 15,
         clockShowMilliseconds: true,
         motivationOn: true,
@@ -55,7 +58,8 @@ void main() {
         fullscreenDarkTheme: true,
         fullscreenDimBrightness: true,
         fullscreenStartLandscape: false,
-        voiceListMode: 'pleasant',
+        voiceListMode: 'english',
+        speechEngineMode: 'auto',
         favoriteVoiceName: 'Voice 1',
         favoriteVoiceLocale: 'en-US',
       );

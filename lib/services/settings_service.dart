@@ -26,7 +26,34 @@ import '../models/app_settings.dart';
 class SettingsService {
   /// Current schema version: increment when preference structure changes
   /// Used to detect and run migrations for old stored data
-  static const int _currentSchemaVersion = 2;
+  static const int _currentSchemaVersion = 4;
+
+  String _normalizeVoiceLanguageMode(String? mode) {
+    final normalized = mode?.trim().toLowerCase() ?? '';
+    switch (normalized) {
+      case 'auto':
+      case 'english':
+      case 'malayalam':
+        return normalized;
+      case 'pleasant':
+      case 'all':
+        return 'english';
+      default:
+        return 'auto';
+    }
+  }
+
+  String _normalizeSpeechEngineMode(String? mode) {
+    final normalized = mode?.trim().toLowerCase() ?? '';
+    switch (normalized) {
+      case 'auto':
+      case 'system_only':
+      case 'sherpa_only':
+        return normalized;
+      default:
+        return 'auto';
+    }
+  }
 
   /// Load all settings from persistent storage
   /// Automatically runs migrations if stored version differs from current
@@ -48,6 +75,8 @@ class SettingsService {
       clockIntervalMins: prefs.getInt(PrefKeys.clockIntervalMins) ?? 30,
       clockShowMilliseconds:
           prefs.getBool(PrefKeys.clockShowMilliseconds) ?? true,
+      clockSpeakTime: prefs.getBool(PrefKeys.clockSpeakTime) ?? true,
+      clockNoiseOn: prefs.getBool(PrefKeys.clockNoiseOn) ?? false,
       motivationOn: prefs.getBool(PrefKeys.motivationOn) ?? true,
       motivationCategory:
           prefs.getString(PrefKeys.motivationCategory) ?? 'General',
@@ -82,9 +111,15 @@ class SettingsService {
           prefs.getBool(PrefKeys.fullscreenDimBrightness) ?? false,
       fullscreenStartLandscape:
           prefs.getBool(PrefKeys.fullscreenStartLandscape) ?? false,
-      voiceListMode: prefs.getString(PrefKeys.voiceListMode) ?? 'pleasant',
+      voiceListMode: _normalizeVoiceLanguageMode(
+        prefs.getString(PrefKeys.voiceListMode),
+      ),
+      speechEngineMode: _normalizeSpeechEngineMode(
+        prefs.getString(PrefKeys.speechEngineMode),
+      ),
       favoriteVoiceName: prefs.getString(PrefKeys.favoriteVoiceName),
       favoriteVoiceLocale: prefs.getString(PrefKeys.favoriteVoiceLocale),
+      appFontSizeMultiplier: prefs.getDouble(PrefKeys.appFontSizeMultiplier) ?? 1.0,
     );
   }
 
@@ -100,6 +135,8 @@ class SettingsService {
       PrefKeys.clockShowMilliseconds,
       settings.clockShowMilliseconds,
     );
+    await prefs.setBool(PrefKeys.clockSpeakTime, settings.clockSpeakTime);
+    await prefs.setBool(PrefKeys.clockNoiseOn, settings.clockNoiseOn);
     await prefs.setBool(PrefKeys.motivationOn, settings.motivationOn);
     await prefs.setString(
       PrefKeys.motivationCategory,
@@ -148,6 +185,7 @@ class SettingsService {
       settings.fullscreenStartLandscape,
     );
     await prefs.setString(PrefKeys.voiceListMode, settings.voiceListMode);
+    await prefs.setString(PrefKeys.speechEngineMode, settings.speechEngineMode);
     await prefs.setBool(PrefKeys.goalReminderOn, settings.goalReminderOn);
     await prefs.setInt(
       PrefKeys.goalReminderIntervalMins,
@@ -179,6 +217,8 @@ class SettingsService {
     } else {
       await prefs.remove(PrefKeys.favoriteVoiceLocale);
     }
+
+    await prefs.setDouble(PrefKeys.appFontSizeMultiplier, settings.appFontSizeMultiplier);
   }
 
   Future<void> _runMigrations(SharedPreferences prefs) async {
@@ -206,6 +246,20 @@ class SettingsService {
               .toList(),
         );
       }
+    }
+
+    if (currentVersion < 3) {
+      await prefs.setString(
+        PrefKeys.voiceListMode,
+        _normalizeVoiceLanguageMode(prefs.getString(PrefKeys.voiceListMode)),
+      );
+    }
+
+    if (currentVersion < 4) {
+      await prefs.setString(
+        PrefKeys.speechEngineMode,
+        _normalizeSpeechEngineMode(prefs.getString(PrefKeys.speechEngineMode)),
+      );
     }
 
     await prefs.setInt(PrefKeys.settingsSchemaVersion, _currentSchemaVersion);

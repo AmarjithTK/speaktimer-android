@@ -6,6 +6,8 @@ class PrefKeys {
   static const clockOn = 'ClockOn';
   static const clockIntervalMins = 'ClockIntervalMins';
   static const clockShowMilliseconds = 'ClockShowMilliseconds';
+  static const clockSpeakTime = 'ClockSpeakTime';
+  static const clockNoiseOn = 'ClockNoiseOn';
   static const motivationOn = 'MotivationOn';
   static const motivationCategory = 'MotivationCategory';
   static const motivationDelaySeconds = 'MotivationDelaySeconds';
@@ -28,6 +30,8 @@ class PrefKeys {
   static const fullscreenDimBrightness = 'FullscreenDimBrightness';
   static const fullscreenStartLandscape = 'FullscreenStartLandscape';
   static const voiceListMode = 'VoiceListMode';
+  static const speechEngineMode = 'SpeechEngineMode';
   static const favoriteVoiceName = 'FavoriteVoiceName';
   static const favoriteVoiceLocale = 'FavoriteVoiceLocale';
+  static const appFontSizeMultiplier = 'AppFontSizeMultiplier';
 }

@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "notes": "Desktop Sherpa-ONNX model manifest for Linux/Windows. Replace modelPath/tokensPath with real local paths.",
+  "models": [
+    {
+      "id": "en_primary",
+      "language": "en",
+      "tier": "primary",
+      "modelPath": "models/sherpa/en/primary/model.onnx",
+      "tokensPath": "models/sherpa/en/primary/tokens.txt",
+      "description": "English smooth primary"
+    },
+    {
+      "id": "en_backup",
+      "language": "en",
+      "tier": "backup",
+      "modelPath": "models/sherpa/en/backup/model.onnx",
+      "tokensPath": "models/sherpa/en/backup/tokens.txt",
+      "description": "English backup"
+    },
+    {
+      "id": "ml_primary",
+      "language": "ml",
+      "tier": "primary",
+      "modelPath": "models/sherpa/ml/primary/model.onnx",
+      "tokensPath": "models/sherpa/ml/primary/tokens.txt",
+      "description": "Malayalam smooth primary"
+    },
+    {
+      "id": "ml_backup",
+      "language": "ml",
+      "tier": "backup",
+      "modelPath": "models/sherpa/ml/backup/model.onnx",
+      "tokensPath": "models/sherpa/ml/backup/tokens.txt",
+      "description": "Malayalam backup"
+    }
+  ]
+}

@@ -3,6 +3,8 @@ import '../theme/palette.dart';
 import 'ui_helpers.dart';
 
 class ClockPanel extends StatelessWidget {
+  final VoidCallback onFullscreenPressed;
+  final VoidCallback onFullscreenImmersivePressed;
   final bool clockOn;
   final String currentTimeDisplay;
   final VoidCallback toggleClock;
@@ -10,6 +12,8 @@ class ClockPanel extends StatelessWidget {
   // Advanced controls
   final int clockIntervalMins;
   final bool clockShowMilliseconds;
+  final bool clockSpeakTime;
+  final bool clockNoiseOn;
   final bool motivationOn;
   final String motivationCategory;
   final int motivationDelaySeconds;
@@ -18,17 +22,23 @@ class ClockPanel extends StatelessWidget {
   final List<int> motivationDelayOptions;
   final ValueChanged<int?> onClockIntervalChanged;
   final ValueChanged<bool?> onClockShowMillisecondsChanged;
+  final ValueChanged<bool?> onClockSpeakTimeChanged;
+  final ValueChanged<bool?> onClockNoiseOnChanged;
   final ValueChanged<bool?> onMotivationChanged;
   final ValueChanged<String?> onMotivationCategoryChanged;
   final ValueChanged<int?> onMotivationDelayChanged;
 
   const ClockPanel({
     super.key,
+    required this.onFullscreenPressed,
+    required this.onFullscreenImmersivePressed,
     required this.clockOn,
     required this.currentTimeDisplay,
     required this.toggleClock,
     required this.clockIntervalMins,
     required this.clockShowMilliseconds,
+    required this.clockSpeakTime,
+    required this.clockNoiseOn,
     required this.motivationOn,
     required this.motivationCategory,
     required this.motivationDelaySeconds,
@@ -37,6 +47,8 @@ class ClockPanel extends StatelessWidget {
     required this.motivationDelayOptions,
     required this.onClockIntervalChanged,
     required this.onClockShowMillisecondsChanged,
+    required this.onClockSpeakTimeChanged,
+    required this.onClockNoiseOnChanged,
     required this.onMotivationChanged,
     required this.onMotivationCategoryChanged,
     required this.onMotivationDelayChanged,
@@ -75,20 +87,24 @@ class ClockPanel extends StatelessWidget {
               final mainTime = display.$1;
               final millis = display.$2;
 
-              return Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: palette.accent,
-                  border: Border.all(color: palette.primary, width: 2),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onFullscreenPressed,
+                onDoubleTap: onFullscreenImmersivePressed,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: palette.accent,
+                    border: Border.all(color: palette.primary, width: 2),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                     Text(
                       'CURRENT TIME',
                       style: TextStyle(
@@ -96,6 +112,14 @@ class ClockPanel extends StatelessWidget {
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.1,
+                      ),
+                    ),
+                    Text(
+                      'Tap fullscreen • Double tap clean fullscreen',
+                      style: TextStyle(
+                        color: palette.primary.withAlpha(130),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -142,9 +166,10 @@ class ClockPanel extends StatelessWidget {
                     ),
                   ],
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
+        ),
           const SizedBox(height: 8),
           ElevatedButton.icon(
             onPressed: toggleClock,
@@ -240,6 +265,28 @@ class ClockPanel extends StatelessWidget {
                         onChanged: onClockShowMillisecondsChanged,
                       ),
                       Expanded(child: sectionLabel('Show milliseconds')),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: clockSpeakTime,
+                        activeColor: palette.primary,
+                        checkColor: palette.accent,
+                        onChanged: onClockSpeakTimeChanged,
+                      ),
+                      Expanded(child: sectionLabel('Announce time')),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: clockNoiseOn,
+                        activeColor: palette.primary,
+                        checkColor: palette.accent,
+                        onChanged: onClockNoiseOnChanged,
+                      ),
+                      Expanded(child: sectionLabel('Background noise during clock')),
                     ],
                   ),
                   Row(
