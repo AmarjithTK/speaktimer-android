@@ -10,6 +10,9 @@ class SpeechService {
   Map<String, dynamic>? _sherpaManifestCache;
   String _lastEngineUsed = 'system';
   String _lastEngineDetail = 'System TTS ready';
+  bool _linuxRuntimeBootstrapAttempted = false;
+
+  static const String _sherpaReleaseTag = 'v1.12.34';
 
   String get lastEngineUsed => _lastEngineUsed;
   String get lastEngineDetail => _lastEngineDetail;
@@ -64,11 +67,198 @@ class SpeechService {
       File(Platform.resolvedExecutable).parent.path,
     };
 
+    if (Platform.isLinux) {
+      bases.add(_linuxRuntimeBaseDir());
+    }
+
     final execParent = File(Platform.resolvedExecutable).parent;
     if (execParent.parent.path != execParent.path) {
       bases.add(execParent.parent.path);
     }
     return bases.toList();
+  }
+
+  String _linuxRuntimeBaseDir() {
+    final home = Platform.environment['HOME'];
+    if (home == null || home.isEmpty) {
+      return '${Directory.systemTemp.path}${Platform.pathSeparator}lifer_runtime';
+    }
+    return '$home${Platform.pathSeparator}.local${Platform.pathSeparator}share${Platform.pathSeparator}lifer_runtime';
+  }
+
+  bool _fileExists(String path) => File(path).existsSync();
+
+  bool _dirExists(String path) => Directory(path).existsSync();
+
+  Future<File> _downloadToFile({required String url, required String outPath}) async {
+    final client = HttpClient();
+    try {
+      final req = await client.getUrl(Uri.parse(url));
+      final res = await req.close();
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        throw Exception('Download failed ($url): ${res.statusCode}');
+      }
+      final outFile = File(outPath);
+      await outFile.parent.create(recursive: true);
+      final sink = outFile.openWrite();
+      await res.pipe(sink);
+      await sink.flush();
+      await sink.close();
+      return outFile;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  Future<void> _copyDir(String src, String dst) async {
+    final srcDir = Directory(src);
+    if (!srcDir.existsSync()) return;
+    final dstDir = Directory(dst);
+    await dstDir.create(recursive: true);
+    await for (final entity in srcDir.list(recursive: true, followLinks: false)) {
+      final rel = entity.path.substring(srcDir.path.length + 1);
+      final targetPath = '$dst${Platform.pathSeparator}$rel';
+      if (entity is Directory) {
+        await Directory(targetPath).create(recursive: true);
+      } else if (entity is File) {
+        await File(targetPath).parent.create(recursive: true);
+        await entity.copy(targetPath);
+      }
+    }
+  }
+
+  Future<void> _extractTarBz2(String archivePath, String outputDir) async {
+    final result = await Process.run('tar', ['-xjf', archivePath, '-C', outputDir]);
+    if (result.exitCode != 0) {
+      throw Exception('tar extract failed: ${result.stderr}');
+    }
+  }
+
+  Future<void> _ensureLinuxRuntimeAssets() async {
+    if (!Platform.isLinux || _linuxRuntimeBootstrapAttempted) return;
+    _linuxRuntimeBootstrapAttempted = true;
+
+    final runtimeBase = _linuxRuntimeBaseDir();
+    final binBase = '$runtimeBase${Platform.pathSeparator}assets${Platform.pathSeparator}tts${Platform.pathSeparator}bin${Platform.pathSeparator}linux-x64';
+    final modelsBase = '$runtimeBase${Platform.pathSeparator}assets${Platform.pathSeparator}tts${Platform.pathSeparator}models';
+
+    final mustHave = <String>[
+      '$binBase${Platform.pathSeparator}sherpa-onnx-offline-tts-play',
+      '$modelsBase${Platform.pathSeparator}en${Platform.pathSeparator}primary${Platform.pathSeparator}model.onnx',
+      '$modelsBase${Platform.pathSeparator}en${Platform.pathSeparator}primary${Platform.pathSeparator}tokens.txt',
+      '$modelsBase${Platform.pathSeparator}ml${Platform.pathSeparator}primary${Platform.pathSeparator}model.onnx',
+      '$modelsBase${Platform.pathSeparator}ml${Platform.pathSeparator}primary${Platform.pathSeparator}tokens.txt',
+      '$modelsBase${Platform.pathSeparator}espeak-ng-data${Platform.pathSeparator}ml_dict',
+    ];
+    final alreadyReady = mustHave.every(_fileExists);
+    if (alreadyReady) return;
+
+    final tmpRoot = '${Directory.systemTemp.path}${Platform.pathSeparator}lifer_sherpa_bootstrap';
+    await Directory(tmpRoot).create(recursive: true);
+
+    Future<String> downloadArchive(String name) async {
+      final out = '$tmpRoot${Platform.pathSeparator}$name';
+      if (_fileExists(out)) return out;
+      final url = 'https://github.com/k2-fsa/sherpa-onnx/releases/download/$_sherpaReleaseTag/$name';
+      await _downloadToFile(url: url, outPath: out);
+      return out;
+    }
+
+    Future<void> installModel({
+      required String archiveName,
+      required String onnxName,
+      required String language,
+      required String tier,
+    }) async {
+      final arc = await downloadArchive(archiveName);
+      final extractDir = '$tmpRoot${Platform.pathSeparator}${language}_$tier';
+      final extractPath = Directory(extractDir);
+      if (extractPath.existsSync()) {
+        await extractPath.delete(recursive: true);
+      }
+      await extractPath.create(recursive: true);
+      await _extractTarBz2(arc, extractDir);
+
+      final topDirs = Directory(extractDir)
+          .listSync()
+          .whereType<Directory>()
+          .toList();
+      if (topDirs.isEmpty) throw Exception('No model directory in $archiveName');
+      final src = topDirs.first.path;
+
+      final dstDir = '$modelsBase${Platform.pathSeparator}$language${Platform.pathSeparator}$tier';
+      await Directory(dstDir).create(recursive: true);
+      await File('$src${Platform.pathSeparator}$onnxName')
+          .copy('$dstDir${Platform.pathSeparator}model.onnx');
+      await File('$src${Platform.pathSeparator}tokens.txt')
+          .copy('$dstDir${Platform.pathSeparator}tokens.txt');
+
+      final sharedDataDir = '$modelsBase${Platform.pathSeparator}espeak-ng-data';
+      if (!_dirExists(sharedDataDir)) {
+        await _copyDir('$src${Platform.pathSeparator}espeak-ng-data', sharedDataDir);
+      }
+    }
+
+    try {
+      // Binaries
+      final binArchive = await downloadArchive(
+        'sherpa-onnx-$_sherpaReleaseTag-linux-x64-static.tar.bz2',
+      );
+      final binExtract = '$tmpRoot${Platform.pathSeparator}bin_extract';
+      final binExtractDir = Directory(binExtract);
+      if (binExtractDir.existsSync()) {
+        await binExtractDir.delete(recursive: true);
+      }
+      await binExtractDir.create(recursive: true);
+      await _extractTarBz2(binArchive, binExtract);
+
+      final extractedRoot = binExtractDir
+          .listSync()
+          .whereType<Directory>()
+          .firstWhere((d) => d.path.contains('linux-x64-static'));
+      final sourceBin = '${extractedRoot.path}${Platform.pathSeparator}bin';
+      await Directory(binBase).create(recursive: true);
+      for (final exe in [
+        'sherpa-onnx-offline-tts-play',
+        'sherpa-onnx-offline-tts-play-alsa',
+        'sherpa-onnx-offline-tts',
+      ]) {
+        final src = '$sourceBin${Platform.pathSeparator}$exe';
+        final dst = '$binBase${Platform.pathSeparator}$exe';
+        await File(src).copy(dst);
+        await _ensureExecutableBitIfNeeded(dst);
+      }
+
+      // Models
+      await installModel(
+        archiveName: 'vits-piper-en_US-lessac-medium.tar.bz2',
+        onnxName: 'en_US-lessac-medium.onnx',
+        language: 'en',
+        tier: 'primary',
+      );
+      await installModel(
+        archiveName: 'vits-piper-en_US-ljspeech-medium.tar.bz2',
+        onnxName: 'en_US-ljspeech-medium.onnx',
+        language: 'en',
+        tier: 'backup',
+      );
+      await installModel(
+        archiveName: 'vits-piper-ml_IN-meera-medium.tar.bz2',
+        onnxName: 'ml_IN-meera-medium.onnx',
+        language: 'ml',
+        tier: 'primary',
+      );
+      await installModel(
+        archiveName: 'vits-piper-ml_IN-arjun-medium.tar.bz2',
+        onnxName: 'ml_IN-arjun-medium.onnx',
+        language: 'ml',
+        tier: 'backup',
+      );
+
+      _setEngineStatus('sherpa_ready', 'Downloaded Linux Sherpa runtime/assets');
+    } catch (e) {
+      _setEngineStatus('sherpa_download_failed', 'Auto-download failed: $e');
+    }
   }
 
   String? _resolveDesktopPath(String pathLike) {
@@ -80,6 +270,9 @@ class SpeechService {
     }
 
     final candidates = <String>{};
+    if (Platform.isLinux && normalized.startsWith('assets${Platform.pathSeparator}tts${Platform.pathSeparator}')) {
+      candidates.add(_joinPath(_linuxRuntimeBaseDir(), normalized));
+    }
     for (final base in _desktopBaseDirs()) {
       candidates.add(_joinPath(base, normalized));
       candidates.add(_joinPath(base, 'assets${Platform.pathSeparator}$normalized'));
@@ -119,6 +312,19 @@ class SpeechService {
     } catch (_) {
       return false;
     }
+  }
+
+  Future<bool> _playWaveFile(String path) async {
+    final players = <({String exe, List<String> args})>[
+      (exe: 'paplay', args: [path]),
+      (exe: 'aplay', args: [path]),
+    ];
+
+    for (final p in players) {
+      final ok = await _runExternal(p.exe, p.args);
+      if (ok) return true;
+    }
+    return false;
   }
 
   Future<bool> _speakOnLinuxFallback({
@@ -240,6 +446,10 @@ class SpeechService {
       return false;
     }
 
+    if (Platform.isLinux) {
+      await _ensureLinuxRuntimeAssets();
+    }
+
     final manifest = await _loadSherpaManifest();
     if (manifest == null) return false;
 
@@ -272,13 +482,95 @@ class SpeechService {
         continue;
       }
 
+      final dataDir = _resolveDesktopPath(model['dataDir']?.toString() ?? '');
+      final lexiconPath = _resolveDesktopPath(
+        model['lexiconPath']?.toString() ?? '',
+      );
+      final ruleFstsPath = _resolveDesktopPath(
+        model['ruleFstsPath']?.toString() ?? '',
+      );
+
       final commands = await _commandCandidatesForModel(manifest, model);
+      List<String> baseVitsArgs() {
+        final args = <String>[
+          '--vits-model',
+          modelPath,
+          '--vits-tokens',
+          tokensPath,
+          '--sid',
+          '0',
+          '--text',
+          text,
+        ];
+        if (dataDir != null) {
+          args.addAll(['--vits-data-dir', dataDir]);
+        }
+        if (lexiconPath != null) {
+          args.addAll(['--vits-lexicon', lexiconPath]);
+        }
+        if (ruleFstsPath != null) {
+          args.addAll(['--tts-rule-fsts', ruleFstsPath]);
+        }
+        return args;
+      }
+
       final attempts = <List<String>>[
-        ['--vits-model', modelPath, '--vits-tokens', tokensPath, '--sid', '0', '--text', text],
-        ['--model', modelPath, '--tokens', tokensPath, '--sid', '0', '--text', text],
+        baseVitsArgs(),
+        [
+          '--model',
+          modelPath,
+          '--tokens',
+          tokensPath,
+          '--sid',
+          '0',
+          '--text',
+          text,
+        ],
       ];
 
       for (final command in commands) {
+        final lowerCommand = command.toLowerCase();
+        if (lowerCommand.endsWith('offline-tts') ||
+            lowerCommand.endsWith('offline-tts.exe')) {
+          final outFile =
+              '${Directory.systemTemp.path}${Platform.pathSeparator}sherpa_tts_${DateTime.now().microsecondsSinceEpoch}.wav';
+          final args = <String>[
+            '--vits-model',
+            modelPath,
+            '--vits-tokens',
+            tokensPath,
+            '--sid',
+            '0',
+            '--output-filename',
+            outFile,
+            text,
+          ];
+          if (dataDir != null) {
+            args.addAll(['--vits-data-dir', dataDir]);
+          }
+          if (lexiconPath != null) {
+            args.addAll(['--vits-lexicon', lexiconPath]);
+          }
+          if (ruleFstsPath != null) {
+            args.addAll(['--tts-rule-fsts', ruleFstsPath]);
+          }
+
+          final generated = await _runExternal(command, args);
+          if (generated && await File(outFile).exists()) {
+            final played = await _playWaveFile(outFile);
+            try {
+              await File(outFile).delete();
+            } catch (_) {}
+            if (played) {
+              _setEngineStatus(
+                'sherpa',
+                'Sherpa model ${model['id'] ?? language} via $command',
+              );
+              return true;
+            }
+          }
+        }
+
         for (final args in attempts) {
           final ok = await _runExternal(command, args);
           if (ok) {

@@ -65,6 +65,7 @@ import 'dart:math';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart'
     show SharedPreferences;
@@ -232,6 +233,18 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
+  bool get _supportsForegroundTask {
+    if (kIsWeb) return false;
+    return defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+  }
+
+  bool get _supportsQuickActions {
+    if (kIsWeb) return false;
+    return defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+  }
+
   /// ============================================================================
   /// SERVICE LAYER - Dependency injection for business logic
   /// ============================================================================
@@ -579,6 +592,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   static const String _batteryOptimizationAskedKey = 'BatteryOptAsked';
 
   Future<void> _requestPermissions() async {
+    if (!_supportsForegroundTask) return;
     final prefs = await SharedPreferences.getInstance();
     final bool hasAskedBattery = prefs.getBool(_batteryOptimizationAskedKey) ?? false;
 
@@ -594,6 +608,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _initForegroundTask() {
+    if (!_supportsForegroundTask) return;
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'speaktimer_fg',
@@ -660,6 +675,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _initializeForegroundNotification() async {
+    if (!_supportsForegroundTask) return;
     await _requestPermissions();
     await _ensureForegroundServiceRunning();
   }
@@ -771,27 +787,39 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _initQuickActions() {
-    _quickActions.initialize((type) {
-      unawaited(_handleQuickAction(type));
-    });
+    if (!_supportsQuickActions) {
+      _startForegroundHealthCheck();
+      return;
+    }
 
-    _quickActions.setShortcutItems(<ShortcutItem>[
-      const ShortcutItem(
-        type: 'start_25m',
-        localizedTitle: 'Start 25m',
-        icon: 'icon_start',
-      ),
-      const ShortcutItem(
-        type: 'resume_last',
-        localizedTitle: 'Resume Last',
-        icon: 'icon_resume',
-      ),
-      const ShortcutItem(
-        type: 'toggle_speech',
-        localizedTitle: 'Toggle Speech',
-        icon: 'icon_speech',
-      ),
-    ]);
+    try {
+      _quickActions.initialize((type) {
+        unawaited(_handleQuickAction(type));
+      });
+
+      _quickActions.setShortcutItems(<ShortcutItem>[
+        const ShortcutItem(
+          type: 'start_25m',
+          localizedTitle: 'Start 25m',
+          icon: 'icon_start',
+        ),
+        const ShortcutItem(
+          type: 'resume_last',
+          localizedTitle: 'Resume Last',
+          icon: 'icon_resume',
+        ),
+        const ShortcutItem(
+          type: 'toggle_speech',
+          localizedTitle: 'Toggle Speech',
+          icon: 'icon_speech',
+        ),
+      ]);
+    } on MissingPluginException {
+      debugPrint('QuickActions plugin unavailable on this platform/runtime.');
+    } on PlatformException catch (e) {
+      debugPrint('QuickActions failed: $e');
+    }
+
     _startForegroundHealthCheck();
   }
 
@@ -1413,7 +1441,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         debugPrint('TTS error: $message');
       });
 
-      await flutterTts.awaitSpeakCompletion(true);
+      try {
+        await flutterTts.awaitSpeakCompletion(true);
+      } on MissingPluginException {
+        _nextTtsInitAllowedAt = DateTime.now().add(const Duration(seconds: 20));
+        debugPrint('flutter_tts plugin unavailable on this platform/runtime.');
+        return false;
+      } on PlatformException catch (e) {
+        _nextTtsInitAllowedAt = DateTime.now().add(const Duration(seconds: 20));
+        debugPrint('flutter_tts init failed: $e');
+        return false;
+      }
 
       dynamic fetchedVoices;
       const maxAttempts = 4;
@@ -1504,11 +1542,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final normalizedEngineMode = _speechService.normalizeSpeechEngineMode(
       speechEngineMode,
     );
-    final desktopSherpaOnly =
-        (Platform.isLinux || Platform.isWindows) &&
-        normalizedEngineMode == 'sherpa_only';
+    final desktopPlatform = Platform.isLinux || Platform.isWindows;
+    final desktopSherpaOnly = desktopPlatform && normalizedEngineMode == 'sherpa_only';
 
-    if (!desktopSherpaOnly) {
+    // On desktop, speech service can still use Sherpa/espeak without flutter_tts plugin.
+    if (!desktopSherpaOnly && !desktopPlatform) {
       final ready = await _ensureTtsReady();
       if (!ready) {
         if (mounted) {

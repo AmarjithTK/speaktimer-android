@@ -126,10 +126,16 @@ class _FullscreenStopwatchViewState extends State<FullscreenStopwatchView> {
     if (_alwaysOn) {
       WakelockPlus.disable();
     }
-    unawaited(ScreenBrightness.instance.resetApplicationScreenBrightness());
+    unawaited(_resetBrightnessSafe());
     SystemChrome.setPreferredOrientations([]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
+  }
+
+  Future<void> _resetBrightnessSafe() async {
+    try {
+      await ScreenBrightness.instance.resetApplicationScreenBrightness();
+    } catch (_) {}
   }
 
   @override

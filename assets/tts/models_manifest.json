@@ -4,7 +4,11 @@
   "commands": {
     "linux": [
       "assets/tts/bin/linux-x64/sherpa-onnx-offline-tts-play",
+      "assets/tts/bin/linux-x64/sherpa-onnx-offline-tts-play-alsa",
+      "assets/tts/bin/linux-x64/sherpa-onnx-offline-tts",
       "sherpa-onnx-offline-tts-play",
+      "sherpa-onnx-offline-tts-play-alsa",
+      "sherpa-onnx-offline-tts",
       "sherpa-onnx-tts-play"
     ],
     "windows": [
@@ -20,6 +24,7 @@
       "tier": "primary",
       "modelPath": "assets/tts/models/en/primary/model.onnx",
       "tokensPath": "assets/tts/models/en/primary/tokens.txt",
+      "dataDir": "assets/tts/models/espeak-ng-data",
       "description": "English smooth primary"
     },
     {
@@ -28,6 +33,7 @@
       "tier": "backup",
       "modelPath": "assets/tts/models/en/backup/model.onnx",
       "tokensPath": "assets/tts/models/en/backup/tokens.txt",
+      "dataDir": "assets/tts/models/espeak-ng-data",
       "description": "English backup"
     },
     {
@@ -36,6 +42,7 @@
       "tier": "primary",
       "modelPath": "assets/tts/models/ml/primary/model.onnx",
       "tokensPath": "assets/tts/models/ml/primary/tokens.txt",
+      "dataDir": "assets/tts/models/espeak-ng-data",
       "description": "Malayalam smooth primary"
     },
     {
@@ -44,6 +51,7 @@
       "tier": "backup",
       "modelPath": "assets/tts/models/ml/backup/model.onnx",
       "tokensPath": "assets/tts/models/ml/backup/tokens.txt",
+      "dataDir": "assets/tts/models/espeak-ng-data",
       "description": "Malayalam backup"
     }
   ]
