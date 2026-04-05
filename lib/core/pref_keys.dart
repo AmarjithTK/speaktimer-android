@@ -3,10 +3,13 @@ class PrefKeys {
   static const soundChosen = 'SoundChosen';
   static const noiseVolume = 'NoiseVolume';
   static const speakVolume = 'SpeakVolume';
+  static const ttsMaxVolumeLockEnabled = 'TtsMaxVolumeLockEnabled';
+  static const ttsVolumeBoostEnabled = 'TtsVolumeBoostEnabled';
   static const clockOn = 'ClockOn';
   static const clockIntervalMins = 'ClockIntervalMins';
   static const clockShowMilliseconds = 'ClockShowMilliseconds';
   static const clockSpeakTime = 'ClockSpeakTime';
+  static const clockSpeakRepeatCount = 'ClockSpeakRepeatCount';
   static const clockNoiseOn = 'ClockNoiseOn';
   static const motivationOn = 'MotivationOn';
   static const motivationCategory = 'MotivationCategory';

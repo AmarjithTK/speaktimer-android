@@ -107,5 +107,52 @@
             android:background="@drawable/widget_button_bg" />
     </LinearLayout>
 
+    <!-- Row 3: Fullscreen quick actions -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:layout_marginTop="6dp">
+
+        <Button
+            android:id="@+id/btn_fs_clock"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:text="FS Clock"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:fontFamily="sans-serif-medium"
+            android:textColor="#FFE6E1E5"
+            android:background="@drawable/widget_button_bg" />
+
+        <Button
+            android:id="@+id/btn_fs_timer"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:text="Start+FS Timer"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:fontFamily="sans-serif-medium"
+            android:textColor="#FFE6E1E5"
+            android:background="@drawable/widget_button_bg" />
+
+        <Button
+            android:id="@+id/btn_fs_stopwatch"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="Start+FS SW"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:fontFamily="sans-serif-medium"
+            android:textColor="#FFE6E1E5"
+            android:background="@drawable/widget_button_bg" />
+    </LinearLayout>
+
 </LinearLayout>
 

@@ -26,7 +26,7 @@ import '../models/app_settings.dart';
 class SettingsService {
   /// Current schema version: increment when preference structure changes
   /// Used to detect and run migrations for old stored data
-  static const int _currentSchemaVersion = 4;
+  static const int _currentSchemaVersion = 7;
 
   String _normalizeVoiceLanguageMode(String? mode) {
     final normalized = mode?.trim().toLowerCase() ?? '';
@@ -69,13 +69,19 @@ class SettingsService {
 
     return AppSettings(
       soundChosen: sound,
-      noiseVolume: prefs.getDouble(PrefKeys.noiseVolume) ?? 0.6,
-      speakVolume: prefs.getDouble(PrefKeys.speakVolume) ?? 0.8,
+      noiseVolume: prefs.getDouble(PrefKeys.noiseVolume) ?? 1.0,
+      speakVolume: prefs.getDouble(PrefKeys.speakVolume) ?? 1.0,
+      ttsMaxVolumeLockEnabled:
+          prefs.getBool(PrefKeys.ttsMaxVolumeLockEnabled) ?? false,
+      ttsVolumeBoostEnabled:
+          prefs.getBool(PrefKeys.ttsVolumeBoostEnabled) ?? false,
       clockOn: prefs.getBool(PrefKeys.clockOn) ?? false,
       clockIntervalMins: prefs.getInt(PrefKeys.clockIntervalMins) ?? 30,
       clockShowMilliseconds:
           prefs.getBool(PrefKeys.clockShowMilliseconds) ?? true,
       clockSpeakTime: prefs.getBool(PrefKeys.clockSpeakTime) ?? true,
+        clockSpeakRepeatCount:
+          (prefs.getInt(PrefKeys.clockSpeakRepeatCount) ?? 1).clamp(1, 3),
       clockNoiseOn: prefs.getBool(PrefKeys.clockNoiseOn) ?? false,
       motivationOn: prefs.getBool(PrefKeys.motivationOn) ?? true,
       motivationCategory:
@@ -129,6 +135,14 @@ class SettingsService {
     await prefs.setString(PrefKeys.soundChosen, settings.soundChosen);
     await prefs.setDouble(PrefKeys.noiseVolume, settings.noiseVolume);
     await prefs.setDouble(PrefKeys.speakVolume, settings.speakVolume);
+    await prefs.setBool(
+      PrefKeys.ttsMaxVolumeLockEnabled,
+      settings.ttsMaxVolumeLockEnabled,
+    );
+    await prefs.setBool(
+      PrefKeys.ttsVolumeBoostEnabled,
+      settings.ttsVolumeBoostEnabled,
+    );
     await prefs.setBool(PrefKeys.clockOn, settings.clockOn);
     await prefs.setInt(PrefKeys.clockIntervalMins, settings.clockIntervalMins);
     await prefs.setBool(
@@ -136,6 +150,10 @@ class SettingsService {
       settings.clockShowMilliseconds,
     );
     await prefs.setBool(PrefKeys.clockSpeakTime, settings.clockSpeakTime);
+    await prefs.setInt(
+      PrefKeys.clockSpeakRepeatCount,
+      settings.clockSpeakRepeatCount,
+    );
     await prefs.setBool(PrefKeys.clockNoiseOn, settings.clockNoiseOn);
     await prefs.setBool(PrefKeys.motivationOn, settings.motivationOn);
     await prefs.setString(
@@ -260,6 +278,18 @@ class SettingsService {
         PrefKeys.speechEngineMode,
         _normalizeSpeechEngineMode(prefs.getString(PrefKeys.speechEngineMode)),
       );
+    }
+
+    if (currentVersion < 6) {
+      if (!prefs.containsKey(PrefKeys.ttsMaxVolumeLockEnabled)) {
+        await prefs.setBool(PrefKeys.ttsMaxVolumeLockEnabled, false);
+      }
+    }
+
+    if (currentVersion < 7) {
+      if (!prefs.containsKey(PrefKeys.clockSpeakRepeatCount)) {
+        await prefs.setInt(PrefKeys.clockSpeakRepeatCount, 1);
+      }
     }
 
     await prefs.setInt(PrefKeys.settingsSchemaVersion, _currentSchemaVersion);

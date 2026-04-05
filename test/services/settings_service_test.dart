@@ -18,7 +18,7 @@ void main() {
 
       expect(loaded.soundChosen, 'audio/rain.mp3');
       expect(prefs.getString(PrefKeys.soundChosen), 'audio/rain.mp3');
-      expect(prefs.getInt(PrefKeys.settingsSchemaVersion), 4);
+      expect(prefs.getInt(PrefKeys.settingsSchemaVersion), 7);
     });
   });
 
@@ -31,8 +31,11 @@ void main() {
         soundChosen: 'audio/stream.mp3',
         noiseVolume: 0.2,
         speakVolume: 0.9,
+        ttsMaxVolumeLockEnabled: false,
+        ttsVolumeBoostEnabled: false,
         clockOn: true,
         clockSpeakTime: true,
+        clockSpeakRepeatCount: 2,
         clockNoiseOn: false,
         appFontSizeMultiplier: 1.0,
         clockIntervalMins: 15,

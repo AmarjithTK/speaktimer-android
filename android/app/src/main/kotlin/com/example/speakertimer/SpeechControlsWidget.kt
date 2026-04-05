@@ -112,6 +112,18 @@ class SpeechControlsWidget : AppWidgetProvider() {
                 R.id.btn_goals_speech,
                 makeActionIntent(context, "toggle_goals_speech", appWidgetId, 4)
             )
+            views.setOnClickPendingIntent(
+                R.id.btn_fs_clock,
+                makeActionIntent(context, "open_fullscreen_clock", appWidgetId, 5)
+            )
+            views.setOnClickPendingIntent(
+                R.id.btn_fs_timer,
+                makeActionIntent(context, "start_timer_fullscreen", appWidgetId, 6)
+            )
+            views.setOnClickPendingIntent(
+                R.id.btn_fs_stopwatch,
+                makeActionIntent(context, "start_stopwatch_fullscreen", appWidgetId, 7)
+            )
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }

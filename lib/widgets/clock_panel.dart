@@ -13,16 +13,19 @@ class ClockPanel extends StatelessWidget {
   final int clockIntervalMins;
   final bool clockShowMilliseconds;
   final bool clockSpeakTime;
+  final int clockSpeakRepeatCount;
   final bool clockNoiseOn;
   final bool motivationOn;
   final String motivationCategory;
   final int motivationDelaySeconds;
   final List<int> clockIntervalOptions;
+  final List<int> clockSpeakRepeatOptions;
   final List<String> motivationCategories;
   final List<int> motivationDelayOptions;
   final ValueChanged<int?> onClockIntervalChanged;
   final ValueChanged<bool?> onClockShowMillisecondsChanged;
   final ValueChanged<bool?> onClockSpeakTimeChanged;
+  final ValueChanged<int?> onClockSpeakRepeatCountChanged;
   final ValueChanged<bool?> onClockNoiseOnChanged;
   final ValueChanged<bool?> onMotivationChanged;
   final ValueChanged<String?> onMotivationCategoryChanged;
@@ -38,16 +41,19 @@ class ClockPanel extends StatelessWidget {
     required this.clockIntervalMins,
     required this.clockShowMilliseconds,
     required this.clockSpeakTime,
+    required this.clockSpeakRepeatCount,
     required this.clockNoiseOn,
     required this.motivationOn,
     required this.motivationCategory,
     required this.motivationDelaySeconds,
     required this.clockIntervalOptions,
+    required this.clockSpeakRepeatOptions,
     required this.motivationCategories,
     required this.motivationDelayOptions,
     required this.onClockIntervalChanged,
     required this.onClockShowMillisecondsChanged,
     required this.onClockSpeakTimeChanged,
+    required this.onClockSpeakRepeatCountChanged,
     required this.onClockNoiseOnChanged,
     required this.onMotivationChanged,
     required this.onMotivationCategoryChanged,
@@ -277,6 +283,32 @@ class ClockPanel extends StatelessWidget {
                       ),
                       Expanded(child: sectionLabel('Announce time')),
                     ],
+                  ),
+                  sectionLabel('Repeat time announcement'),
+                  dropdownContainer(
+                    DropdownButton<int>(
+                      value: clockSpeakRepeatCount,
+                      isExpanded: true,
+                      underline: const SizedBox(),
+                      iconEnabledColor: palette.primary,
+                      dropdownColor: palette.accent,
+                      items: clockSpeakRepeatOptions
+                          .map(
+                            (count) => DropdownMenuItem(
+                              value: count,
+                              child: Text(
+                                '$count time${count == 1 ? '' : 's'}',
+                                style: TextStyle(
+                                  color: palette.primary,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: onClockSpeakRepeatCountChanged,
+                    ),
                   ),
                   Row(
                     children: [

@@ -7,6 +7,10 @@ import 'package:flutter/services.dart';
 import '../models/speech_item.dart';
 
 class SpeechService {
+  static const MethodChannel _audioChannel = MethodChannel(
+    'com.example.speakertimer/audio',
+  );
+
   Map<String, dynamic>? _sherpaManifestCache;
   String _lastEngineUsed = 'system';
   String _lastEngineDetail = 'System TTS ready';
@@ -36,6 +40,33 @@ class SpeechService {
 
   String _linuxEspeakVoice({required bool useMalayalamNuance}) {
     return useMalayalamNuance ? 'ml' : 'en';
+  }
+
+  Future<double?> _getMediaVolumeRatio() async {
+    try {
+      final value = await _audioChannel.invokeMethod<double>('getMediaVolumeRatio');
+      return value?.clamp(0.0, 1.0);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _setMediaVolumeRatio(double ratio) async {
+    try {
+      await _audioChannel.invokeMethod<void>('setMediaVolumeRatio', {
+        'ratio': ratio.clamp(0.0, 1.0),
+      });
+    } catch (_) {
+      // Best effort only; audio playback should still continue.
+    }
+  }
+
+  Future<void> _setMediaVolumeToMax() async {
+    try {
+      await _audioChannel.invokeMethod<void>('setMediaVolumeToMax');
+    } catch (_) {
+      // Best effort only; audio playback should still continue.
+    }
   }
 
   String _platformKey() {
@@ -738,6 +769,8 @@ class SpeechService {
     required FlutterTts flutterTts,
     required SpeechItem item,
     required double speakVolume,
+    required bool ttsMaxVolumeLockEnabled,
+    required bool ttsVolumeBoostEnabled,
     required Map<dynamic, dynamic>? preferredVoice,
     required bool useMalayalamNuance,
     required String speechEngineMode,
@@ -789,8 +822,30 @@ class SpeechService {
       await flutterTts.setSpeechRate(item.isQuote ? 0.45 : 0.5);
     }
 
-    await flutterTts.setVolume(speakVolume);
+    final ttsVolume = ttsVolumeBoostEnabled
+      ? (speakVolume + 0.40).clamp(0.0, 1.0)
+      : speakVolume.clamp(0.0, 1.0);
+
+    await flutterTts.setVolume(ttsVolume);
+
+    double? originalVolume;
+    if (ttsMaxVolumeLockEnabled && Platform.isAndroid) {
+      try {
+        await flutterTts.awaitSpeakCompletion(true);
+      } catch (_) {
+        // Some engines may not support completion callbacks; continue best-effort.
+      }
+      originalVolume = await _getMediaVolumeRatio();
+      await _setMediaVolumeToMax();
+    }
+
     await flutterTts.speak(item.text);
+
+    if (originalVolume != null) {
+      await _setMediaVolumeRatio(originalVolume);
+    }
+
     _setEngineStatus('system', 'System TTS (${useMalayalamNuance ? 'ml-IN' : 'en-IN'})');
   }
 }
+

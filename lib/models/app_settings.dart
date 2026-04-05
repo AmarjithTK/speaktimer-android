@@ -2,10 +2,13 @@ class AppSettings {
   final String soundChosen;
   final double noiseVolume;
   final double speakVolume;
+  final bool ttsMaxVolumeLockEnabled;
+  final bool ttsVolumeBoostEnabled;
   final bool clockOn;
   final int clockIntervalMins;
   final bool clockShowMilliseconds;
   final bool clockSpeakTime;
+  final int clockSpeakRepeatCount;
   final bool clockNoiseOn;
   final bool motivationOn;
   final String motivationCategory;
@@ -38,10 +41,13 @@ class AppSettings {
     required this.soundChosen,
     required this.noiseVolume,
     required this.speakVolume,
+    required this.ttsMaxVolumeLockEnabled,
+    required this.ttsVolumeBoostEnabled,
     required this.clockOn,
     required this.clockIntervalMins,
     required this.clockShowMilliseconds,
     required this.clockSpeakTime,
+    required this.clockSpeakRepeatCount,
     required this.clockNoiseOn,
     required this.motivationOn,
     required this.motivationCategory,

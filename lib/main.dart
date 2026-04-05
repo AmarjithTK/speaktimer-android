@@ -104,6 +104,12 @@ final ValueNotifier<ThemeMode> appThemeModeNotifier = ValueNotifier(
 
 final ValueNotifier<double> appFontSizeNotifier = ValueNotifier(1.0);
 
+const String _ownerActivationCode = String.fromEnvironment(
+  'OWNER_ACCESS_CODE',
+  defaultValue: '',
+);
+const String _ownerActivationUnlockedKey = 'OwnerActivationUnlocked';
+
 void setAppThemeMode(bool isDark) {
   appThemeModeNotifier.value = isDark ? ThemeMode.dark : ThemeMode.light;
   setPaletteDarkMode(isDark);
@@ -215,11 +221,150 @@ class LiferApp extends StatelessWidget {
                     ),
                   ),
                 ),
-                home: const MainScreen(),
+                home: const ActivationGate(child: MainScreen()),
               );
             },
           );
         },
+      ),
+    );
+  }
+}
+
+class ActivationGate extends StatefulWidget {
+  final Widget child;
+
+  const ActivationGate({super.key, required this.child});
+
+  @override
+  State<ActivationGate> createState() => _ActivationGateState();
+}
+
+class _ActivationGateState extends State<ActivationGate> {
+  final TextEditingController _codeController = TextEditingController();
+  bool _loading = true;
+  bool _unlocked = false;
+  bool _submitting = false;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadUnlockState());
+  }
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadUnlockState() async {
+    if (_ownerActivationCode.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _unlocked = true;
+        _loading = false;
+      });
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final unlocked = prefs.getBool(_ownerActivationUnlockedKey) ?? false;
+
+    if (!mounted) return;
+    setState(() {
+      _unlocked = unlocked;
+      _loading = false;
+    });
+  }
+
+  Future<void> _submitCode() async {
+    if (_submitting) return;
+    final entered = _codeController.text.trim();
+
+    setState(() {
+      _submitting = true;
+      _errorText = null;
+    });
+
+    if (entered == _ownerActivationCode) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_ownerActivationUnlockedKey, true);
+      if (!mounted) return;
+      setState(() {
+        _unlocked = true;
+        _submitting = false;
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _submitting = false;
+      _errorText = 'Invalid activation code.';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_unlocked) {
+      return widget.child;
+    }
+
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Activation Required',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Enter owner activation code to unlock this app on this device.',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _codeController,
+                    obscureText: true,
+                    enableSuggestions: false,
+                    autocorrect: false,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => unawaited(_submitCode()),
+                    decoration: InputDecoration(
+                      labelText: 'Activation code',
+                      errorText: _errorText,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _submitting ? null : () => unawaited(_submitCode()),
+                      child: Text(_submitting ? 'Checking...' : 'Unlock App'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -435,10 +580,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   String soundChosen = "audio/rain.mp3";
 
   /// Volume level for background ambient audio (0.0-1.0)
-  double noiseVolume = 0.6;
+  double noiseVolume = 1.0;
 
   /// Volume level for speech/TTS output (0.0-1.0)
-  double speakVolume = 0.8;
+  double speakVolume = 1.0;
+
+  /// Optional gain bump for TTS announcements only.
+  bool ttsVolumeBoostEnabled = false;
+
+  /// Optional hardware volume lock for TTS max
+  bool ttsMaxVolumeLockEnabled = false;
 
   /// Enable/disable clock announcements
   bool clockOn = false;
@@ -451,6 +602,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   /// Enable/disable announcing the time (speech) during clock
   bool clockSpeakTime = true;
+
+  /// Number of times each clock time announcement should be repeated
+  int clockSpeakRepeatCount = 1;
 
   /// Enable/disable background noise during clock
   bool clockNoiseOn = false;
@@ -562,6 +716,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   /// Available clock announcement intervals (in minutes)
   final List<int> clockIntervalOptions = [1, 2, 5, 10, 15, 20, 30, 60];
+
+  /// Allowed repetitions for each clock speech announcement
+  final List<int> clockSpeakRepeatOptions = [1, 2, 3];
 
   /// Timer announcement frequency options (announce every N minutes)
   final List<int> timerAnnounceOptions = [1, 2, 5, 10, 15, 20, 30];
@@ -991,10 +1148,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       soundChosen = settings.soundChosen;
       noiseVolume = settings.noiseVolume;
       speakVolume = settings.speakVolume;
+      ttsMaxVolumeLockEnabled = settings.ttsMaxVolumeLockEnabled;
+      ttsVolumeBoostEnabled = settings.ttsVolumeBoostEnabled;
       clockOn = settings.clockOn;
       clockIntervalMins = settings.clockIntervalMins;
       clockShowMilliseconds = settings.clockShowMilliseconds;
       clockSpeakTime = settings.clockSpeakTime;
+      clockSpeakRepeatCount = settings.clockSpeakRepeatCount.clamp(1, 3);
       clockNoiseOn = settings.clockNoiseOn;
       motivationOn = settings.motivationOn;
       motivationCategory = settings.motivationCategory;
@@ -1078,10 +1238,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       soundChosen: soundChosen,
       noiseVolume: noiseVolume,
       speakVolume: speakVolume,
+      ttsMaxVolumeLockEnabled: ttsMaxVolumeLockEnabled,
+      ttsVolumeBoostEnabled: ttsVolumeBoostEnabled,
       clockOn: clockOn,
       clockIntervalMins: clockIntervalMins,
       clockShowMilliseconds: clockShowMilliseconds,
       clockSpeakTime: clockSpeakTime,
+      clockSpeakRepeatCount: clockSpeakRepeatCount,
       clockNoiseOn: clockNoiseOn,
       motivationOn: motivationOn,
       motivationCategory: motivationCategory,
@@ -1176,6 +1339,38 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     switch (type) {
       case 'resume_last':
         await _handleQuickAction('resume_last');
+        break;
+      case 'open_fullscreen_clock':
+        setState(() {
+          currentTabIndex = 0;
+        });
+        _openFullscreenFocus(
+          specificMode: FullscreenFocusMode.clock,
+          forceHorizontal: true,
+          startImmersive: true,
+        );
+        break;
+      case 'start_timer_fullscreen':
+        setState(() {
+          currentTabIndex = 1;
+        });
+        startTimer();
+        _openFullscreenFocus(
+          specificMode: FullscreenFocusMode.timer,
+          forceHorizontal: true,
+          startImmersive: true,
+        );
+        break;
+      case 'start_stopwatch_fullscreen':
+        setState(() {
+          currentTabIndex = 2;
+        });
+        startStopwatch();
+        _openFullscreenFocus(
+          specificMode: FullscreenFocusMode.moduleC,
+          forceHorizontal: true,
+          startImmersive: true,
+        );
         break;
       case 'toggle_clock_speech':
         setState(() {
@@ -1567,6 +1762,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         flutterTts: flutterTts,
         item: item,
         speakVolume: speakVolume,
+        ttsMaxVolumeLockEnabled: ttsMaxVolumeLockEnabled,
+        ttsVolumeBoostEnabled: ttsVolumeBoostEnabled,
         preferredVoice: pv,
         useMalayalamNuance: useMalayalam,
         speechEngineMode: speechEngineMode,
@@ -1583,6 +1780,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           flutterTts: flutterTts,
           item: item,
           speakVolume: speakVolume,
+          ttsMaxVolumeLockEnabled: ttsMaxVolumeLockEnabled,
+          ttsVolumeBoostEnabled: ttsVolumeBoostEnabled,
           preferredVoice: retryVoice,
           useMalayalamNuance: _isMalayalamActive(retryVoice),
           speechEngineMode: speechEngineMode,
@@ -1749,7 +1948,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
     Future.delayed(Duration(milliseconds: waitMs), () {
       lastClockSpoke = DateTime.now().millisecondsSinceEpoch;
-      speak(text);
+      final repeatCount = clockSpeakRepeatCount.clamp(1, 3);
+      for (var i = 0; i < repeatCount; i++) {
+        speechQueue.add(
+          SpeechItem(text, delayMs: i == 0 ? 0 : 350),
+        );
+      }
 
       if (motivationOn) {
         final quoteText = _nextQuoteForCategory(motivationCategory);
@@ -2091,11 +2295,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               clockIntervalMins: clockIntervalMins,
               clockShowMilliseconds: clockShowMilliseconds,
               clockSpeakTime: clockSpeakTime,
+              clockSpeakRepeatCount: clockSpeakRepeatCount,
               clockNoiseOn: clockNoiseOn,
               motivationOn: motivationOn,
               motivationCategory: motivationCategory,
               motivationDelaySeconds: motivationDelaySeconds,
               clockIntervalOptions: clockIntervalOptions,
+              clockSpeakRepeatOptions: clockSpeakRepeatOptions,
               motivationCategories: motivationCategories,
               motivationDelayOptions: motivationDelayOptions,
               onClockIntervalChanged: (val) {
@@ -2121,6 +2327,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 if (clockOn && clockSpeakTime) {
                   speakClock(timeToWords());
                 }
+              },
+              onClockSpeakRepeatCountChanged: (val) {
+                if (val == null) return;
+                setState(() {
+                  clockSpeakRepeatCount = val.clamp(1, 3);
+                  _lsSave();
+                });
               },
               onClockNoiseOnChanged: (val) {
                 setState(() {
@@ -2314,6 +2527,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               soundChosen: soundChosen,
               noiseVolume: noiseVolume,
               speakVolume: speakVolume,
+              ttsMaxVolumeLockEnabled: ttsMaxVolumeLockEnabled,
+              ttsVolumeBoostEnabled: ttsVolumeBoostEnabled,
               appFontSizeMultiplier: appFontSizeNotifier.value,
               onAppFontSizeMultiplierChanged: (val) {
                 if (val != null) {
@@ -2358,6 +2573,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               onSpeakVolumeChanged: (val) {
                 setState(() {
                   speakVolume = val!;
+                  _lsSave();
+                });
+              },
+              onTtsMaxVolumeLockEnabledChanged: (val) {
+                setState(() {
+                  ttsMaxVolumeLockEnabled = val ?? false;
+                  _lsSave();
+                });
+              },
+              onTtsVolumeBoostEnabledChanged: (val) {
+                setState(() {
+                  ttsVolumeBoostEnabled = val ?? false;
                   _lsSave();
                 });
               },
@@ -2784,44 +3011,72 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     : _buildSettingsTab()))),
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: currentTabIndex,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: palette.bg,
-        selectedItemColor: palette.primary,
-        unselectedItemColor: palette.primary.withAlpha(150),
-        showUnselectedLabels: true,
-        elevation: 8,
-        onTap: (index) {
-          setState(() {
-            currentTabIndex = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.access_time_outlined),
-            activeIcon: Icon(Icons.access_time),
-            label: 'Clock',
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: double.infinity,
+            color: palette.bg,
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: palette.accent,
+                border: Border.all(color: palette.primary, width: 2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                'Made by Atherpulse Technologies',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: palette.primary.withAlpha(180),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.tune_outlined),
-            activeIcon: Icon(Icons.tune),
-            label: 'Timer',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.av_timer_outlined),
-            activeIcon: Icon(Icons.av_timer),
-            label: 'Stopwatch',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.flag_outlined),
-            activeIcon: Icon(Icons.flag),
-            label: 'Goals',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings),
-            label: 'Settings',
+          BottomNavigationBar(
+            currentIndex: currentTabIndex,
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: palette.bg,
+            selectedItemColor: palette.primary,
+            unselectedItemColor: palette.primary.withAlpha(150),
+            showUnselectedLabels: true,
+            elevation: 8,
+            onTap: (index) {
+              setState(() {
+                currentTabIndex = index;
+              });
+            },
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.access_time_outlined),
+                activeIcon: Icon(Icons.access_time),
+                label: 'Clock',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.tune_outlined),
+                activeIcon: Icon(Icons.tune),
+                label: 'Timer',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.av_timer_outlined),
+                activeIcon: Icon(Icons.av_timer),
+                label: 'Stopwatch',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.flag_outlined),
+                activeIcon: Icon(Icons.flag),
+                label: 'Goals',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.settings_outlined),
+                activeIcon: Icon(Icons.settings),
+                label: 'Settings',
+              ),
+            ],
           ),
         ],
       ),

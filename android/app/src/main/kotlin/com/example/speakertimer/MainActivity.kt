@@ -1,6 +1,8 @@
 package com.example.speakertimer
 
 import android.content.Intent
+import android.content.Context
+import android.media.AudioManager
 import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -8,13 +10,15 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
 
-    private val CHANNEL = "com.example.speakertimer/widget"
+    private val WIDGET_CHANNEL = "com.example.speakertimer/widget"
+    private val AUDIO_CHANNEL = "com.example.speakertimer/audio"
     private var methodChannel: MethodChannel? = null
+    private var audioChannel: MethodChannel? = null
     private var pendingWidgetAction: String? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+        methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WIDGET_CHANNEL)
         methodChannel?.setMethodCallHandler { call, result ->
             if (call.method == "refreshWidgets") {
                 // Flutter instructs native to refresh widget UI
@@ -23,6 +27,42 @@ class MainActivity : FlutterActivity() {
                 result.success(null)
             } else {
                 result.notImplemented()
+            }
+        }
+
+        audioChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AUDIO_CHANNEL)
+        audioChannel?.setMethodCallHandler { call, result ->
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            if (max <= 0) {
+                result.error("audio_max_zero", "Media max volume unavailable", null)
+                return@setMethodCallHandler
+            }
+
+            when (call.method) {
+                "getMediaVolumeRatio" -> {
+                    val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                    result.success(current.toDouble() / max.toDouble())
+                }
+
+                "setMediaVolumeRatio" -> {
+                    val ratioArg = call.argument<Double>("ratio")
+                    if (ratioArg == null) {
+                        result.error("missing_ratio", "ratio is required", null)
+                        return@setMethodCallHandler
+                    }
+                    val ratio = ratioArg.coerceIn(0.0, 1.0)
+                    val target = (ratio * max.toDouble()).toInt().coerceIn(0, max)
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
+                    result.success(null)
+                }
+
+                "setMediaVolumeToMax" -> {
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, max, 0)
+                    result.success(null)
+                }
+
+                else -> result.notImplemented()
             }
         }
     }

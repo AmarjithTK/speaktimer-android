@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/sound_option.dart';
 import '../theme/palette.dart';
@@ -9,6 +10,8 @@ class SettingsPanel extends StatelessWidget {
   final String soundChosen;
   final double noiseVolume;
   final double speakVolume;
+  final bool ttsMaxVolumeLockEnabled;
+  final bool ttsVolumeBoostEnabled;
   final double appFontSizeMultiplier;
   final ValueChanged<double?> onAppFontSizeMultiplierChanged;
   final bool fullscreenDarkTheme;
@@ -32,6 +35,8 @@ class SettingsPanel extends StatelessWidget {
   final ValueChanged<String?> onSoundChanged;
   final ValueChanged<double?> onNoiseVolumeChanged;
   final ValueChanged<double?> onSpeakVolumeChanged;
+  final ValueChanged<bool?> onTtsMaxVolumeLockEnabledChanged;
+  final ValueChanged<bool?> onTtsVolumeBoostEnabledChanged;
   final ValueChanged<bool?> onFullscreenDarkThemeChanged;
   final ValueChanged<bool?> onFullscreenDimBrightnessChanged;
   final ValueChanged<bool?> onFullscreenStartLandscapeChanged;
@@ -49,6 +54,8 @@ class SettingsPanel extends StatelessWidget {
     required this.soundChosen,
     required this.noiseVolume,
     required this.speakVolume,
+    required this.ttsMaxVolumeLockEnabled,
+    required this.ttsVolumeBoostEnabled,
     required this.appFontSizeMultiplier,
     required this.onAppFontSizeMultiplierChanged,
     required this.fullscreenDarkTheme,
@@ -72,6 +79,8 @@ class SettingsPanel extends StatelessWidget {
     required this.onSoundChanged,
     required this.onNoiseVolumeChanged,
     required this.onSpeakVolumeChanged,
+    required this.onTtsMaxVolumeLockEnabledChanged,
+    required this.onTtsVolumeBoostEnabledChanged,
     required this.onFullscreenDarkThemeChanged,
     required this.onFullscreenDimBrightnessChanged,
     required this.onFullscreenStartLandscapeChanged,
@@ -185,6 +194,24 @@ class SettingsPanel extends StatelessWidget {
             icon: Icons.volume_up_outlined,
             initiallyExpanded: true,
             children: [
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: palette.primary.withAlpha(20),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: palette.primary.withAlpha(60)),
+                ),
+                child: Text(
+                  'Default noise and speech volume are set to high. Reduce them here if sound feels too loud.',
+                  style: TextStyle(
+                    color: palette.primary.withAlpha(200),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
               sectionLabel('Background sound'),
               dropdownContainer(
                 DropdownButton<String>(
@@ -264,6 +291,32 @@ class SettingsPanel extends StatelessWidget {
                       .toList(),
                   onChanged: onSpeakVolumeChanged,
                 ),
+              ),
+              Row(
+                children: [
+                  Checkbox(
+                    value: ttsMaxVolumeLockEnabled,
+                    activeColor: palette.primary,
+                    checkColor: palette.accent,
+                    onChanged: onTtsMaxVolumeLockEnabledChanged,
+                  ),
+                  Expanded(
+                    child: sectionLabel('Max out device volume for TTS'),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  Checkbox(
+                    value: ttsVolumeBoostEnabled,
+                    activeColor: palette.primary,
+                    checkColor: palette.accent,
+                    onChanged: onTtsVolumeBoostEnabledChanged,
+                  ),
+                  Expanded(
+                    child: sectionLabel('Boost announcement speech (TTS only)'),
+                  ),
+                ],
               ),
             ],
           ),
@@ -594,6 +647,68 @@ class SettingsPanel extends StatelessWidget {
                   color: palette.primary.withAlpha(140),
                 ),
               ),
+            ],
+          ),
+          sectionCard(
+            title: 'About the Developer',
+            icon: Icons.info_outline,
+            children: [
+              const Text(
+                'Built by Amarjith TK',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Software Engineer & App Developer',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: palette.primary.withAlpha(200),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Divider(height: 1),
+              ),
+              const Text(
+                'Powered By',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.1,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Atherpulse Technologies',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: palette.accent,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Atherpulse Technologies provides professional websites, e-commerce stores, and digital solutions starting at affordable prices. Based in Vadakara, Kerala, India.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: palette.primary.withAlpha(180),
+                  fontStyle: FontStyle.italic,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 16),
+              actionBtn('🌐 Visit atherpulse.in', () async {
+                final url = Uri.parse('https://atherpulse.in');
+                if (await canLaunchUrl(url)) await launchUrl(url);
+              }),
+              const SizedBox(height: 8),
+              actionBtn('📧 support@atherpulse.in', () async {
+                final url = Uri.parse('mailto:support@atherpulse.in');
+                if (await canLaunchUrl(url)) await launchUrl(url);
+              }),
             ],
           ),
         ],

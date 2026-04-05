@@ -48,6 +48,7 @@ dependencies:
   screen_brightness: ^2.1.7
   quick_actions: ^1.0.8
   process_run: ^0.14.2
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
