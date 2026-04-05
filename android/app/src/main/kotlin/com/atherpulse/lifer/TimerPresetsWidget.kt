@@ -1,4 +1,4 @@
-package com.example.speakertimer
+package com.atherpulse.lifer
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager

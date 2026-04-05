@@ -11,7 +11,7 @@
         android:icon="@mipmap/ic_launcher">
 
         <meta-data
-            android:name="com.example.speakertimer.service.NOTIFICATION_ICON"
+            android:name="com.atherpulse.lifer.service.NOTIFICATION_ICON"
             android:resource="@drawable/ic_stat_lifer" />
 
         <!-- flutter_foreground_task Android 14 requirements -->

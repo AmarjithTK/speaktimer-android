@@ -401,7 +401,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   /// MethodChannel for receiving widget button actions from native Android
   static const MethodChannel _widgetChannel = MethodChannel(
-    'com.example.speakertimer/widget',
+    'com.atherpulse.lifer/widget',
   );
 
   /// Plays ambient background sounds (rain, waterfall, fire, stream)
@@ -433,7 +433,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   final ForegroundNotificationService _foregroundNotificationService =
       const ForegroundNotificationService(
         notificationIconMetaDataName:
-            'com.example.speakertimer.service.NOTIFICATION_ICON',
+            'com.atherpulse.lifer.service.NOTIFICATION_ICON',
       );
 
   /// ============================================================================

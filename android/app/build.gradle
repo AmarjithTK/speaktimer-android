@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace "com.example.speakertimer"
+    namespace "com.atherpulse.lifer"
     compileSdk flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.speakertimer"
+        applicationId "com.atherpulse.lifer"
         minSdk flutter.minSdkVersion
         targetSdk flutter.targetSdkVersion
         versionCode flutter.versionCode

@@ -1,4 +1,4 @@
-package com.example.speakertimer
+package com.atherpulse.lifer
 
 import android.content.Intent
 import android.content.Context
@@ -10,8 +10,8 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
 
-    private val WIDGET_CHANNEL = "com.example.speakertimer/widget"
-    private val AUDIO_CHANNEL = "com.example.speakertimer/audio"
+    private val WIDGET_CHANNEL = "com.atherpulse.lifer/widget"
+    private val AUDIO_CHANNEL = "com.atherpulse.lifer/audio"
     private var methodChannel: MethodChannel? = null
     private var audioChannel: MethodChannel? = null
     private var pendingWidgetAction: String? = null

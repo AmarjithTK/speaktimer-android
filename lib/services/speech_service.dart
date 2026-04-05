@@ -8,7 +8,7 @@ import '../models/speech_item.dart';
 
 class SpeechService {
   static const MethodChannel _audioChannel = MethodChannel(
-    'com.example.speakertimer/audio',
+    'com.atherpulse.lifer/audio',
   );
 
   Map<String, dynamic>? _sherpaManifestCache;

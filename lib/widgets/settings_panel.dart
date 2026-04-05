@@ -662,16 +662,14 @@ class SettingsPanel extends StatelessWidget {
                     border: Border.all(color: palette.primary, width: 2),
                   ),
                   child: ClipOval(
-                    child: Image.asset(
-                      'IMG-20260116-WA0012.jpg',
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Icon(
-                          Icons.person,
-                          color: palette.primary,
-                          size: 52,
-                        );
-                      },
+                    child: Container(
+                      color: palette.accent,
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.person,
+                        color: palette.primary,
+                        size: 52,
+                      ),
                     ),
                   ),
                 ),
