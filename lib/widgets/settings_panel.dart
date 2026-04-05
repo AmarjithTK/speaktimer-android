@@ -653,6 +653,30 @@ class SettingsPanel extends StatelessWidget {
             title: 'About the Developer',
             icon: Icons.info_outline,
             children: [
+              Center(
+                child: Container(
+                  width: 108,
+                  height: 108,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: palette.primary, width: 2),
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'IMG-20260116-WA0012.jpg',
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(
+                          Icons.person,
+                          color: palette.primary,
+                          size: 52,
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               const Text(
                 'Built by Amarjith TK',
                 style: TextStyle(
@@ -681,14 +705,30 @@ class SettingsPanel extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                'Atherpulse Technologies',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: palette.accent,
+              InkWell(
+                onTap: () async {
+                  final url = Uri.parse('https://atherpulse.in');
+                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                },
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+                  child: Text(
+                    'Atherpulse Technologies',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: palette.accent,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
                 ),
               ),
+              const SizedBox(height: 8),
+              actionBtn('🌐 Atherpulse Website', () async {
+                final url = Uri.parse('https://atherpulse.in');
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              }),
               const SizedBox(height: 8),
               Text(
                 'Atherpulse Technologies provides professional websites, e-commerce stores, and digital solutions starting at affordable prices. Based in Vadakara, Kerala, India.',
@@ -699,16 +739,7 @@ class SettingsPanel extends StatelessWidget {
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 16),
-              actionBtn('🌐 Visit atherpulse.in', () async {
-                final url = Uri.parse('https://atherpulse.in');
-                if (await canLaunchUrl(url)) await launchUrl(url);
-              }),
               const SizedBox(height: 8),
-              actionBtn('📧 support@atherpulse.in', () async {
-                final url = Uri.parse('mailto:support@atherpulse.in');
-                if (await canLaunchUrl(url)) await launchUrl(url);
-              }),
             ],
           ),
         ],

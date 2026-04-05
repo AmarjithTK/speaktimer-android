@@ -72,6 +72,9 @@ class SpeechControlsWidget : AppWidgetProvider() {
                 R.id.btn_goals_speech,
                 "🎯 Goals: ${if (goalsOn) "ON" else "OFF"}"
             )
+            views.setTextViewText(R.id.btn_fs_clock, "🖥 Clock FS")
+            views.setTextViewText(R.id.btn_fs_timer, "🚀 Timer FS")
+            views.setTextViewText(R.id.btn_fs_stopwatch, "⚡ SW FS")
 
             // Set backgrounds reflecting state
             views.setInt(

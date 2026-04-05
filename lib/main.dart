@@ -1333,6 +1333,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         timerValue = '$m:00';
       });
       startTimer();
+      _openFullscreenFocus(
+        specificMode: FullscreenFocusMode.timer,
+        forceHorizontal: true,
+        startImmersive: true,
+      );
       return;
     }
 
