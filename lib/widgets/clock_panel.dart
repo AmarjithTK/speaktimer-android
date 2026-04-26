@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
-import '../theme/palette.dart';
-import 'ui_helpers.dart';
+
+const _surface = Color(0xFFFEFBFF);
+const _onSurface = Color(0xFF1C1B1F);
+const _onSurfaceVariant = Color(0xFF49454F);
+const _outline = Color(0xFFE6E0EA);
+const _primary = Color(0xFF3F55F6);
+const _softBlue = Color(0xFFEFF2FF);
 
 class ClockPanel extends StatelessWidget {
   final VoidCallback onFullscreenPressed;
@@ -8,8 +13,8 @@ class ClockPanel extends StatelessWidget {
   final bool clockOn;
   final String currentTimeDisplay;
   final VoidCallback toggleClock;
+  final VoidCallback onExitApp;
 
-  // Advanced controls
   final int clockIntervalMins;
   final bool clockShowMilliseconds;
   final bool clockSpeakTime;
@@ -38,6 +43,7 @@ class ClockPanel extends StatelessWidget {
     required this.clockOn,
     required this.currentTimeDisplay,
     required this.toggleClock,
+    required this.onExitApp,
     required this.clockIntervalMins,
     required this.clockShowMilliseconds,
     required this.clockSpeakTime,
@@ -60,337 +66,472 @@ class ClockPanel extends StatelessWidget {
     required this.onMotivationDelayChanged,
   });
 
-  (String, String?) _splitClockDisplay(String value) {
-    if (value.contains('.')) {
-      final parts = value.split('.');
-      return (parts.first, parts.length > 1 ? parts[1] : null);
-    }
-    return (value, null);
+  ({String time, String? fraction, String? suffix}) _splitClockDisplay(
+    String value,
+  ) {
+    final trimmed = value.trim();
+    final suffixMatch = RegExp(r'\s(AM|PM)$').firstMatch(trimmed);
+    final suffix = suffixMatch?.group(1);
+    final withoutSuffix = suffix == null
+        ? trimmed
+        : trimmed.substring(0, suffixMatch!.start);
+    final dotParts = withoutSuffix.split('.');
+    return (
+      time: dotParts.first,
+      fraction: dotParts.length > 1 ? dotParts[1] : null,
+      suffix: suffix,
+    );
+  }
+
+  Future<void> _showIntSheet({
+    required BuildContext context,
+    required String title,
+    required List<int> values,
+    required int selectedValue,
+    required String Function(int) labelBuilder,
+    required ValueChanged<int?> onSelected,
+  }) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: _surface,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: _onSurface,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...values.map((value) {
+                final selected = value == selectedValue;
+                return ListTile(
+                  selected: selected,
+                  selectedTileColor: _softBlue,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  leading: Icon(
+                    selected
+                        ? Icons.radio_button_checked_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    color: selected ? _primary : _onSurfaceVariant,
+                  ),
+                  title: Text(labelBuilder(value)),
+                  onTap: () {
+                    onSelected(value);
+                    Navigator.of(context).pop();
+                  },
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showStringSheet({
+    required BuildContext context,
+    required String title,
+    required List<String> values,
+    required String selectedValue,
+    required ValueChanged<String?> onSelected,
+  }) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: _surface,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: _onSurface,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...values.map((value) {
+                final selected = value == selectedValue;
+                return ListTile(
+                  selected: selected,
+                  selectedTileColor: _softBlue,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  leading: Icon(
+                    selected
+                        ? Icons.radio_button_checked_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    color: selected ? _primary : _onSurfaceVariant,
+                  ),
+                  title: Text(value),
+                  onTap: () {
+                    onSelected(value);
+                    Navigator.of(context).pop();
+                  },
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _timeCard(BuildContext context) {
+    final display = _splitClockDisplay(currentTimeDisplay);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onFullscreenPressed,
+      onDoubleTap: onFullscreenImmersivePressed,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF5667FF), Color(0xFF3048E8)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Column(
+          children: [
+            const Text(
+              'CURRENT TIME',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    display.time,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 38,
+                      height: 1,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  if (display.fraction != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        '.${display.fraction}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  if (display.suffix != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8, bottom: 5),
+                      child: Text(
+                        display.suffix!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Tap for fullscreen',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.82),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _speakingRow() {
+    return _card(
+      child: SwitchListTile(
+        value: clockOn,
+        onChanged: (_) => toggleClock(),
+        activeThumbColor: Colors.white,
+        activeTrackColor: _primary,
+        secondary: Icon(
+          clockOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+          color: _primary,
+          size: 20,
+        ),
+        title: Text(
+          clockOn ? 'Speaking is ON' : 'Speaking is OFF',
+          style: const TextStyle(
+            color: _onSurface,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _card({required Widget child}) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _outline),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _optionRow({
+    required IconData icon,
+    required String title,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: _primary, size: 20),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: _onSurface,
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              color: _onSurfaceVariant,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 4),
+          const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: _onSurfaceVariant,
+          ),
+        ],
+      ),
+      onTap: onTap,
+    );
+  }
+
+  Widget _switchRow({
+    required IconData icon,
+    required String title,
+    required bool value,
+    required ValueChanged<bool?> onChanged,
+  }) {
+    return SwitchListTile(
+      value: value,
+      onChanged: onChanged,
+      activeThumbColor: Colors.white,
+      activeTrackColor: _primary,
+      secondary: Icon(icon, color: _primary, size: 20),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: _onSurface,
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  Widget _settingsList(BuildContext context) {
+    return _card(
+      child: Column(
+        children: [
+          _optionRow(
+            icon: Icons.schedule_rounded,
+            title: 'Announcement interval',
+            value: '$clockIntervalMins min',
+            onTap: () => _showIntSheet(
+              context: context,
+              title: 'Announcement interval',
+              values: clockIntervalOptions,
+              selectedValue: clockIntervalMins,
+              labelBuilder: (mins) => 'Announce every $mins min',
+              onSelected: onClockIntervalChanged,
+            ),
+          ),
+          _switchRow(
+            icon: Icons.timer_rounded,
+            title: 'Show milliseconds',
+            value: clockShowMilliseconds,
+            onChanged: onClockShowMillisecondsChanged,
+          ),
+          _switchRow(
+            icon: Icons.record_voice_over_rounded,
+            title: 'Announce time',
+            value: clockSpeakTime,
+            onChanged: onClockSpeakTimeChanged,
+          ),
+          _optionRow(
+            icon: Icons.repeat_rounded,
+            title: 'Repeat announcement',
+            value:
+                '$clockSpeakRepeatCount time${clockSpeakRepeatCount == 1 ? '' : 's'}',
+            onTap: () => _showIntSheet(
+              context: context,
+              title: 'Repeat announcement',
+              values: clockSpeakRepeatOptions,
+              selectedValue: clockSpeakRepeatCount,
+              labelBuilder: (count) => '$count time${count == 1 ? '' : 's'}',
+              onSelected: onClockSpeakRepeatCountChanged,
+            ),
+          ),
+          _switchRow(
+            icon: Icons.graphic_eq_rounded,
+            title: 'Background sound',
+            value: clockNoiseOn,
+            onChanged: onClockNoiseOnChanged,
+          ),
+          _switchRow(
+            icon: Icons.format_quote_rounded,
+            title: 'Motivational quotes',
+            value: motivationOn,
+            onChanged: onMotivationChanged,
+          ),
+          if (motivationOn) ...[
+            _optionRow(
+              icon: Icons.category_rounded,
+              title: 'Quote category',
+              value: motivationCategory,
+              onTap: () => _showStringSheet(
+                context: context,
+                title: 'Quote category',
+                values: motivationCategories,
+                selectedValue: motivationCategory,
+                onSelected: onMotivationCategoryChanged,
+              ),
+            ),
+            _optionRow(
+              icon: Icons.timelapse_rounded,
+              title: 'Motivation delay',
+              value: '$motivationDelaySeconds sec',
+              onTap: () => _showIntSheet(
+                context: context,
+                title: 'Motivation delay',
+                values: motivationDelayOptions,
+                selectedValue: motivationDelaySeconds,
+                labelBuilder: (seconds) => '$seconds sec',
+                onSelected: onMotivationDelayChanged,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _topAction({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      visualDensity: VisualDensity.compact,
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Icon(icon, color: _onSurface, size: 20),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    Widget dropdownContainer(Widget child) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: palette.accent,
-        border: Border.all(color: palette.primary, width: 2),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: child,
-    );
-
-    return panelContainer(
-      active: clockOn,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          headerTitle('Speaking Clock', 'A', icon: Icons.schedule),
-          const SizedBox(height: 8),
-          Builder(
-            builder: (_) {
-              final display = _splitClockDisplay(currentTimeDisplay);
-              final mainTime = display.$1;
-              final millis = display.$2;
-
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: onFullscreenPressed,
-                onDoubleTap: onFullscreenImmersivePressed,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: palette.accent,
-                    border: Border.all(color: palette.primary, width: 2),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                    Text(
-                      'CURRENT TIME',
-                      style: TextStyle(
-                        color: palette.primary.withAlpha(150),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.1,
-                      ),
-                    ),
-                    Text(
-                      'Tap fullscreen • Double tap clean fullscreen',
-                      style: TextStyle(
-                        color: palette.primary.withAlpha(130),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              mainTime,
-                              style: TextStyle(
-                                fontSize: 44,
-                                height: 1,
-                                fontWeight: FontWeight.w800,
-                                color: palette.primary,
-                                letterSpacing: 1.4,
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures(),
-                                ],
-                              ),
-                            ),
-                            if (millis != null)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 6),
-                                child: Text(
-                                  '.$millis',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: palette.primary.withAlpha(170),
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures(),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                          ],
+    return ColoredBox(
+      color: _surface,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 430),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Speaking Clock',
+                        style: TextStyle(
+                          color: _onSurface,
+                          fontSize: 18,
+                          height: 1,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
+                    _topAction(
+                      icon: Icons.power_settings_new_rounded,
+                      tooltip: 'Shutdown app',
+                      onPressed: onExitApp,
+                    ),
+                    _topAction(
+                      icon: Icons.fullscreen_rounded,
+                      tooltip: 'Fullscreen',
+                      onPressed: onFullscreenPressed,
+                    ),
                   ],
                 ),
-              ),
-            );
-          },
+                const SizedBox(height: 16),
+                _timeCard(context),
+                const SizedBox(height: 12),
+                _speakingRow(),
+                const SizedBox(height: 16),
+                Text(
+                  'Clock options',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: _onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _settingsList(context),
+              ],
+            ),
+          ),
         ),
-          const SizedBox(height: 8),
-          ElevatedButton.icon(
-            onPressed: toggleClock,
-            icon: Icon(
-              clockOn ? Icons.notifications_active : Icons.notifications_off,
-              size: 18,
-            ),
-            label: Text(
-              clockOn ? 'Clock On' : 'Clock Off',
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: clockOn ? palette.primary : palette.accent,
-              foregroundColor: clockOn ? palette.accent : palette.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
-              side: BorderSide(color: palette.primary, width: 2),
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // ── Advanced Controls (collapsed by default) ────────────────────
-          Container(
-            decoration: BoxDecoration(
-              color: palette.accent,
-              border: Border.all(color: palette.primary, width: 2),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Theme(
-              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-              child: ExpansionTile(
-                tilePadding: const EdgeInsets.symmetric(horizontal: 10),
-                childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                iconColor: palette.primary,
-                collapsedIconColor: palette.primary,
-                textColor: palette.primary,
-                collapsedTextColor: palette.primary,
-                expansionAnimationStyle: AnimationStyle(
-                  curve: Curves.easeOutCubic,
-                  reverseCurve: Curves.easeInCubic,
-                  duration: const Duration(milliseconds: 250),
-                  reverseDuration: const Duration(milliseconds: 200),
-                ),
-                title: Row(
-                  children: [
-                    Icon(Icons.tune_outlined, color: palette.primary, size: 15),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Advanced',
-                      style: TextStyle(
-                        color: palette.primary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-                children: [
-                  sectionLabel('Announcement interval'),
-                  dropdownContainer(
-                    DropdownButton<int>(
-                      value: clockIntervalMins,
-                      isExpanded: true,
-                      underline: const SizedBox(),
-                      iconEnabledColor: palette.primary,
-                      dropdownColor: palette.accent,
-                      items: clockIntervalOptions
-                          .map(
-                            (mins) => DropdownMenuItem(
-                              value: mins,
-                              child: Text(
-                                'Announce every $mins min',
-                                style: TextStyle(
-                                  color: palette.primary,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: onClockIntervalChanged,
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: clockShowMilliseconds,
-                        activeColor: palette.primary,
-                        checkColor: palette.accent,
-                        onChanged: onClockShowMillisecondsChanged,
-                      ),
-                      Expanded(child: sectionLabel('Show milliseconds')),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: clockSpeakTime,
-                        activeColor: palette.primary,
-                        checkColor: palette.accent,
-                        onChanged: onClockSpeakTimeChanged,
-                      ),
-                      Expanded(child: sectionLabel('Announce time')),
-                    ],
-                  ),
-                  sectionLabel('Repeat time announcement'),
-                  dropdownContainer(
-                    DropdownButton<int>(
-                      value: clockSpeakRepeatCount,
-                      isExpanded: true,
-                      underline: const SizedBox(),
-                      iconEnabledColor: palette.primary,
-                      dropdownColor: palette.accent,
-                      items: clockSpeakRepeatOptions
-                          .map(
-                            (count) => DropdownMenuItem(
-                              value: count,
-                              child: Text(
-                                '$count time${count == 1 ? '' : 's'}',
-                                style: TextStyle(
-                                  color: palette.primary,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: onClockSpeakRepeatCountChanged,
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: clockNoiseOn,
-                        activeColor: palette.primary,
-                        checkColor: palette.accent,
-                        onChanged: onClockNoiseOnChanged,
-                      ),
-                      Expanded(child: sectionLabel('Background noise during clock')),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: motivationOn,
-                        activeColor: palette.primary,
-                        checkColor: palette.accent,
-                        onChanged: onMotivationChanged,
-                      ),
-                      Expanded(child: sectionLabel('Speak motivational quotes')),
-                    ],
-                  ),
-                  if (motivationOn) ...[
-                    const SizedBox(height: 4),
-                    dropdownContainer(
-                      DropdownButton<String>(
-                        value: motivationCategory,
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        iconEnabledColor: palette.primary,
-                        dropdownColor: palette.accent,
-                        items: motivationCategories
-                            .map(
-                              (cat) => DropdownMenuItem(
-                                value: cat,
-                                child: Text(
-                                  cat,
-                                  style: TextStyle(
-                                    color: palette.primary,
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: onMotivationCategoryChanged,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    dropdownContainer(
-                      DropdownButton<int>(
-                        value: motivationDelaySeconds,
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        iconEnabledColor: palette.primary,
-                        dropdownColor: palette.accent,
-                        items: motivationDelayOptions
-                            .map(
-                              (s) => DropdownMenuItem(
-                                value: s,
-                                child: Text(
-                                  'Motivation delay: $s sec',
-                                  style: TextStyle(
-                                    color: palette.primary,
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: onMotivationDelayChanged,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -1,10 +1,15 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/sound_option.dart';
-import '../theme/palette.dart';
-import 'ui_helpers.dart';
+
+const _surface = Color(0xFFFEFBFF);
+const _onSurface = Color(0xFF1C1B1F);
+const _onSurfaceVariant = Color(0xFF49454F);
+const _outline = Color(0xFFE6E0EA);
+const _primary = Color(0xFF3F55F6);
+const _primarySoft = Color(0xFFE7E9FF);
 
 class SettingsPanel extends StatelessWidget {
   final String soundChosen;
@@ -102,6 +107,13 @@ class SettingsPanel extends StatelessWidget {
     return 'Very High';
   }
 
+  String _soundTitle(String link) {
+    for (final sound in soundList) {
+      if (sound.link == link) return sound.title;
+    }
+    return soundList.isEmpty ? 'None' : soundList.first.title;
+  }
+
   String _voiceCharacterName(String name, String locale) {
     final lower = name.toLowerCase();
     if (lower.contains('veena')) return 'Veena';
@@ -130,617 +142,650 @@ class SettingsPanel extends StatelessWidget {
     return 'Stable default voice';
   }
 
-  @override
-  Widget build(BuildContext context) {
-    Widget sectionCard({
-      required String title,
-      required IconData icon,
-      required List<Widget> children,
-      bool initiallyExpanded = false,
-    }) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: palette.accent,
-          border: Border.all(color: palette.primary, width: 2),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            initiallyExpanded: initiallyExpanded,
-            tilePadding: const EdgeInsets.symmetric(horizontal: 10),
-            childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-            iconColor: palette.primary,
-            collapsedIconColor: palette.primary,
-            textColor: palette.primary,
-            collapsedTextColor: palette.primary,
-            title: Row(
-              children: [
-                Icon(icon, color: palette.primary, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ],
-            ),
-            children: children,
-          ),
-        ),
-      );
+  String _speechEngineLabel(String value) {
+    switch (value) {
+      case 'system_only':
+        return 'System TTS only';
+      case 'sherpa_only':
+        return 'Sherpa-ONNX only';
+      default:
+        return 'Auto';
     }
+  }
 
-    Widget dropdownContainer(Widget child) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-        decoration: BoxDecoration(
-          color: palette.accent,
-          border: Border.all(color: palette.primary, width: 2),
-          borderRadius: BorderRadius.circular(5),
-        ),
-        child: child,
-      );
+  String _voiceListLabel(String value) {
+    switch (value) {
+      case 'english':
+        return 'English';
+      case 'malayalam':
+        return 'Malayalam';
+      default:
+        return 'Auto';
     }
+  }
 
-    return panelContainer(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          headerTitle('Settings', '', icon: Icons.settings_outlined),
-          const SizedBox(height: 8),
-          sectionCard(
-            title: 'Audio',
-            icon: Icons.volume_up_outlined,
-            initiallyExpanded: true,
+  String _favoriteVoiceLabel() {
+    if (favoriteVoiceName == null || favoriteVoiceLocale == null) {
+      return 'Best voice for selected language';
+    }
+    return '${_voiceCharacterName(favoriteVoiceName!, favoriteVoiceLocale!)} - $favoriteVoiceLocale';
+  }
+
+  String _favoriteVoiceKey() {
+    if (favoriteVoiceName == null || favoriteVoiceLocale == null) {
+      return '__auto__';
+    }
+    final key = '$favoriteVoiceName|$favoriteVoiceLocale';
+    final exists = voices.any(
+      (voice) => '${voice['name']}|${voice['locale']}' == key,
+    );
+    return exists ? key : '__auto__';
+  }
+
+  Future<void> _showStringPicker(
+    BuildContext context, {
+    required String title,
+    required String currentValue,
+    required List<(String, String, String?)> options,
+    required ValueChanged<String?> onChanged,
+  }) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: _surface,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: palette.primary.withAlpha(20),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: palette.primary.withAlpha(60)),
+              _sheetTitle(title),
+              const SizedBox(height: 8),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.58,
                 ),
-                child: Text(
-                  'Default noise and speech volume are set to high. Reduce them here if sound feels too loud.',
-                  style: TextStyle(
-                    color: palette.primary.withAlpha(200),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: ListView(
+                  shrinkWrap: true,
+                  children: options.map((option) {
+                    final selected = option.$1 == currentValue;
+                    return _pickerTile(
+                      selected: selected,
+                      title: option.$2,
+                      subtitle: option.$3,
+                      onTap: () {
+                        onChanged(option.$1);
+                        Navigator.of(context).pop();
+                      },
+                    );
+                  }).toList(),
                 ),
-              ),
-              sectionLabel('Background sound'),
-              dropdownContainer(
-                DropdownButton<String>(
-                  value: soundList.any((e) => e.link == soundChosen)
-                      ? soundChosen
-                      : soundList.first.link,
-                  isExpanded: true,
-                  underline: const SizedBox(),
-                  iconEnabledColor: palette.primary,
-                  dropdownColor: palette.accent,
-                  items: soundList
-                      .map(
-                        (e) => DropdownMenuItem(
-                          value: e.link,
-                          child: Text(
-                            e.title,
-                            style: TextStyle(
-                              color: palette.primary,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: onSoundChanged,
-                ),
-              ),
-              sectionLabel('Noise volume'),
-              dropdownContainer(
-                DropdownButton<double>(
-                  value: noiseVolume,
-                  isExpanded: true,
-                  underline: const SizedBox(),
-                  iconEnabledColor: palette.primary,
-                  dropdownColor: palette.accent,
-                  items: volumeLists
-                      .map(
-                        (e) => DropdownMenuItem(
-                          value: e,
-                          child: Text(
-                            _getVolTitle(e),
-                            style: TextStyle(
-                              color: palette.primary,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: onNoiseVolumeChanged,
-                ),
-              ),
-              sectionLabel('Speech volume'),
-              dropdownContainer(
-                DropdownButton<double>(
-                  value: speakVolume,
-                  isExpanded: true,
-                  underline: const SizedBox(),
-                  iconEnabledColor: palette.primary,
-                  dropdownColor: palette.accent,
-                  items: volumeLists
-                      .map(
-                        (e) => DropdownMenuItem(
-                          value: e,
-                          child: Text(
-                            _getVolTitle(e),
-                            style: TextStyle(
-                              color: palette.primary,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: onSpeakVolumeChanged,
-                ),
-              ),
-              Row(
-                children: [
-                  Checkbox(
-                    value: ttsMaxVolumeLockEnabled,
-                    activeColor: palette.primary,
-                    checkColor: palette.accent,
-                    onChanged: onTtsMaxVolumeLockEnabledChanged,
-                  ),
-                  Expanded(
-                    child: sectionLabel('Max out device volume for TTS'),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  Checkbox(
-                    value: ttsVolumeBoostEnabled,
-                    activeColor: palette.primary,
-                    checkColor: palette.accent,
-                    onChanged: onTtsVolumeBoostEnabledChanged,
-                  ),
-                  Expanded(
-                    child: sectionLabel('Boost announcement speech (TTS only)'),
-                  ),
-                ],
               ),
             ],
           ),
-          sectionCard(
-            title: 'Appearance',
-            icon: Icons.palette_outlined,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDoublePicker(
+    BuildContext context, {
+    required String title,
+    required double currentValue,
+    required ValueChanged<double?> onChanged,
+  }) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: _surface,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              sectionLabel('App font size'),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              _sheetTitle(title),
+              const SizedBox(height: 8),
+              ...volumeLists.map((volume) {
+                final selected = volume == currentValue;
+                return _pickerTile(
+                  selected: selected,
+                  title: _getVolTitle(volume),
+                  subtitle: '${(volume * 100).round()}%',
+                  onTap: () {
+                    onChanged(volume);
+                    Navigator.of(context).pop();
+                  },
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _sheetTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: _onSurface,
+        fontSize: 18,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+
+  Widget _pickerTile({
+    required bool selected,
+    required String title,
+    String? subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      selected: selected,
+      selectedTileColor: _primarySoft,
+      leading: Icon(
+        selected
+            ? Icons.radio_button_checked_rounded
+            : Icons.radio_button_unchecked_rounded,
+        color: selected ? _primary : _onSurfaceVariant,
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+      ),
+      subtitle: subtitle == null
+          ? null
+          : Text(
+              subtitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12),
+            ),
+      onTap: onTap,
+    );
+  }
+
+  Widget _sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: _onSurface,
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  Widget _card(List<Widget> children) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _outline),
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _selectRow({
+    required IconData icon,
+    required String title,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+      leading: Icon(icon, color: _primary, size: 20),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: _onSurface,
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 150),
+            child: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              style: const TextStyle(
+                color: _onSurfaceVariant,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          const Icon(Icons.chevron_right_rounded, color: _onSurfaceVariant),
+        ],
+      ),
+      onTap: onTap,
+    );
+  }
+
+  Widget _switchRow({
+    required IconData icon,
+    required String title,
+    required bool value,
+    required ValueChanged<bool?> onChanged,
+    String? subtitle,
+  }) {
+    return SwitchListTile(
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+      secondary: Icon(icon, color: _primary, size: 20),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: _onSurface,
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      subtitle: subtitle == null
+          ? null
+          : Text(
+              subtitle,
+              style: const TextStyle(color: _onSurfaceVariant, fontSize: 12),
+            ),
+      value: value,
+      activeThumbColor: Colors.white,
+      activeTrackColor: _primary,
+      onChanged: (value) => onChanged(value),
+    );
+  }
+
+  Widget _divider() {
+    return const Divider(height: 1, indent: 52, color: _outline);
+  }
+
+  Widget _filledAction({
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 42,
+      child: FilledButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+        label: Text(label),
+        style: FilledButton.styleFrom(
+          backgroundColor: _primary,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final speechEngineOptions = <(String, String, String?)>[
+      ('auto', 'Auto', 'System TTS with Sherpa fallback'),
+      ('system_only', 'System TTS only', 'Use the device speech engine'),
+      if (!kIsWeb)
+        ('sherpa_only', 'Sherpa-ONNX only', 'Linux and Windows fallback voice'),
+    ];
+    final voiceModeOptions = <(String, String, String?)>[
+      ('auto', 'Auto', 'English and Malayalam'),
+      ('english', 'English', null),
+      ('malayalam', 'Malayalam', null),
+    ];
+    final nightModeOptions = <(String, String, String?)>[
+      ('manual', 'Manual mode', 'Use the selected quiet hours'),
+      ('automatic', 'Automatic mode', 'Mute after idle time at night'),
+    ];
+    final voiceOptions = <(String, String, String?)>[
+      ('__auto__', 'Best voice for selected language', null),
+      ...voices.map((voice) {
+        final name = voice['name']?.toString() ?? 'Unknown';
+        final locale = voice['locale']?.toString() ?? 'en';
+        final key = '$name|$locale';
+        return (
+          key,
+          '${_voiceCharacterName(name, locale)} - $locale',
+          '$name - ${_voiceReason(name, locale)}',
+        );
+      }),
+    ];
+    final status = isSpeechActive
+        ? 'Speaking'
+        : (speechQueueLength > 0 ? '$speechQueueLength queued' : 'Ready');
+
+    return ColoredBox(
+      color: _surface,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 430),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Settings',
+                  style: TextStyle(
+                    color: _onSurface,
+                    fontSize: 18,
+                    height: 1,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                _sectionTitle('Audio'),
+                _card([
+                  _selectRow(
+                    icon: Icons.music_note_rounded,
+                    title: 'Background sound',
+                    value: _soundTitle(soundChosen),
+                    onTap: () => _showStringPicker(
+                      context,
+                      title: 'Background sound',
+                      currentValue: soundChosen,
+                      options: soundList
+                          .map((sound) => (sound.link, sound.title, null))
+                          .toList(),
+                      onChanged: onSoundChanged,
+                    ),
+                  ),
+                  _divider(),
+                  _selectRow(
+                    icon: Icons.volume_up_rounded,
+                    title: 'Noise volume',
+                    value: _getVolTitle(noiseVolume),
+                    onTap: () => _showDoublePicker(
+                      context,
+                      title: 'Noise volume',
+                      currentValue: noiseVolume,
+                      onChanged: onNoiseVolumeChanged,
+                    ),
+                  ),
+                  _divider(),
+                  _selectRow(
+                    icon: Icons.record_voice_over_rounded,
+                    title: 'Speech volume',
+                    value: _getVolTitle(speakVolume),
+                    onTap: () => _showDoublePicker(
+                      context,
+                      title: 'Speech volume',
+                      currentValue: speakVolume,
+                      onChanged: onSpeakVolumeChanged,
+                    ),
+                  ),
+                  _divider(),
+                  _switchRow(
+                    icon: Icons.volume_up_outlined,
+                    title: 'Max device volume for TTS',
+                    value: ttsMaxVolumeLockEnabled,
+                    onChanged: onTtsMaxVolumeLockEnabledChanged,
+                  ),
+                  _divider(),
+                  _switchRow(
+                    icon: Icons.surround_sound_rounded,
+                    title: 'Boost announcement speech',
+                    subtitle: 'TTS only',
+                    value: ttsVolumeBoostEnabled,
+                    onChanged: onTtsVolumeBoostEnabledChanged,
+                  ),
+                ]),
+                _sectionTitle('Voice'),
+                _card([
+                  _selectRow(
+                    icon: Icons.spatial_audio_off_rounded,
+                    title: 'Speech engine',
+                    value: _speechEngineLabel(speechEngineMode),
+                    onTap: () => _showStringPicker(
+                      context,
+                      title: 'Speech engine',
+                      currentValue: speechEngineMode,
+                      options: speechEngineOptions,
+                      onChanged: onSpeechEngineModeChanged,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(52, 0, 14, 10),
+                    child: Text(
+                      '$speechEngineRuntime - $speechEngineRuntimeDetail',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _onSurfaceVariant,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  _divider(),
+                  _selectRow(
+                    icon: Icons.language_rounded,
+                    title: 'Language list',
+                    value: _voiceListLabel(voiceListMode),
+                    onTap: () => _showStringPicker(
+                      context,
+                      title: 'Language list',
+                      currentValue: voiceListMode,
+                      options: voiceModeOptions,
+                      onChanged: onVoiceListModeChanged,
+                    ),
+                  ),
+                  _divider(),
+                  _selectRow(
+                    icon: Icons.person_search_rounded,
+                    title: 'Voice',
+                    value: _favoriteVoiceLabel(),
+                    onTap: () => _showStringPicker(
+                      context,
+                      title: 'Voice',
+                      currentValue: _favoriteVoiceKey(),
+                      options: voiceOptions,
+                      onChanged: onFavoriteVoiceChanged,
+                    ),
+                  ),
+                ]),
+                _sectionTitle('Appearance'),
+                _card([
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+                    child: Row(
                       children: [
-                        Text(
-                          'Multiplier',
+                        const Icon(
+                          Icons.text_fields_rounded,
+                          color: _primary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 18),
+                        const Text(
+                          'App font size',
                           style: TextStyle(
-                            color: palette.primary.withAlpha(170),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                            color: _onSurface,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
+                        const Spacer(),
                         Text(
                           '${appFontSizeMultiplier.toStringAsFixed(1)}x',
-                          style: TextStyle(
-                            color: palette.primary.withAlpha(170),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
+                          style: const TextStyle(
+                            color: _primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ],
                     ),
-                    Slider(
-                      value: appFontSizeMultiplier,
-                      min: 0.8,
-                      max: 1.5,
-                      divisions: 7,
-                      activeColor: palette.primary,
-                      inactiveColor: palette.primary.withAlpha(50),
-                      onChanged: onAppFontSizeMultiplierChanged,
-                    ),
-                  ],
-                ),
-              ),
-              Row(
-                children: [
-                  Checkbox(
+                  ),
+                  Slider(
+                    value: appFontSizeMultiplier,
+                    min: 0.8,
+                    max: 1.5,
+                    divisions: 7,
+                    label: '${appFontSizeMultiplier.toStringAsFixed(1)}x',
+                    onChanged: onAppFontSizeMultiplierChanged,
+                  ),
+                  _divider(),
+                  _switchRow(
+                    icon: Icons.dark_mode_rounded,
+                    title: 'Dark fullscreen',
                     value: fullscreenDarkTheme,
-                    activeColor: palette.primary,
-                    checkColor: palette.accent,
                     onChanged: onFullscreenDarkThemeChanged,
                   ),
-                  Expanded(
-                    child: sectionLabel(
-                      'Use dark theme in fullscreen by default',
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  Checkbox(
+                  _divider(),
+                  _switchRow(
+                    icon: Icons.brightness_4_rounded,
+                    title: 'Dim fullscreen brightness',
                     value: fullscreenDimBrightness,
-                    activeColor: palette.primary,
-                    checkColor: palette.accent,
                     onChanged: onFullscreenDimBrightnessChanged,
                   ),
-                  Expanded(
-                    child: sectionLabel('Dim screen brightness in fullscreen'),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  Checkbox(
+                  _divider(),
+                  _switchRow(
+                    icon: Icons.screen_rotation_rounded,
+                    title: 'Start fullscreen landscape',
                     value: fullscreenStartLandscape,
-                    activeColor: palette.primary,
-                    checkColor: palette.accent,
                     onChanged: onFullscreenStartLandscapeChanged,
                   ),
-                  Expanded(
-                    child: sectionLabel(
-                      'Start fullscreen in horizontal orientation',
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          sectionCard(
-            title: 'Sleep Mode',
-            icon: Icons.nightlight_outlined,
-            children: [
-              Row(
-                children: [
-                  Checkbox(
+                ]),
+                _sectionTitle('Sleep mode'),
+                _card([
+                  _switchRow(
+                    icon: Icons.nightlight_round,
+                    title: 'Enable sleep mode',
+                    subtitle: 'Custom quiet range',
                     value: muteSpeechAfterMidnight,
-                    activeColor: palette.primary,
-                    checkColor: palette.accent,
                     onChanged: onMuteSpeechAfterMidnightChanged,
                   ),
-                  Expanded(
-                    child: sectionLabel('Enable sleep mode (custom range)'),
+                  if (muteSpeechAfterMidnight) ...[
+                    _divider(),
+                    _selectRow(
+                      icon: Icons.bedtime_rounded,
+                      title: 'Mode',
+                      value: nightMuteMode == 'automatic'
+                          ? 'Automatic'
+                          : 'Manual',
+                      onTap: () => _showStringPicker(
+                        context,
+                        title: 'Sleep mode',
+                        currentValue: nightMuteMode,
+                        options: nightModeOptions,
+                        onChanged: onNightMuteModeChanged,
+                      ),
+                    ),
+                    _divider(),
+                    _selectRow(
+                      icon: Icons.schedule_rounded,
+                      title: 'Starts',
+                      value: sleepStartLabel,
+                      onTap: onPickSleepStart,
+                    ),
+                    _divider(),
+                    _selectRow(
+                      icon: Icons.alarm_rounded,
+                      title: 'Ends',
+                      value: sleepEndLabel,
+                      onTap: onPickSleepEnd,
+                    ),
+                  ],
+                ]),
+                _sectionTitle('Help & Status'),
+                _card([
+                  Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _filledAction(
+                          icon: Icons.help_outline_rounded,
+                          label: 'Help / How it works',
+                          onPressed: onOpenHelp,
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Icon(
+                              isSpeechActive
+                                  ? Icons.volume_up_rounded
+                                  : Icons.check_circle_outline_rounded,
+                              color: _primary,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '$status - A/B gap: 10 s',
+                                style: const TextStyle(
+                                  color: _onSurfaceVariant,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-              if (muteSpeechAfterMidnight) ...[
-                dropdownContainer(
-                  DropdownButton<String>(
-                    value: nightMuteMode,
-                    isExpanded: true,
-                    underline: const SizedBox(),
-                    iconEnabledColor: palette.primary,
-                    dropdownColor: palette.accent,
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'manual',
-                        child: Text('Manual mode'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'automatic',
-                        child: Text('Automatic mode (idle 5 min)'),
-                      ),
-                    ],
-                    onChanged: onNightMuteModeChanged,
-                  ),
-                ),
-                sectionLabel('Sleep time range'),
-                Row(
-                  children: [
-                    Expanded(
-                      child: actionBtn(
-                        'Start: $sleepStartLabel',
-                        onPickSleepStart,
+                ]),
+                _sectionTitle('About'),
+                _card([
+                  ListTile(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 4,
+                    ),
+                    leading: const Icon(
+                      Icons.info_outline_rounded,
+                      color: _primary,
+                      size: 20,
+                    ),
+                    title: const Text(
+                      'Built by Amarjith TK',
+                      style: TextStyle(
+                        color: _onSurface,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: actionBtn('End: $sleepEndLabel', onPickSleepEnd),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-          sectionCard(
-            title: 'Voice',
-            icon: Icons.record_voice_over_outlined,
-            children: [
-              sectionLabel('Speech engine'),
-              dropdownContainer(
-                DropdownButton<String>(
-                  value: speechEngineMode,
-                  isExpanded: true,
-                  underline: const SizedBox(),
-                  iconEnabledColor: palette.primary,
-                  dropdownColor: palette.accent,
-                  items: [
-                    DropdownMenuItem(
-                      value: 'auto',
-                      child: Text(
-                        'Auto (System + Sherpa fallback)',
-                        style: TextStyle(
-                          color: palette.primary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                        ),
+                    subtitle: const Text(
+                      'Atherpulse Technologies',
+                      style: TextStyle(
+                        color: _onSurfaceVariant,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    DropdownMenuItem(
-                      value: 'system_only',
-                      child: Text(
-                        'System TTS only',
-                        style: TextStyle(
-                          color: palette.primary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                    if (!kIsWeb)
-                      DropdownMenuItem(
-                        value: 'sherpa_only',
-                        child: Text(
-                          'Sherpa-ONNX only (Linux/Windows)',
-                          style: TextStyle(
-                            color: palette.primary,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                  ],
-                  onChanged: onSpeechEngineModeChanged,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Runtime engine: $speechEngineRuntime',
-                style: TextStyle(
-                  color: palette.primary.withAlpha(190),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                speechEngineRuntimeDetail,
-                style: TextStyle(
-                  color: palette.primary.withAlpha(150),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              sectionLabel('Language list'),
-              dropdownContainer(
-                DropdownButton<String>(
-                  value: voiceListMode,
-                  isExpanded: true,
-                  underline: const SizedBox(),
-                  iconEnabledColor: palette.primary,
-                  dropdownColor: palette.accent,
-                  items: [
-                    DropdownMenuItem(
-                      value: 'auto',
-                      child: Text(
-                        'Auto (English + Malayalam)',
-                        style: TextStyle(
-                          color: palette.primary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                    DropdownMenuItem(
-                      value: 'english',
-                      child: Text(
-                        'English',
-                        style: TextStyle(
-                          color: palette.primary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                    DropdownMenuItem(
-                      value: 'malayalam',
-                      child: Text(
-                        'Malayalam',
-                        style: TextStyle(
-                          color: palette.primary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                  onChanged: onVoiceListModeChanged,
-                ),
-              ),
-              sectionLabel('Voice list'),
-              dropdownContainer(
-                DropdownButton<String>(
-                  value: () {
-                    if (favoriteVoiceName == null ||
-                        favoriteVoiceLocale == null) {
-                      return '__auto__';
-                    }
-                    final key = '${favoriteVoiceName!}|${favoriteVoiceLocale!}';
-                    final exists = voices.any(
-                      (voice) => '${voice['name']}|${voice['locale']}' == key,
-                    );
-                    return exists ? key : '__auto__';
-                  }(),
-                  isExpanded: true,
-                  underline: const SizedBox(),
-                  iconEnabledColor: palette.primary,
-                  dropdownColor: palette.accent,
-                  items: [
-                    DropdownMenuItem(
-                      value: '__auto__',
-                      child: Text(
-                        'Best voice for selected language',
-                        style: TextStyle(
-                          color: palette.primary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                    ...voices.map((voice) {
-                      final name = voice['name']?.toString() ?? 'Unknown';
-                      final locale = voice['locale']?.toString() ?? 'en';
-                      final key = '$name|$locale';
-                      final character = _voiceCharacterName(name, locale);
-                      final reason = _voiceReason(name, locale);
-                      return DropdownMenuItem(
-                        value: key,
-                        child: Text(
-                          '$character ($name) · $locale · $reason',
-                          style: TextStyle(
-                            color: palette.primary,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 12,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                    trailing: const Icon(Icons.open_in_new_rounded, size: 18),
+                    onTap: () async {
+                      final url = Uri.parse('https://atherpulse.in');
+                      await launchUrl(
+                        url,
+                        mode: LaunchMode.externalApplication,
                       );
-                    }),
-                  ],
-                  onChanged: onFavoriteVoiceChanged,
-                ),
-              ),
-            ],
-          ),
-          sectionCard(
-            title: 'Help & Status',
-            icon: Icons.help_outline,
-            children: [
-              actionBtn('❓ Help / How it works', onOpenHelp),
-              const SizedBox(height: 8),
-              Text(
-                "${isSpeechActive ? '🔉 Speaking…' : (speechQueueLength > 0 ? '⏳ $speechQueueLength queued' : '✔ Ready')}  ·  A↔B gap: 10 s",
-                style: TextStyle(
-                  fontSize: 10,
-                  color: palette.primary.withAlpha(140),
-                ),
-              ),
-            ],
-          ),
-          sectionCard(
-            title: 'About the Developer',
-            icon: Icons.info_outline,
-            children: [
-              Center(
-                child: Container(
-                  width: 108,
-                  height: 108,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: palette.primary, width: 2),
+                    },
                   ),
-                  child: ClipOval(
-                    child: Container(
-                      color: palette.accent,
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.person,
-                        color: palette.primary,
-                        size: 52,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Built by Amarjith TK',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Software Engineer & App Developer',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: palette.primary.withAlpha(200),
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Divider(height: 1),
-              ),
-              const Text(
-                'Powered By',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.1,
-                ),
-              ),
-              const SizedBox(height: 8),
-              InkWell(
-                onTap: () async {
-                  final url = Uri.parse('https://atherpulse.in');
-                  await launchUrl(url, mode: LaunchMode.externalApplication);
-                },
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
-                  child: Text(
-                    'Atherpulse Technologies',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: palette.accent,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              actionBtn('🌐 Atherpulse Website', () async {
-                final url = Uri.parse('https://atherpulse.in');
-                await launchUrl(url, mode: LaunchMode.externalApplication);
-              }),
-              const SizedBox(height: 8),
-              Text(
-                'Atherpulse Technologies provides professional websites, e-commerce stores, and digital solutions starting at affordable prices. Based in Vadakara, Kerala, India.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: palette.primary.withAlpha(180),
-                  fontStyle: FontStyle.italic,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
+                ]),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }

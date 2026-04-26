@@ -63,6 +63,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   Timer? _tick;
   Timer? _controlsHideTimer;
   bool _alwaysOn = true;
+  bool _darkTheme = true;
   bool _forceLandscape = false;
   bool _dimBrightness = false;
   bool _showEntryHint = true;
@@ -79,6 +80,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   void initState() {
     super.initState();
     _mode = widget.initialMode;
+    _darkTheme = widget.initialDarkTheme;
     _dimBrightness = widget.initialDimBrightness;
     _forceLandscape = widget.initialForceLandscape;
     _showControls = !widget.startImmersive;
@@ -198,7 +200,8 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   }
 
   Widget _buildTimerLikeDisplay(
-    Color fg, {
+    Color fg,
+    Color primary, {
     required bool immersive,
     required String label,
     required String value,
@@ -217,8 +220,25 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
         final showLabel = maxHeight.isInfinite || maxHeight > 120;
 
         return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (showLabel) ...[
+              Container(
+                width: immersive ? 64 : 48,
+                height: immersive ? 64 : 48,
+                decoration: BoxDecoration(
+                  color: primary.withAlpha(24),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  label == 'ELAPSED'
+                      ? Icons.av_timer_rounded
+                      : Icons.hourglass_empty_rounded,
+                  color: primary,
+                  size: immersive ? 36 : 28,
+                ),
+              ),
+              const SizedBox(height: 16),
               Text(
                 label,
                 style: TextStyle(
@@ -291,7 +311,11 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
     );
   }
 
-  Widget _buildClockDisplay(Color fg, {required bool immersive}) {
+  Widget _buildClockDisplay(
+    Color fg,
+    Color primary, {
+    required bool immersive,
+  }) {
     final clockParts = _splitClockDisplay(_clockText);
     final mainTime = clockParts.$1;
     final millis = clockParts.$2;
@@ -305,9 +329,24 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
         final showLabel = maxHeight.isInfinite || maxHeight > 120;
 
         return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             if (showLabel) ...[
+              Container(
+                width: immersive ? 64 : 48,
+                height: immersive ? 64 : 48,
+                decoration: BoxDecoration(
+                  color: primary.withAlpha(24),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.access_time_rounded,
+                  color: primary,
+                  size: immersive ? 36 : 28,
+                ),
+              ),
+              const SizedBox(height: 16),
               Text(
                 'CURRENT TIME',
                 style: TextStyle(
@@ -324,7 +363,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                 width: double.infinity,
                 child: FittedBox(
                   fit: BoxFit.contain,
-                  alignment: Alignment.centerLeft,
+                  alignment: Alignment.center,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -336,7 +375,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                           fontSize: valueSize,
                           fontWeight: FontWeight.w800,
                           height: 1,
-                          letterSpacing: 1.6,
+                          letterSpacing: 0,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
@@ -369,38 +408,81 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   /// Compact icon+label mode selector button — never overflows.
   Widget _modeSelectorBtn({
     required Color fg,
+    required Color primary,
+    required Color selectedBg,
     required FullscreenFocusMode mode,
     required IconData icon,
     required String label,
   }) {
     final active = _mode == mode;
     return Expanded(
-      child: OutlinedButton(
-        onPressed: () {
-          _onControlInteraction();
-          setState(() => _mode = mode);
-        },
-        style: OutlinedButton.styleFrom(
-          foregroundColor: fg,
-          side: BorderSide(color: fg.withAlpha(active ? 255 : 100)),
-          backgroundColor: active ? fg.withAlpha(35) : Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-          minimumSize: const Size(0, 36),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      child: Material(
+        color: active ? selectedBg : Colors.transparent,
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: () {
+            _onControlInteraction();
+            setState(() => _mode = mode);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: 17,
+                    color: active ? primary : fg.withAlpha(180),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+                      color: active ? primary : fg.withAlpha(180),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
+      ),
+    );
+  }
+
+  Widget _topToggleChip({
+    required Color fg,
+    required Color variant,
+    required Color selectedBg,
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: selected ? selectedBg : Colors.transparent,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 15, color: fg.withAlpha(active ? 255 : 180)),
-              const SizedBox(width: 4),
+              Icon(icon, color: selected ? fg : variant, size: 17),
+              const SizedBox(width: 5),
               Text(
                 label,
                 style: TextStyle(
+                  color: selected ? fg : variant,
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: fg.withAlpha(active ? 255 : 180),
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
@@ -411,7 +493,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   }
 
   /// Start / Stop / Reset row shown at the bottom for Timer and Stopwatch.
-  Widget _buildActionButtons(Color fg, Color bg) {
+  Widget _buildActionButtons(Color fg, Color primary, Color outline) {
     final bool isTimer = _mode == FullscreenFocusMode.timer;
     final bool running = isTimer ? _timerRunning : _stopwatchRunning;
 
@@ -419,14 +501,14 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
       String label,
       IconData icon,
       VoidCallback? onPressed, {
-      bool primary = false,
+      bool isPrimary = false,
     }) {
       return Expanded(
         child: Material(
-          color: primary ? fg.withAlpha(40) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          color: isPrimary ? primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(999),
           child: InkWell(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(999),
             onTap: onPressed == null
                 ? null
                 : () {
@@ -434,25 +516,25 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                     onPressed();
                   },
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 10),
+              height: isPrimary ? 52 : 48,
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: fg.withAlpha(primary ? 180 : 60),
-                  width: primary ? 1.5 : 1,
+                  color: isPrimary ? Colors.transparent : outline,
+                  width: 1,
                 ),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(999),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, color: fg, size: 20),
-                  const SizedBox(height: 3),
+                  Icon(icon, color: isPrimary ? Colors.white : fg, size: 20),
+                  const SizedBox(width: 8),
                   Text(
                     label,
                     style: TextStyle(
-                      color: fg,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                      color: isPrimary ? Colors.white : fg,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ],
@@ -473,7 +555,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
             running
                 ? (isTimer ? widget.onTimerStop : widget.onStopwatchStop)
                 : (isTimer ? widget.onTimerStart : widget.onStopwatchStart),
-            primary: true,
+            isPrimary: true,
           ),
           const SizedBox(width: 10),
           actionBtn(
@@ -507,10 +589,26 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = Colors.white;
-    final fg = Colors.black;
-    final cardBg = Colors.black.withAlpha(20);
-    final cardBorder = Colors.black.withAlpha(45);
+    const lightBg = Color(0xFFFEFBFF);
+    const lightSurface = Color(0xFFF8F6FF);
+    const lightOnSurface = Color(0xFF10122D);
+    const lightVariant = Color(0xFF5A5872);
+    const lightOutline = Color(0xFFE6E0EA);
+    const darkBg = Color(0xFF11121A);
+    const darkSurface = Color(0xFF1D1B27);
+    const darkOnSurface = Color(0xFFF2EFFA);
+    const darkVariant = Color(0xFFC9C3D8);
+    const darkOutline = Color(0xFF3A3748);
+    const primary = Color(0xFF6750F6);
+
+    final bg = _darkTheme ? darkBg : lightBg;
+    final fg = _darkTheme ? darkOnSurface : lightOnSurface;
+    final variant = _darkTheme ? darkVariant : lightVariant;
+    final surface = _darkTheme ? darkSurface : lightSurface;
+    final outline = _darkTheme ? darkOutline : lightOutline;
+    final selectedBg = _darkTheme
+        ? const Color(0xFF2C2745)
+        : const Color(0xFFECE8FA);
 
     final showActionButtons =
         _mode == FullscreenFocusMode.timer ||
@@ -531,37 +629,49 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                     duration: const Duration(milliseconds: 250),
                     curve: Curves.easeInOut,
                     padding: EdgeInsets.fromLTRB(
-                        4,
-                        _showControls ? 104 : 4,
-                        4,
-                        _showControls ? (showActionButtons ? 112 : 64) : 4,
+                      4,
+                      _showControls ? 104 : 4,
+                      4,
+                      _showControls ? (showActionButtons ? 112 : 64) : 4,
                     ),
-                    child: Container(
+                    child: SizedBox(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 10,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: _showControls ? surface : Colors.transparent,
+                          borderRadius: BorderRadius.circular(28),
+                          border: _showControls
+                              ? Border.all(color: outline, width: 1)
+                              : null,
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: _showControls ? 22 : 4,
+                            vertical: _showControls ? 24 : 4,
+                          ),
+                          child: _mode == FullscreenFocusMode.clock
+                              ? _buildClockDisplay(
+                                  fg,
+                                  primary,
+                                  immersive: !_showControls,
+                                )
+                              : (_mode == FullscreenFocusMode.timer
+                                    ? _buildTimerLikeDisplay(
+                                        fg,
+                                        primary,
+                                        immersive: !_showControls,
+                                        label: 'REMAINING',
+                                        value: _timerText,
+                                      )
+                                    : _buildTimerLikeDisplay(
+                                        fg,
+                                        primary,
+                                        immersive: !_showControls,
+                                        label: 'ELAPSED',
+                                        value: _stopwatchText,
+                                      )),
+                        ),
                       ),
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: cardBorder, width: 1.6),
-                      ),
-                      child: _mode == FullscreenFocusMode.clock
-                          ? _buildClockDisplay(fg, immersive: !_showControls)
-                          : (_mode == FullscreenFocusMode.timer
-                                ? _buildTimerLikeDisplay(
-                                    fg,
-                                    immersive: !_showControls,
-                                    label: 'REMAINING',
-                                    value: _timerText,
-                                  )
-                                : _buildTimerLikeDisplay(
-                                    fg,
-                                    immersive: !_showControls,
-                                    label: 'ELAPSED',
-                                    value: _stopwatchText,
-                                  )),
                     ),
                   ),
                 ),
@@ -582,39 +692,57 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                         ),
                         child: Row(
                           children: [
-                            IconButton(
+                            IconButton.filledTonal(
                               onPressed: () {
                                 _onControlInteraction();
                                 Navigator.of(context).pop();
                               },
-                              icon: Icon(Icons.close, color: fg),
+                              style: IconButton.styleFrom(
+                                backgroundColor: selectedBg,
+                                foregroundColor: fg,
+                              ),
+                              icon: const Icon(Icons.close_rounded),
                             ),
                             const Spacer(),
-                            Row(
-                              children: [
-                                Text(
-                                  'Always On',
-                                  style: TextStyle(color: fg, fontSize: 12),
-                                ),
-                                Switch(
-                                  value: _alwaysOn,
-                                  onChanged: (val) async {
-                                    _onControlInteraction();
-                                    setState(() => _alwaysOn = val);
-                                    if (val) {
-                                      await WakelockPlus.enable();
-                                    } else {
-                                      await WakelockPlus.disable();
-                                    }
-                                  },
-                                ),
-                              ],
+                            _topToggleChip(
+                              fg: fg,
+                              variant: variant,
+                              selectedBg: selectedBg,
+                              icon: Icons.lock_clock_rounded,
+                              label: 'Awake',
+                              selected: _alwaysOn,
+                              onTap: () async {
+                                _onControlInteraction();
+                                final val = !_alwaysOn;
+                                setState(() => _alwaysOn = val);
+                                if (val) {
+                                  await WakelockPlus.enable();
+                                } else {
+                                  await WakelockPlus.disable();
+                                }
+                              },
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 6),
+                            IconButton(
+                              tooltip: _darkTheme
+                                  ? 'Light theme'
+                                  : 'Dark theme',
+                              onPressed: () async {
+                                _onControlInteraction();
+                                setState(() => _darkTheme = !_darkTheme);
+                                widget.onThemeChanged?.call(_darkTheme);
+                              },
+                              icon: Icon(
+                                _darkTheme
+                                    ? Icons.dark_mode_rounded
+                                    : Icons.light_mode_rounded,
+                                color: fg,
+                              ),
+                            ),
                             IconButton(
                               tooltip: _dimBrightness
-                                  ? 'Disable Dim'
-                                  : 'Dim Brightness',
+                                  ? 'Disable dim'
+                                  : 'Dim brightness',
                               onPressed: () async {
                                 _onControlInteraction();
                                 setState(
@@ -627,8 +755,8 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                               },
                               icon: Icon(
                                 _dimBrightness
-                                    ? Icons.brightness_2
-                                    : Icons.brightness_6,
+                                    ? Icons.brightness_2_rounded
+                                    : Icons.brightness_6_rounded,
                                 color: fg,
                               ),
                             ),
@@ -648,8 +776,8 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                               },
                               icon: Icon(
                                 _forceLandscape
-                                    ? Icons.stay_current_landscape
-                                    : Icons.screen_rotation_alt,
+                                    ? Icons.stay_current_landscape_rounded
+                                    : Icons.screen_rotation_alt_rounded,
                                 color: fg,
                               ),
                             ),
@@ -664,13 +792,17 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                           children: [
                             _modeSelectorBtn(
                               fg: fg,
+                              primary: primary,
+                              selectedBg: selectedBg,
                               mode: FullscreenFocusMode.clock,
                               icon: Icons.access_time_rounded,
-                              label: 'S.Clock',
+                              label: 'Clock',
                             ),
                             const SizedBox(width: 8),
                             _modeSelectorBtn(
                               fg: fg,
+                              primary: primary,
+                              selectedBg: selectedBg,
                               mode: FullscreenFocusMode.timer,
                               icon: Icons.timer_rounded,
                               label: 'Timer',
@@ -678,6 +810,8 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                             const SizedBox(width: 8),
                             _modeSelectorBtn(
                               fg: fg,
+                              primary: primary,
+                              selectedBg: selectedBg,
                               mode: FullscreenFocusMode.moduleC,
                               icon: Icons.av_timer_rounded,
                               label: 'Stopwatch',
@@ -690,8 +824,8 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
 
                       // ── Start/Stop/Reset (Timer & Stopwatch modes) ────────
                       if (showActionButtons) ...[
-                        _buildActionButtons(fg, bg),
-                        const SizedBox(height: 10),
+                        _buildActionButtons(fg, primary, outline),
+                        const SizedBox(height: 14),
                       ],
 
                       // ── Status label ──────────────────────────────────────
@@ -708,8 +842,9 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                                           ? 'Stopwatch Running'
                                           : 'Stopwatch Paused')),
                           style: TextStyle(
-                            color: fg.withAlpha(180),
-                            fontSize: 14,
+                            color: variant,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
@@ -730,13 +865,13 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withAlpha(170),
-                          borderRadius: BorderRadius.circular(10),
+                          color: selectedBg,
+                          borderRadius: BorderRadius.circular(999),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Fullscreen mode entered',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: fg,
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
                           ),
@@ -758,13 +893,13 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withAlpha(170),
-                          borderRadius: BorderRadius.circular(10),
+                          color: selectedBg,
+                          borderRadius: BorderRadius.circular(999),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Double tap anywhere to exit',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: fg,
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
                           ),

@@ -93,10 +93,8 @@ import 'widgets/clock_panel.dart';
 import 'widgets/fullscreen_focus_view.dart';
 import 'widgets/timer_panel.dart';
 import 'widgets/stopwatch_panel.dart';
-import 'widgets/presets_panel.dart';
 import 'widgets/settings_panel.dart';
 import 'widgets/help_panel.dart';
-import 'widgets/ui_helpers.dart';
 
 final ValueNotifier<ThemeMode> appThemeModeNotifier = ValueNotifier(
   ThemeMode.light,
@@ -173,54 +171,8 @@ class LiferApp extends StatelessWidget {
                     child: child!,
                   );
                 },
-                theme: ThemeData(
-                  colorScheme: ColorScheme.fromSeed(
-                    seedColor: const Color(0xFF4F46E5),
-                    brightness: Brightness.light,
-                  ),
-                  useMaterial3: true,
-                  appBarTheme: AppBarTheme(
-                    centerTitle: false,
-                    titleTextStyle: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                  elevatedButtonTheme: ElevatedButtonThemeData(
-                    style: ElevatedButton.styleFrom(
-                      textStyle: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                  ),
-                ),
-                darkTheme: ThemeData(
-                  colorScheme: ColorScheme.fromSeed(
-                    seedColor: const Color(0xFF4F46E5),
-                    brightness: Brightness.dark,
-                  ),
-                  useMaterial3: true,
-                  appBarTheme: AppBarTheme(
-                    centerTitle: false,
-                    titleTextStyle: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                  elevatedButtonTheme: ElevatedButtonThemeData(
-                    style: ElevatedButton.styleFrom(
-                      textStyle: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                  ),
-                ),
+                theme: _buildLiferTheme(Brightness.light),
+                darkTheme: _buildLiferTheme(Brightness.dark),
                 home: const ActivationGate(child: MainScreen()),
               );
             },
@@ -229,6 +181,107 @@ class LiferApp extends StatelessWidget {
       ),
     );
   }
+}
+
+ThemeData _buildLiferTheme(Brightness brightness) {
+  final scheme = ColorScheme.fromSeed(
+    seedColor: const Color(0xFF6256D9),
+    brightness: brightness,
+  );
+  final base = ThemeData(
+    colorScheme: scheme,
+    useMaterial3: true,
+    brightness: brightness,
+    fontFamily: 'Roboto',
+    fontFamilyFallback: const ['Google Sans', 'Product Sans', 'Arial'],
+  );
+  final textTheme = base.textTheme.apply(
+    fontFamily: 'Roboto',
+    fontFamilyFallback: const ['Google Sans', 'Product Sans', 'Arial'],
+    bodyColor: scheme.onSurface,
+    displayColor: scheme.onSurface,
+  );
+
+  return base.copyWith(
+    scaffoldBackgroundColor: scheme.surface,
+    textTheme: textTheme,
+    appBarTheme: AppBarTheme(
+      centerTitle: true,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      backgroundColor: scheme.surface,
+      foregroundColor: scheme.onSurface,
+      titleTextStyle: textTheme.titleLarge?.copyWith(
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        shape: const StadiumBorder(),
+        textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        elevation: 0,
+        shape: const StadiumBorder(),
+        textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+      ),
+    ),
+    chipTheme: base.chipTheme.copyWith(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      labelStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+      selectedColor: scheme.primaryContainer,
+      secondarySelectedColor: scheme.primaryContainer,
+      showCheckmark: false,
+    ),
+    sliderTheme: base.sliderTheme.copyWith(
+      trackHeight: 8,
+      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 11),
+      overlayShape: const RoundSliderOverlayShape(overlayRadius: 22),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return scheme.onPrimary;
+        }
+        return scheme.outline;
+      }),
+      trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return scheme.primary;
+        }
+        return scheme.surfaceContainerHighest;
+      }),
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      height: 78,
+      elevation: 0,
+      backgroundColor: const Color(0xFFFCFAFF),
+      indicatorColor: const Color(0xFFECE8FA),
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        final selected = states.contains(WidgetState.selected);
+        return textTheme.labelMedium?.copyWith(
+          color: selected ? const Color(0xFF6750D8) : const Color(0xFF5D5B78),
+          fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+        );
+      }),
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        final selected = states.contains(WidgetState.selected);
+        return IconThemeData(
+          color: selected ? const Color(0xFF6750D8) : const Color(0xFF5D5B78),
+          size: selected ? 26 : 24,
+        );
+      }),
+    ),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: scheme.surfaceContainerLow,
+      surfaceTintColor: scheme.surfaceTint,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+    ),
+  );
 }
 
 class ActivationGate extends StatefulWidget {
@@ -309,9 +362,7 @@ class _ActivationGateState extends State<ActivationGate> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_unlocked) {
@@ -356,7 +407,9 @@ class _ActivationGateState extends State<ActivationGate> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _submitting ? null : () => unawaited(_submitCode()),
+                      onPressed: _submitting
+                          ? null
+                          : () => unawaited(_submitCode()),
                       child: Text(_submitting ? 'Checking...' : 'Unlock App'),
                     ),
                   ),
@@ -751,9 +804,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Future<void> _requestPermissions() async {
     if (!_supportsForegroundTask) return;
     final prefs = await SharedPreferences.getInstance();
-    final bool hasAskedBattery = prefs.getBool(_batteryOptimizationAskedKey) ?? false;
+    final bool hasAskedBattery =
+        prefs.getBool(_batteryOptimizationAskedKey) ?? false;
 
-    if (!hasAskedBattery && await FlutterForegroundTask.isIgnoringBatteryOptimizations == false) {
+    if (!hasAskedBattery &&
+        await FlutterForegroundTask.isIgnoringBatteryOptimizations == false) {
       await FlutterForegroundTask.requestIgnoreBatteryOptimization();
       await prefs.setBool(_batteryOptimizationAskedKey, true);
     }
@@ -985,18 +1040,22 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     bool forceHorizontal = false,
     bool startImmersive = false,
   }) async {
-    final initialMode = specificMode ?? (currentTabIndex == 2
-        ? FullscreenFocusMode.moduleC
-        : (timerInterval != null || currentTabIndex == 1
-              ? FullscreenFocusMode.timer
-              : FullscreenFocusMode.clock));
+    final initialMode =
+        specificMode ??
+        (currentTabIndex == 2
+            ? FullscreenFocusMode.moduleC
+            : (timerInterval != null || currentTabIndex == 1
+                  ? FullscreenFocusMode.timer
+                  : FullscreenFocusMode.clock));
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => FullscreenFocusView(
           initialMode: initialMode,
           initialDarkTheme: fullscreenDarkTheme,
           initialDimBrightness: fullscreenDimBrightness,
-          initialForceLandscape: forceHorizontal ? true : fullscreenStartLandscape,
+          initialForceLandscape: forceHorizontal
+              ? true
+              : fullscreenStartLandscape,
           startImmersive: startImmersive,
           onThemeChanged: (isDark) {
             if (!mounted) return;
@@ -1658,7 +1717,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       for (var attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
           fetchedVoices = await flutterTts.getVoices;
-          final loadedVoices = _speechService.parseSupportedVoices(fetchedVoices);
+          final loadedVoices = _speechService.parseSupportedVoices(
+            fetchedVoices,
+          );
           if (loadedVoices.isNotEmpty) {
             if (mounted) {
               setState(() {
@@ -1743,7 +1804,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       speechEngineMode,
     );
     final desktopPlatform = Platform.isLinux || Platform.isWindows;
-    final desktopSherpaOnly = desktopPlatform && normalizedEngineMode == 'sherpa_only';
+    final desktopSherpaOnly =
+        desktopPlatform && normalizedEngineMode == 'sherpa_only';
 
     // On desktop, speech service can still use Sherpa/espeak without flutter_tts plugin.
     if (!desktopSherpaOnly && !desktopPlatform) {
@@ -1955,9 +2017,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       lastClockSpoke = DateTime.now().millisecondsSinceEpoch;
       final repeatCount = clockSpeakRepeatCount.clamp(1, 3);
       for (var i = 0; i < repeatCount; i++) {
-        speechQueue.add(
-          SpeechItem(text, delayMs: i == 0 ? 0 : 350),
-        );
+        speechQueue.add(SpeechItem(text, delayMs: i == 0 ? 0 : 350));
       }
 
       if (motivationOn) {
@@ -2280,11 +2340,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   Widget _buildSpeakClockTab() {
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
+      child: ColoredBox(
+        color: const Color(0xFFFEFBFF),
         child: ListView(
+          padding: EdgeInsets.zero,
           children: [
             ClockPanel(
+              onExitApp: () => unawaited(_exitAppFully()),
               onFullscreenPressed: () => _openFullscreenFocus(
                 specificMode: FullscreenFocusMode.clock,
                 forceHorizontal: true,
@@ -2376,16 +2438,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   Widget _buildTimerSetupTab() {
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
+      child: ColoredBox(
+        color: const Color(0xFFFCFAFF),
         child: ListView(
+          padding: EdgeInsets.zero,
           children: [
-            PresetsPanel(
-              presetValues: presetValues,
-              choosePreset: choosePreset,
-            ),
-            const SizedBox(height: 8),
             TimerPanel(
+              onExitApp: () => unawaited(_exitAppFully()),
               onFullscreenPressed: () => _openFullscreenFocus(
                 specificMode: FullscreenFocusMode.timer,
                 forceHorizontal: true,
@@ -2397,10 +2456,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               ),
               timerValue: timerDisplayValue,
               sliderValue: sliderValue,
+              remainingSeconds: seconds,
               voicesCount: voices.length,
+              isRunning: timerInterval != null,
+              presetValues: presetValues,
               startTimer: startTimer,
               stopTimer: stopTimer,
               resetTimer: resetTimer,
+              choosePreset: choosePreset,
               onSliderChanged: (val) {
                 setState(() {
                   sliderValue = val.toInt();
@@ -2466,11 +2529,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   Widget _buildStopwatchTab() {
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
+      child: ColoredBox(
+        color: const Color(0xFFFEFBFF),
         child: ListView(
+          padding: EdgeInsets.zero,
           children: [
             StopwatchPanel(
+              onExitApp: () => unawaited(_exitAppFully()),
               onFullscreenPressed: () => _openFullscreenFocus(
                 specificMode: FullscreenFocusMode.moduleC,
                 forceHorizontal: true,
@@ -2524,9 +2589,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final settingsVoices = _availableVoicesForSettings();
 
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
+      child: ColoredBox(
+        color: const Color(0xFFFEFBFF),
         child: ListView(
+          padding: EdgeInsets.zero,
           children: [
             SettingsPanel(
               soundChosen: soundChosen,
@@ -2654,7 +2720,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               onVoiceListModeChanged: (val) {
                 if (val == null) return;
                 setState(() {
-                  voiceListMode = _speechService.normalizeVoiceLanguageMode(val);
+                  voiceListMode = _speechService.normalizeVoiceLanguageMode(
+                    val,
+                  );
 
                   final available = _availableVoicesForSettings();
                   final hasFavorite = available.any(
@@ -2672,7 +2740,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               onSpeechEngineModeChanged: (val) {
                 if (val == null) return;
                 setState(() {
-                  speechEngineMode = _speechService.normalizeSpeechEngineMode(val);
+                  speechEngineMode = _speechService.normalizeSpeechEngineMode(
+                    val,
+                  );
                   _lsSave();
                 });
               },
@@ -2708,193 +2778,431 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final nextGoal = hasGoals
         ? goalReminderItems[goalReminderNextIndex % goalReminderItems.length]
         : null;
+    const surface = Color(0xFFFEFBFF);
+    const onSurface = Color(0xFF1C1B1F);
+    const onSurfaceVariant = Color(0xFF49454F);
+    const outline = Color(0xFFE6E0EA);
+    const primary = Color(0xFF3F55F6);
 
-    Widget dropdownContainer(Widget child) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: palette.accent,
-        border: Border.all(color: palette.primary, width: 2),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: child,
-    );
+    String intervalLabel(int mins) {
+      if (mins == 60) return 'Every 1 hour';
+      if (mins % 60 == 0) return 'Every ${mins ~/ 60} hours';
+      return 'Every $mins minutes';
+    }
+
+    Future<void> showIntervalSheet() async {
+      await showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        backgroundColor: surface,
+        builder: (context) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Reminder interval',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...goalReminderIntervalOptions.map((mins) {
+                  final selected = mins == goalReminderIntervalMins;
+                  return ListTile(
+                    selected: selected,
+                    selectedTileColor: const Color(0xFFEFF2FF),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    leading: Icon(
+                      selected
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      color: selected ? primary : onSurfaceVariant,
+                    ),
+                    title: Text(intervalLabel(mins)),
+                    onTap: () {
+                      setState(() {
+                        goalReminderIntervalMins = mins;
+                        _lsSave();
+                      });
+                      _restartGoalReminderTimer();
+                      Navigator.of(context).pop();
+                    },
+                  );
+                }),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget topAction({
+      required IconData icon,
+      required String tooltip,
+      required VoidCallback onPressed,
+    }) {
+      return IconButton(
+        visualDensity: VisualDensity.compact,
+        tooltip: tooltip,
+        onPressed: onPressed,
+        icon: Icon(icon, color: onSurface, size: 20),
+      );
+    }
+
+    Widget card({required Widget child, Color color = surface}) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: outline),
+        ),
+        child: child,
+      );
+    }
+
+    Widget actionButton({
+      required String label,
+      required IconData icon,
+      required VoidCallback onPressed,
+      bool filled = false,
+    }) {
+      final style = filled
+          ? FilledButton.styleFrom(
+              backgroundColor: primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            )
+          : OutlinedButton.styleFrom(
+              foregroundColor: onSurface,
+              side: const BorderSide(color: outline),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            );
+      return SizedBox(
+        height: 42,
+        child: filled
+            ? FilledButton.icon(
+                onPressed: onPressed,
+                icon: Icon(icon, size: 17),
+                label: Text(label),
+                style: style,
+              )
+            : OutlinedButton.icon(
+                onPressed: onPressed,
+                icon: Icon(icon, size: 17),
+                label: Text(label),
+                style: style,
+              ),
+      );
+    }
+
+    Widget goalTile(int index, String goal) {
+      final isNext =
+          hasGoals && index == goalReminderNextIndex % goalReminderItems.length;
+      return DecoratedBox(
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: outline)),
+        ),
+        child: ListTile(
+          contentPadding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+          leading: Icon(
+            isNext ? Icons.check_circle_rounded : Icons.circle_outlined,
+            color: isNext ? primary : onSurfaceVariant,
+            size: 20,
+          ),
+          title: Text(
+            goal,
+            style: const TextStyle(
+              color: onSurface,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          subtitle: Text(
+            isNext ? 'Next reminder' : intervalLabel(goalReminderIntervalMins),
+            style: const TextStyle(
+              color: onSurfaceVariant,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Edit goal',
+                onPressed: () =>
+                    unawaited(_showGoalInputDialog(editIndex: index)),
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  color: onSurfaceVariant,
+                  size: 18,
+                ),
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Delete goal',
+                onPressed: () => _removeGoalAt(index),
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: onSurfaceVariant,
+                  size: 18,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
+      child: ColoredBox(
+        color: surface,
         child: ListView(
+          padding: EdgeInsets.zero,
           children: [
-            panelContainer(
-              active: goalReminderOn,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  headerTitle('Goals Reminder', 'D', icon: Icons.flag_outlined),
-                  const SizedBox(height: 8),
-                  Row(
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 430),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Checkbox(
-                        value: goalReminderOn,
-                        activeColor: palette.primary,
-                        checkColor: palette.accent,
-                        onChanged: (val) {
-                          setState(() {
-                            goalReminderOn = val ?? false;
-                            _lsSave();
-                          });
-                          _restartGoalReminderTimer();
-                        },
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Goals',
+                              style: TextStyle(
+                                color: onSurface,
+                                fontSize: 18,
+                                height: 1,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          topAction(
+                            icon: Icons.power_settings_new_rounded,
+                            tooltip: 'Shutdown app',
+                            onPressed: () => unawaited(_exitAppFully()),
+                          ),
+                          topAction(
+                            icon: Icons.fullscreen_rounded,
+                            tooltip: 'Fullscreen',
+                            onPressed: _openFullscreenFocus,
+                          ),
+                        ],
                       ),
-                      Expanded(
-                        child: sectionLabel(
-                          'Enable goal reminders (round-robin speech)',
+                      const SizedBox(height: 14),
+                      card(
+                        color: const Color(0xFFFAF9FF),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 42,
+                                height: 42,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFEFF2FF),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.flag_rounded,
+                                  color: primary,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      "Today's Focus",
+                                      style: TextStyle(
+                                        color: onSurface,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      nextGoal ??
+                                          'Add goals to hear focused reminders.',
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: onSurfaceVariant,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ],
-                  ),
-                  sectionLabel('Reminder interval'),
-                  dropdownContainer(
-                    DropdownButton<int>(
-                      value: goalReminderIntervalMins,
-                      isExpanded: true,
-                      underline: const SizedBox(),
-                      iconEnabledColor: palette.primary,
-                      dropdownColor: palette.accent,
-                      items: goalReminderIntervalOptions
-                          .map(
-                            (mins) => DropdownMenuItem(
-                              value: mins,
-                              child: Text(
-                                mins == 60
-                                    ? 'Every 1 hour'
-                                    : (mins == 120
-                                          ? 'Every 2 hours'
-                                          : 'Every $mins minutes'),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: actionButton(
+                              label: 'Add Goal',
+                              icon: Icons.add_rounded,
+                              filled: true,
+                              onPressed: () =>
+                                  unawaited(_showGoalInputDialog()),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: actionButton(
+                              label: 'Bulk Add',
+                              icon: Icons.playlist_add_rounded,
+                              onPressed: () =>
+                                  unawaited(_showBulkGoalInputDialog()),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (hasGoals) ...[
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: actionButton(
+                            label: 'Speak next goal now',
+                            icon: Icons.record_voice_over_rounded,
+                            onPressed: () =>
+                                _announceNextGoalReminder(force: true),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+                      card(
+                        child: Column(
+                          children: [
+                            SwitchListTile(
+                              value: goalReminderOn,
+                              onChanged: (val) {
+                                setState(() {
+                                  goalReminderOn = val;
+                                  _lsSave();
+                                });
+                                _restartGoalReminderTimer();
+                              },
+                              activeThumbColor: Colors.white,
+                              activeTrackColor: primary,
+                              secondary: const Icon(
+                                Icons.notifications_active_outlined,
+                                color: primary,
+                              ),
+                              title: const Text(
+                                'Goal reminders',
                                 style: TextStyle(
-                                  color: palette.primary,
-                                  fontWeight: FontWeight.w500,
+                                  color: onSurface,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              subtitle: const Text(
+                                'Round-robin spoken reminders',
+                                style: TextStyle(
+                                  color: onSurfaceVariant,
                                   fontSize: 12,
                                 ),
                               ),
                             ),
-                          )
-                          .toList(),
-                      onChanged: (val) {
-                        if (val == null) return;
-                        setState(() {
-                          goalReminderIntervalMins = val;
-                          _lsSave();
-                        });
-                        _restartGoalReminderTimer();
-                      },
-                    ),
-                  ),
-                  if (nextGoal != null) ...[
-                    sectionLabel('Next goal'),
-                    Text(
-                      nextGoal,
-                      style: TextStyle(
-                        color: palette.primary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: actionBtn(
-                    'Add goal',
-                    () => unawaited(_showGoalInputDialog()),
-                    icon: Icons.add_task_outlined,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: actionBtn(
-                    'Bulk add lines',
-                    () => unawaited(_showBulkGoalInputDialog()),
-                    icon: Icons.playlist_add_outlined,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (hasGoals)
-              actionBtn(
-                'Speak next goal now',
-                () => _announceNextGoalReminder(force: true),
-                icon: Icons.record_voice_over_outlined,
-              ),
-            const SizedBox(height: 8),
-            if (!hasGoals)
-              panelContainer(
-                child: Text(
-                  'No goals yet. Add one goal or bulk add one per line.',
-                  style: TextStyle(
-                    color: palette.primary.withAlpha(190),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                  ),
-                ),
-              )
-            else
-              ...List.generate(goalReminderItems.length, (index) {
-                final goal = goalReminderItems[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: panelContainer(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${index + 1}. ',
-                          style: TextStyle(
-                            color: palette.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
+                            ListTile(
+                              leading: const Icon(
+                                Icons.schedule_rounded,
+                                color: primary,
+                              ),
+                              title: const Text(
+                                'Reminder interval',
+                                style: TextStyle(
+                                  color: onSurface,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    intervalLabel(goalReminderIntervalMins),
+                                    style: const TextStyle(
+                                      color: onSurfaceVariant,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const Icon(Icons.chevron_right_rounded),
+                                ],
+                              ),
+                              onTap: () => unawaited(showIntervalSheet()),
+                            ),
+                          ],
                         ),
-                        Expanded(
-                          child: Text(
-                            goal,
-                            style: TextStyle(
-                              color: palette.primary,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Goals',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: onSurfaceVariant,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (!hasGoals)
+                        card(
+                          child: const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Text(
+                              'No goals yet. Add one goal or bulk add one per line.',
+                              style: TextStyle(
+                                color: onSurfaceVariant,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        card(
+                          child: Column(
+                            children: List.generate(
+                              goalReminderItems.length,
+                              (index) =>
+                                  goalTile(index, goalReminderItems[index]),
                             ),
                           ),
                         ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          tooltip: 'Edit goal',
-                          onPressed: () => unawaited(
-                            _showGoalInputDialog(editIndex: index),
-                          ),
-                          icon: Icon(
-                            Icons.edit_outlined,
-                            color: palette.primary,
-                            size: 18,
-                          ),
-                        ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          tooltip: 'Delete goal',
-                          onPressed: () => _removeGoalAt(index),
-                          icon: Icon(
-                            Icons.delete_outline,
-                            color: palette.primary,
-                            size: 18,
-                          ),
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
-                );
-              }),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -2953,39 +3261,42 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 48,
-        backgroundColor: palette.bg,
-        elevation: 0,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              AppLocalizations.of(context)?.appTitle ?? 'Lifer',
-              style: TextStyle(
-                color: palette.primary,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+      appBar:
+          currentTabIndex == 1 ||
+              currentTabIndex == 0 ||
+              currentTabIndex == 2 ||
+              currentTabIndex == 3 ||
+              currentTabIndex == 4
+          ? null
+          : AppBar(
+              toolbarHeight: 64,
+              elevation: 0,
+              title: Text(
+                AppLocalizations.of(context)?.appTitle ?? 'Lifer',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: scheme.onSurface,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
+              actions: [
+                IconButton.filledTonal(
+                  onPressed: () => unawaited(_exitAppFully()),
+                  tooltip: 'Shutdown app',
+                  icon: const Icon(Icons.power_settings_new_rounded),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: _openFullscreenFocus,
+                  tooltip: 'Open Focus Fullscreen',
+                  icon: const Icon(Icons.fullscreen_rounded),
+                ),
+                const SizedBox(width: 12),
+              ],
+              centerTitle: true,
             ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            onPressed: () => unawaited(_exitAppFully()),
-            tooltip: 'Shutdown app',
-            icon: Icon(Icons.power_settings_new, color: palette.primary),
-          ),
-          IconButton(
-            onPressed: _openFullscreenFocus,
-            tooltip: 'Open Focus Fullscreen',
-            icon: Icon(Icons.fullscreen, color: palette.primary),
-          ),
-        ],
-        centerTitle: true,
-      ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 220),
         switchInCurve: Curves.easeOutCubic,
@@ -3010,75 +3321,47 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               : (currentTabIndex == 1
                     ? _buildTimerSetupTab()
                     : (currentTabIndex == 2
-                  ? _buildStopwatchTab()
-                  : (currentTabIndex == 3
-                    ? _buildGoalsTab()
-                    : _buildSettingsTab()))),
+                          ? _buildStopwatchTab()
+                          : (currentTabIndex == 3
+                                ? _buildGoalsTab()
+                                : _buildSettingsTab()))),
         ),
       ),
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: double.infinity,
-            color: palette.bg,
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: palette.accent,
-                border: Border.all(color: palette.primary, width: 2),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                'Made by Atherpulse Technologies',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: palette.primary.withAlpha(180),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ),
-          ),
-          BottomNavigationBar(
-            currentIndex: currentTabIndex,
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: palette.bg,
-            selectedItemColor: palette.primary,
-            unselectedItemColor: palette.primary.withAlpha(150),
-            showUnselectedLabels: true,
-            elevation: 8,
-            onTap: (index) {
+          NavigationBar(
+            selectedIndex: currentTabIndex,
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            onDestinationSelected: (index) {
               setState(() {
                 currentTabIndex = index;
               });
             },
-            items: const [
-              BottomNavigationBarItem(
+            destinations: const [
+              NavigationDestination(
                 icon: Icon(Icons.access_time_outlined),
-                activeIcon: Icon(Icons.access_time),
+                selectedIcon: Icon(Icons.access_time_rounded),
                 label: 'Clock',
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.tune_outlined),
-                activeIcon: Icon(Icons.tune),
+              NavigationDestination(
+                icon: Icon(Icons.hourglass_empty_rounded),
+                selectedIcon: Icon(Icons.hourglass_full_rounded),
                 label: 'Timer',
               ),
-              BottomNavigationBarItem(
+              NavigationDestination(
                 icon: Icon(Icons.av_timer_outlined),
-                activeIcon: Icon(Icons.av_timer),
+                selectedIcon: Icon(Icons.av_timer_rounded),
                 label: 'Stopwatch',
               ),
-              BottomNavigationBarItem(
+              NavigationDestination(
                 icon: Icon(Icons.flag_outlined),
-                activeIcon: Icon(Icons.flag),
+                selectedIcon: Icon(Icons.flag_rounded),
                 label: 'Goals',
               ),
-              BottomNavigationBarItem(
+              NavigationDestination(
                 icon: Icon(Icons.settings_outlined),
-                activeIcon: Icon(Icons.settings),
+                selectedIcon: Icon(Icons.settings_rounded),
                 label: 'Settings',
               ),
             ],
