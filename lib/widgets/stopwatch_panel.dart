@@ -98,82 +98,6 @@ class StopwatchPanel extends StatelessWidget {
     );
   }
 
-  Future<void> _showOptionsSheet(BuildContext context) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: _surface,
-      builder: (context) => SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Stopwatch options',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: _onSurface,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 12),
-              _settingsCard(
-                children: [
-                  _switchRow(
-                    icon: Icons.record_voice_over_rounded,
-                    title: 'Speak elapsed time',
-                    subtitle: 'Announce elapsed time automatically',
-                    value: stopwatchSpeakOn,
-                    onChanged: onStopwatchSpeakOnChanged,
-                  ),
-                  _switchRow(
-                    icon: Icons.timer_rounded,
-                    title: 'Show milliseconds',
-                    subtitle: 'Use a precise stopwatch display',
-                    value: stopwatchShowMilliseconds,
-                    onChanged: onStopwatchShowMillisecondsChanged,
-                  ),
-                  if (stopwatchSpeakOn)
-                    ListTile(
-                      leading: const Icon(
-                        Icons.schedule_rounded,
-                        color: _primary,
-                        size: 20,
-                      ),
-                      title: const Text(
-                        'Speak every',
-                        style: TextStyle(
-                          color: _onSurface,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _delayLabel(stopwatchSpeakDelaySeconds),
-                            style: const TextStyle(
-                              color: _onSurfaceVariant,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.chevron_right_rounded),
-                        ],
-                      ),
-                      onTap: () => _showDelaySheet(context),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _settingsCard({required List<Widget> children}) {
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -209,6 +133,55 @@ class StopwatchPanel extends StatelessWidget {
       subtitle: Text(
         subtitle,
         style: const TextStyle(color: _onSurfaceVariant, fontSize: 12),
+      ),
+    );
+  }
+
+  Widget _optionRow({
+    required IconData icon,
+    required String title,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: _primary, size: 20),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: _onSurface,
+          fontSize: 14,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              color: _onSurfaceVariant,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 4),
+          const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: _onSurfaceVariant,
+          ),
+        ],
+      ),
+      onTap: onTap,
+    );
+  }
+
+  Widget _sectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: _onSurface,
+        fontSize: 13,
+        fontWeight: FontWeight.w800,
       ),
     );
   }
@@ -395,40 +368,38 @@ class StopwatchPanel extends StatelessWidget {
     );
   }
 
-  Widget _moreOptions(BuildContext context) {
-    return Material(
-      color: const Color(0xFFFAF9FF),
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => _showOptionsSheet(context),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _outline),
-          ),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                Icon(Icons.settings_outlined, color: _primary, size: 18),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Stopwatch options',
-                    style: TextStyle(
-                      color: _onSurface,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                Icon(Icons.chevron_right_rounded, color: _onSurfaceVariant),
-              ],
+  Widget _optionsSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle('Options'),
+        const SizedBox(height: 8),
+        _settingsCard(
+          children: [
+            _switchRow(
+              icon: Icons.record_voice_over_rounded,
+              title: 'Speak elapsed time',
+              subtitle: 'Announce elapsed time automatically',
+              value: stopwatchSpeakOn,
+              onChanged: onStopwatchSpeakOnChanged,
             ),
-          ),
+            _switchRow(
+              icon: Icons.timer_rounded,
+              title: 'Show milliseconds',
+              subtitle: 'Use a precise stopwatch display',
+              value: stopwatchShowMilliseconds,
+              onChanged: onStopwatchShowMillisecondsChanged,
+            ),
+            if (stopwatchSpeakOn)
+              _optionRow(
+                icon: Icons.schedule_rounded,
+                title: 'Speak every',
+                value: _delayLabel(stopwatchSpeakDelaySeconds),
+                onTap: () => _showDelaySheet(context),
+              ),
+          ],
         ),
-      ),
+      ],
     );
   }
 
@@ -449,51 +420,58 @@ class StopwatchPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return ColoredBox(
       color: _surface,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 430),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 430,
+                maxHeight: constraints.maxHeight,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                child: ListView(
+                  padding: EdgeInsets.zero,
                   children: [
-                    const Expanded(
-                      child: Text(
-                        'Stopwatch',
-                        style: TextStyle(
-                          color: _onSurface,
-                          fontSize: 18,
-                          height: 1,
-                          fontWeight: FontWeight.w800,
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Stopwatch',
+                            style: TextStyle(
+                              color: _onSurface,
+                              fontSize: 18,
+                              height: 1,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ),
-                      ),
+                        _topAction(
+                          icon: Icons.power_settings_new_rounded,
+                          tooltip: 'Shutdown app',
+                          onPressed: onExitApp,
+                        ),
+                        _topAction(
+                          icon: Icons.fullscreen_rounded,
+                          tooltip: 'Fullscreen',
+                          onPressed: onFullscreenPressed,
+                        ),
+                      ],
                     ),
-                    _topAction(
-                      icon: Icons.power_settings_new_rounded,
-                      tooltip: 'Shutdown app',
-                      onPressed: onExitApp,
-                    ),
-                    _topAction(
-                      icon: Icons.fullscreen_rounded,
-                      tooltip: 'Fullscreen',
-                      onPressed: onFullscreenPressed,
-                    ),
+                    const SizedBox(height: 14),
+                    _elapsedCard(context),
+                    const SizedBox(height: 14),
+                    _emptyLapCard(),
+                    const SizedBox(height: 14),
+                    _actions(),
+                    const SizedBox(height: 12),
+                    _optionsSection(context),
                   ],
                 ),
-                const SizedBox(height: 14),
-                _elapsedCard(context),
-                const SizedBox(height: 14),
-                _emptyLapCard(),
-                const SizedBox(height: 14),
-                _actions(),
-                const SizedBox(height: 12),
-                _moreOptions(context),
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

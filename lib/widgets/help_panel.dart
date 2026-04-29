@@ -246,6 +246,7 @@ class HelpPanel extends StatelessWidget {
             points: [
               'If widget command feels delayed, wait 1-2 seconds for sync.',
               'Keep notification and battery permissions allowed for stable background behavior.',
+              'After reboot, the background service can resume once battery optimization is allowed.',
             ],
           ),
         ],

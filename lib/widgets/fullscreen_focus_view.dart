@@ -200,258 +200,143 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   }
 
   Widget _buildTimerLikeDisplay(
-    Color fg,
-    Color primary, {
-    required bool immersive,
-    required String label,
+    Color fg, {
     required String value,
   }) {
     final timerParts = _splitTimer(value);
     final mins = timerParts.$1;
     final secs = timerParts.$2;
     final millis = timerParts.$3;
-    final labelSize = immersive ? 16.0 : 13.0;
-    final valueSize = immersive ? 140.0 : 112.0;
-    final separatorSize = immersive ? 112.0 : 88.0;
-    final millisSize = immersive ? 36.0 : 28.0;
+    const valueSize = 160.0;
+    const separatorSize = 128.0;
+    const millisSize = 42.0;
+
     return LayoutBuilder(
       builder: (_, constraints) {
-        final maxHeight = constraints.maxHeight;
-        final showLabel = maxHeight.isInfinite || maxHeight > 120;
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : double.infinity;
+        final height = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : double.infinity;
 
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (showLabel) ...[
-              Container(
-                width: immersive ? 64 : 48,
-                height: immersive ? 64 : 48,
-                decoration: BoxDecoration(
-                  color: primary.withAlpha(24),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  label == 'ELAPSED'
-                      ? Icons.av_timer_rounded
-                      : Icons.hourglass_empty_rounded,
-                  color: primary,
-                  size: immersive ? 36 : 28,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                label,
-                style: TextStyle(
-                  color: fg.withAlpha(165),
-                  fontSize: labelSize,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              const SizedBox(height: 6),
-            ],
-            Expanded(
-              child: SizedBox(
-                width: double.infinity,
-                child: FittedBox(
-                  fit: BoxFit.contain,
-                  alignment: Alignment.center,
-                  child: RichText(
-                    textAlign: TextAlign.center,
-                    text: TextSpan(
-                      style: TextStyle(
-                        color: fg,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                      children: [
-                        TextSpan(
-                          text: mins,
-                          style: TextStyle(
-                            fontSize: valueSize,
-                            fontWeight: FontWeight.w800,
-                            height: 1,
-                          ),
-                        ),
-                        TextSpan(
-                          text: ':',
-                          style: TextStyle(
-                            fontSize: separatorSize,
-                            fontWeight: FontWeight.w700,
-                            color: fg.withAlpha(190),
-                            height: 1,
-                          ),
-                        ),
-                        TextSpan(
-                          text: secs,
-                          style: TextStyle(
-                            fontSize: valueSize,
-                            fontWeight: FontWeight.w800,
-                            height: 1,
-                          ),
-                        ),
-                        if (millis != null)
-                          TextSpan(
-                            text: '.$millis',
-                            style: TextStyle(
-                              fontSize: millisSize,
-                              fontWeight: FontWeight.w700,
-                              color: fg.withAlpha(190),
-                              height: 1,
-                            ),
-                          ),
-                      ],
-                    ),
+        return Center(
+          child: SizedBox(
+            width: width,
+            height: height,
+            child: FittedBox(
+              fit: BoxFit.contain,
+              alignment: Alignment.center,
+              child: RichText(
+                textAlign: TextAlign.center,
+                text: TextSpan(
+                  style: TextStyle(
+                    color: fg,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
+                  children: [
+                    TextSpan(
+                      text: mins,
+                      style: TextStyle(
+                        fontSize: valueSize,
+                        fontWeight: FontWeight.w800,
+                        height: 1,
+                      ),
+                    ),
+                    TextSpan(
+                      text: ':',
+                      style: TextStyle(
+                        fontSize: separatorSize,
+                        fontWeight: FontWeight.w700,
+                        color: fg.withAlpha(190),
+                        height: 1,
+                      ),
+                    ),
+                    TextSpan(
+                      text: secs,
+                      style: TextStyle(
+                        fontSize: valueSize,
+                        fontWeight: FontWeight.w800,
+                        height: 1,
+                      ),
+                    ),
+                    if (millis != null)
+                      TextSpan(
+                        text: '.$millis',
+                        style: TextStyle(
+                          fontSize: millisSize,
+                          fontWeight: FontWeight.w700,
+                          color: fg.withAlpha(190),
+                          height: 1,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
-          ],
+          ),
         );
       },
     );
   }
 
-  Widget _buildClockDisplay(
-    Color fg,
-    Color primary, {
-    required bool immersive,
-  }) {
+  Widget _buildClockDisplay(Color fg) {
     final clockParts = _splitClockDisplay(_clockText);
     final mainTime = clockParts.$1;
     final millis = clockParts.$2;
-    final labelSize = immersive ? 16.0 : 13.0;
-    final valueSize = immersive ? 112.0 : 88.0;
-    final millisSize = immersive ? 36.0 : 28.0;
+    const valueSize = 132.0;
+    const millisSize = 42.0;
 
     return LayoutBuilder(
       builder: (_, constraints) {
-        final maxHeight = constraints.maxHeight;
-        final showLabel = maxHeight.isInfinite || maxHeight > 120;
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : double.infinity;
+        final height = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : double.infinity;
 
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            if (showLabel) ...[
-              Container(
-                width: immersive ? 64 : 48,
-                height: immersive ? 64 : 48,
-                decoration: BoxDecoration(
-                  color: primary.withAlpha(24),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.access_time_rounded,
-                  color: primary,
-                  size: immersive ? 36 : 28,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'CURRENT TIME',
-                style: TextStyle(
-                  color: fg.withAlpha(165),
-                  fontSize: labelSize,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              const SizedBox(height: 6),
-            ],
-            Expanded(
-              child: SizedBox(
-                width: double.infinity,
-                child: FittedBox(
-                  fit: BoxFit.contain,
-                  alignment: Alignment.center,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        mainTime,
+        return Center(
+          child: SizedBox(
+            width: width,
+            height: height,
+            child: FittedBox(
+              fit: BoxFit.contain,
+              alignment: Alignment.center,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    mainTime,
+                    style: TextStyle(
+                      color: fg,
+                      fontSize: valueSize,
+                      fontWeight: FontWeight.w800,
+                      height: 1,
+                      letterSpacing: 0,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  if (millis != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        '.$millis',
                         style: TextStyle(
-                          color: fg,
-                          fontSize: valueSize,
-                          fontWeight: FontWeight.w800,
-                          height: 1,
-                          letterSpacing: 0,
+                          color: fg.withAlpha(190),
+                          fontSize: millisSize,
+                          fontWeight: FontWeight.w700,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
-                      if (millis != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: Text(
-                            '.$millis',
-                            style: TextStyle(
-                              color: fg.withAlpha(190),
-                              fontSize: millisSize,
-                              fontWeight: FontWeight.w700,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  /// Compact icon+label mode selector button — never overflows.
-  Widget _modeSelectorBtn({
-    required Color fg,
-    required Color primary,
-    required Color selectedBg,
-    required FullscreenFocusMode mode,
-    required IconData icon,
-    required String label,
-  }) {
-    final active = _mode == mode;
-    return Expanded(
-      child: Material(
-        color: active ? selectedBg : Colors.transparent,
-        borderRadius: BorderRadius.circular(999),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(999),
-          onTap: () {
-            _onControlInteraction();
-            setState(() => _mode = mode);
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    icon,
-                    size: 17,
-                    color: active ? primary : fg.withAlpha(180),
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: active ? FontWeight.w800 : FontWeight.w600,
-                      color: active ? primary : fg.withAlpha(180),
                     ),
-                  ),
                 ],
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -630,9 +515,9 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                     curve: Curves.easeInOut,
                     padding: EdgeInsets.fromLTRB(
                       4,
-                      _showControls ? 104 : 4,
+                      _showControls ? 72 : 4,
                       4,
-                      _showControls ? (showActionButtons ? 112 : 64) : 4,
+                      _showControls ? (showActionButtons ? 92 : 20) : 4,
                     ),
                     child: SizedBox(
                       width: double.infinity,
@@ -650,24 +535,14 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                             vertical: _showControls ? 24 : 4,
                           ),
                           child: _mode == FullscreenFocusMode.clock
-                              ? _buildClockDisplay(
-                                  fg,
-                                  primary,
-                                  immersive: !_showControls,
-                                )
+                              ? _buildClockDisplay(fg)
                               : (_mode == FullscreenFocusMode.timer
                                     ? _buildTimerLikeDisplay(
                                         fg,
-                                        primary,
-                                        immersive: !_showControls,
-                                        label: 'REMAINING',
                                         value: _timerText,
                                       )
                                     : _buildTimerLikeDisplay(
                                         fg,
-                                        primary,
-                                        immersive: !_showControls,
-                                        label: 'ELAPSED',
                                         value: _stopwatchText,
                                       )),
                         ),
@@ -785,41 +660,6 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                         ),
                       ),
 
-                      // ── Mode selector (icon + short label, never overflows) ──
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            _modeSelectorBtn(
-                              fg: fg,
-                              primary: primary,
-                              selectedBg: selectedBg,
-                              mode: FullscreenFocusMode.clock,
-                              icon: Icons.access_time_rounded,
-                              label: 'Clock',
-                            ),
-                            const SizedBox(width: 8),
-                            _modeSelectorBtn(
-                              fg: fg,
-                              primary: primary,
-                              selectedBg: selectedBg,
-                              mode: FullscreenFocusMode.timer,
-                              icon: Icons.timer_rounded,
-                              label: 'Timer',
-                            ),
-                            const SizedBox(width: 8),
-                            _modeSelectorBtn(
-                              fg: fg,
-                              primary: primary,
-                              selectedBg: selectedBg,
-                              mode: FullscreenFocusMode.moduleC,
-                              icon: Icons.av_timer_rounded,
-                              label: 'Stopwatch',
-                            ),
-                          ],
-                        ),
-                      ),
-
                       const Spacer(),
 
                       // ── Start/Stop/Reset (Timer & Stopwatch modes) ────────
@@ -827,27 +667,6 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                         _buildActionButtons(fg, primary, outline),
                         const SizedBox(height: 14),
                       ],
-
-                      // ── Status label ──────────────────────────────────────
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Text(
-                          _mode == FullscreenFocusMode.clock
-                              ? 'Speaking Clock'
-                              : (_mode == FullscreenFocusMode.timer
-                                    ? (_timerRunning
-                                          ? 'Timer Running'
-                                          : 'Timer Idle')
-                                    : (_stopwatchRunning
-                                          ? 'Stopwatch Running'
-                                          : 'Stopwatch Paused')),
-                          style: TextStyle(
-                            color: variant,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),

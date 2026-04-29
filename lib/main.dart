@@ -748,8 +748,29 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// Guards against stacking multiple completion dialogs.
   bool _timerFinishedDialogOpen = false;
 
+  /// True while the focus fullscreen route is on top.
+  bool _fullscreenFocusOpen = false;
+
   /// Presets shown in the timer-finished popup.
-  final List<int> _timerFinishedPresetMinutes = [5, 10, 15, 20, 30, 45, 60];
+  final List<int> _timerFinishedPresetMinutes = [
+    1,
+    2,
+    3,
+    5,
+    10,
+    15,
+    20,
+    25,
+    30,
+    35,
+    40,
+    45,
+    50,
+    60,
+    75,
+    90,
+    120,
+  ];
 
   /// ============================================================================
   /// PRESET CONFIGURATIONS - Predefined timer sequences & options
@@ -849,8 +870,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       ),
       foregroundTaskOptions: ForegroundTaskOptions(
         eventAction: ForegroundTaskEventAction.repeat(1000),
+        autoRunOnBoot: true,
+        autoRunOnMyPackageReplaced: true,
         allowWakeLock: true,
         allowWifiLock: true,
+        allowAutoRestart: true,
+        stopWithTask: false,
       ),
     );
   }
@@ -861,19 +886,23 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final timePartWithFraction = parts.first; // e.g. 03:45:30.125
     final suffix = parts.length > 1 ? parts.sublist(1).join(' ') : '';
 
+    final timeWithoutFraction = timePartWithFraction.split('.').first; // 03:45:30
+    final hmParts = timeWithoutFraction.split(':');
+    final hm = hmParts.length >= 2
+        ? '${hmParts[0]}:${hmParts[1]}'
+        : timeWithoutFraction;
+
+    if (!clockShowSeconds) {
+      return suffix.isEmpty ? hm : '$hm $suffix';
+    }
+
     if (clockShowMilliseconds) {
       return withMs;
     }
 
-    final timeWithoutFraction = timePartWithFraction.split('.').first; // 03:45:30
-    if (clockShowSeconds) {
-      return suffix.isEmpty ? timeWithoutFraction : '$timeWithoutFraction $suffix';
-    }
-
-    // Show only hours:minutes
-    final hmParts = timeWithoutFraction.split(':');
-    final hm = hmParts.length >= 2 ? '${hmParts[0]}:${hmParts[1]}' : timeWithoutFraction;
-    return suffix.isEmpty ? hm : '$hm $suffix';
+    return suffix.isEmpty
+        ? timeWithoutFraction
+        : '$timeWithoutFraction $suffix';
   }
 
   ForegroundNotificationState _foregroundState() {
@@ -1067,51 +1096,56 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             : (timerInterval != null || currentTabIndex == 1
                   ? FullscreenFocusMode.timer
                   : FullscreenFocusMode.clock));
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => FullscreenFocusView(
-          initialMode: initialMode,
-          initialDarkTheme: fullscreenDarkTheme,
-          initialDimBrightness: fullscreenDimBrightness,
-          initialForceLandscape: forceHorizontal
-              ? true
-              : fullscreenStartLandscape,
-          startImmersive: startImmersive,
-          onThemeChanged: (isDark) {
-            if (!mounted) return;
-            setState(() {
-              fullscreenDarkTheme = isDark;
-              _lsSave();
-            });
-          },
-          onDimBrightnessChanged: (isDimmed) {
-            if (!mounted) return;
-            setState(() {
-              fullscreenDimBrightness = isDimmed;
-              _lsSave();
-            });
-          },
-          onForceLandscapeChanged: (isLandscape) {
-            if (!mounted) return;
-            setState(() {
-              fullscreenStartLandscape = isLandscape;
-              _lsSave();
-            });
-          },
-          clockTextBuilder: () => currentTimeDisplay,
-          timerTextBuilder: () => timerDisplayValue,
-          isTimerRunningBuilder: () => timerInterval != null,
-          stopwatchTextBuilder: () => stopwatchElapsedValue,
-          isStopwatchRunningBuilder: () => stopwatchInterval != null,
-          onTimerStart: startTimer,
-          onTimerStop: stopTimer,
-          onTimerReset: resetTimer,
-          onStopwatchStart: startStopwatch,
-          onStopwatchStop: stopStopwatch,
-          onStopwatchReset: resetStopwatch,
-        ),
-      ),
-    );
+    _fullscreenFocusOpen = true;
+    await Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (_) => FullscreenFocusView(
+              initialMode: initialMode,
+              initialDarkTheme: fullscreenDarkTheme,
+              initialDimBrightness: fullscreenDimBrightness,
+              initialForceLandscape: forceHorizontal
+                  ? true
+                  : fullscreenStartLandscape,
+              startImmersive: startImmersive,
+              onThemeChanged: (isDark) {
+                if (!mounted) return;
+                setState(() {
+                  fullscreenDarkTheme = isDark;
+                  _lsSave();
+                });
+              },
+              onDimBrightnessChanged: (isDimmed) {
+                if (!mounted) return;
+                setState(() {
+                  fullscreenDimBrightness = isDimmed;
+                  _lsSave();
+                });
+              },
+              onForceLandscapeChanged: (isLandscape) {
+                if (!mounted) return;
+                setState(() {
+                  fullscreenStartLandscape = isLandscape;
+                  _lsSave();
+                });
+              },
+              clockTextBuilder: () => currentTimeDisplay,
+              timerTextBuilder: () => timerDisplayValue,
+              isTimerRunningBuilder: () => timerInterval != null,
+              stopwatchTextBuilder: () => stopwatchElapsedValue,
+              isStopwatchRunningBuilder: () => stopwatchInterval != null,
+              onTimerStart: startTimer,
+              onTimerStop: stopTimer,
+              onTimerReset: resetTimer,
+              onStopwatchStart: startStopwatch,
+              onStopwatchStop: stopStopwatch,
+              onStopwatchReset: resetStopwatch,
+            ),
+          ),
+        )
+        .whenComplete(() {
+          _fullscreenFocusOpen = false;
+        });
     await SystemChrome.setPreferredOrientations([]);
   }
 
@@ -2298,11 +2332,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
         if (Platform.isAndroid) {
           FlutterRingtonePlayer().playAlarm(looping: true);
-          Future.delayed(const Duration(seconds: 10), () {
+          Future.delayed(const Duration(seconds: 5), () {
             FlutterRingtonePlayer().stop();
           });
         } else {
-          unawaited(_audioService.playNotification(assetPath: notifySound));
+          unawaited(
+            _audioService.playNotification(
+              assetPath: notifySound,
+              stopAfter: const Duration(seconds: 5),
+            ),
+          );
         }
 
         showTimerFinishedDialog = true;
@@ -2315,7 +2354,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _startTimerFromMinutes(int minutes) {
-    final safeMinutes = minutes.clamp(1, 720);
+    final safeMinutes = minutes.clamp(1, 720).toInt();
     FlutterRingtonePlayer().stop();
     stopTimer();
     setState(() {
@@ -2334,7 +2373,25 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (!mounted || _timerFinishedDialogOpen) return;
 
     _timerFinishedDialogOpen = true;
+    final selectedMinutes = _fullscreenFocusOpen
+        ? await _showFullscreenTimerFinishedDialog()
+        : await _showNormalTimerFinishedDialog();
+    FlutterRingtonePlayer().stop();
+    _timerFinishedDialogOpen = false;
+
+    if (!mounted) return;
+    if (selectedMinutes == null) {
+      if (_fullscreenFocusOpen) {
+        await Navigator.of(context, rootNavigator: true).maybePop();
+      }
+      return;
+    }
+    _startTimerFromMinutes(selectedMinutes);
+  }
+
+  Future<int?> _showNormalTimerFinishedDialog() async {
     final customController = TextEditingController();
+    String? inputError;
 
     final selectedMinutes = await showDialog<int>(
       context: context,
@@ -2345,8 +2402,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           title: const Text('Timer finished'),
           content: StatefulBuilder(
             builder: (context, setDialogState) {
-              String? inputError;
-
               return SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -2356,15 +2411,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       onPressed: () {
                         final repeatMinutes =
                             (_lastFinishedTimerDurationSeconds ~/ 60)
-                                .clamp(1, 720);
+                                .clamp(1, 720)
+                                .toInt();
                         Navigator.of(dialogContext).pop(repeatMinutes);
                       },
                       icon: const Icon(Icons.replay_rounded),
-                      label: const Text('Repeat same timer'),
+                      label: const Text('Repeat Same Timer'),
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'Start new preset timer',
+                      'Start New Preset Timer',
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 8),
@@ -2409,7 +2465,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Close timer'),
+              child: const Text('Exit / Close Timer'),
             ),
             FilledButton(
               onPressed: () {
@@ -2427,10 +2483,169 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
 
     customController.dispose();
-    _timerFinishedDialogOpen = false;
+    return selectedMinutes;
+  }
 
-    if (!mounted || selectedMinutes == null) return;
-    _startTimerFromMinutes(selectedMinutes);
+  Future<int?> _showFullscreenTimerFinishedDialog() {
+    final dark = fullscreenDarkTheme;
+    final bg = dark ? const Color(0xFF11121A) : const Color(0xFFFEFBFF);
+    final surface = dark ? const Color(0xFF1D1B27) : const Color(0xFFF8F6FF);
+    final fg = dark ? const Color(0xFFF2EFFA) : const Color(0xFF10122D);
+    final variant = dark ? const Color(0xFFC9C3D8) : const Color(0xFF5A5872);
+    final outline = dark ? const Color(0xFF3A3748) : const Color(0xFFE6E0EA);
+    final primary = const Color(0xFF6750F6);
+    final selectedBg = dark
+        ? const Color(0xFF2C2745)
+        : const Color(0xFFECE8FA);
+
+    return showDialog<int>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
+      builder: (dialogContext) {
+        Widget presetButton(int mins) {
+          return Material(
+            color: surface,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => Navigator.of(dialogContext).pop(mins),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: outline),
+                ),
+                child: Center(
+                  child: Text(
+                    '$mins min',
+                    style: TextStyle(
+                      color: fg,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        return Dialog.fullscreen(
+          backgroundColor: bg,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      IconButton.filledTonal(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        style: IconButton.styleFrom(
+                          backgroundColor: selectedBg,
+                          foregroundColor: fg,
+                        ),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'Timer finished',
+                        style: TextStyle(
+                          color: fg,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const Spacer(),
+                      const SizedBox(width: 48),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 58,
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        final repeatMinutes =
+                            (_lastFinishedTimerDurationSeconds ~/ 60).clamp(
+                              1,
+                              720,
+                            ).toInt();
+                        Navigator.of(dialogContext).pop(repeatMinutes);
+                      },
+                      icon: const Icon(Icons.replay_rounded),
+                      label: const Text('Repeat Same Timer'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Start New Preset Timer',
+                      style: TextStyle(
+                        color: variant,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: GridView.builder(
+                      itemCount: _timerFinishedPresetMinutes.length,
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 150,
+                            mainAxisExtent: 64,
+                            mainAxisSpacing: 10,
+                            crossAxisSpacing: 10,
+                          ),
+                      itemBuilder: (context, index) =>
+                          presetButton(_timerFinishedPresetMinutes[index]),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                      label: const Text('Exit / Close Timer'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: fg,
+                        side: BorderSide(color: outline),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void startTimer() async {
@@ -2691,55 +2906,50 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     return SafeArea(
       child: ColoredBox(
         color: const Color(0xFFFEFBFF),
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            StopwatchPanel(
-              onExitApp: () => unawaited(_exitAppFully()),
-              onFullscreenPressed: () => _openFullscreenFocus(
-                specificMode: FullscreenFocusMode.moduleC,
-                forceHorizontal: true,
-              ),
-              onFullscreenImmersivePressed: () => _openFullscreenFocus(
-                specificMode: FullscreenFocusMode.moduleC,
-                forceHorizontal: true,
-                startImmersive: true,
-              ),
-              elapsedValue: stopwatchElapsedValue,
-              isRunning: stopwatchInterval != null,
-              startStopwatch: startStopwatch,
-              stopStopwatch: stopStopwatch,
-              resetStopwatch: resetStopwatch,
-              stopwatchSpeakOn: stopwatchSpeakOn,
-              stopwatchShowMilliseconds: stopwatchShowMilliseconds,
-              stopwatchSpeakDelaySeconds: stopwatchSpeakDelaySeconds,
-              stopwatchSpeakDelayOptions: stopwatchSpeakDelayOptions,
-              onStopwatchSpeakOnChanged: (val) {
-                setState(() {
-                  stopwatchSpeakOn = val ?? true;
-                  _lsSave();
-                });
-              },
-              onStopwatchShowMillisecondsChanged: (val) {
-                setState(() {
-                  stopwatchShowMilliseconds = val ?? false;
-                  stopwatchElapsedValue = _formatStopwatchElapsed(
-                    stopwatchElapsedSeconds,
-                    showMilliseconds: stopwatchShowMilliseconds,
-                  );
-                  _lsSave();
-                });
-              },
-              onStopwatchSpeakDelayChanged: (val) {
-                if (val == null) return;
-                setState(() {
-                  stopwatchSpeakDelaySeconds = val;
-                  _lastStopwatchAutoAnnouncedSecond = -1;
-                  _lsSave();
-                });
-              },
-            ),
-          ],
+        child: StopwatchPanel(
+          onExitApp: () => unawaited(_exitAppFully()),
+          onFullscreenPressed: () => _openFullscreenFocus(
+            specificMode: FullscreenFocusMode.moduleC,
+            forceHorizontal: true,
+          ),
+          onFullscreenImmersivePressed: () => _openFullscreenFocus(
+            specificMode: FullscreenFocusMode.moduleC,
+            forceHorizontal: true,
+            startImmersive: true,
+          ),
+          elapsedValue: stopwatchElapsedValue,
+          isRunning: stopwatchInterval != null,
+          startStopwatch: startStopwatch,
+          stopStopwatch: stopStopwatch,
+          resetStopwatch: resetStopwatch,
+          stopwatchSpeakOn: stopwatchSpeakOn,
+          stopwatchShowMilliseconds: stopwatchShowMilliseconds,
+          stopwatchSpeakDelaySeconds: stopwatchSpeakDelaySeconds,
+          stopwatchSpeakDelayOptions: stopwatchSpeakDelayOptions,
+          onStopwatchSpeakOnChanged: (val) {
+            setState(() {
+              stopwatchSpeakOn = val ?? true;
+              _lsSave();
+            });
+          },
+          onStopwatchShowMillisecondsChanged: (val) {
+            setState(() {
+              stopwatchShowMilliseconds = val ?? false;
+              stopwatchElapsedValue = _formatStopwatchElapsed(
+                stopwatchElapsedSeconds,
+                showMilliseconds: stopwatchShowMilliseconds,
+              );
+              _lsSave();
+            });
+          },
+          onStopwatchSpeakDelayChanged: (val) {
+            if (val == null) return;
+            setState(() {
+              stopwatchSpeakDelaySeconds = val;
+              _lastStopwatchAutoAnnouncedSecond = -1;
+              _lsSave();
+            });
+          },
         ),
       ),
     );

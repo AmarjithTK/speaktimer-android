@@ -144,6 +144,59 @@ class TimerPanel extends StatelessWidget {
     );
   }
 
+  Future<void> _showTimerAnnounceSheet(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: _surface,
+      builder: (context) {
+        final theme = Theme.of(context);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Announcement interval',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color: _onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...timerAnnounceOptions.map((mins) {
+                  final selected = mins == timerAnnounceEvery;
+                  return ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    selected: selected,
+                    selectedTileColor: _primarySoft,
+                    leading: Icon(
+                      selected
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      color: selected ? _primary : _onSurfaceVariant,
+                    ),
+                    title: Text('Announce every $mins min'),
+                    onTap: timerSpeakOn
+                        ? () {
+                            onTimerAnnounceEveryChanged(mins);
+                            Navigator.of(context).pop();
+                          }
+                        : null,
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _settingsCard({required List<Widget> children}) {
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -486,33 +539,100 @@ class TimerPanel extends StatelessWidget {
     );
   }
 
-  Widget _intervalChips() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: timerAnnounceOptions.map((mins) {
-          return FilterChip(
-            selected: mins == timerAnnounceEvery,
-            label: Text('$mins min'),
-            onSelected: timerSpeakOn
-                ? (_) => onTimerAnnounceEveryChanged(mins)
-                : null,
-            selectedColor: _primarySoft,
-            checkmarkColor: _primary,
-            labelStyle: TextStyle(
-              color: mins == timerAnnounceEvery ? _primary : _onSurfaceVariant,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-            side: const BorderSide(color: _outline),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          );
-        }).toList(),
+  Widget _optionRow({
+    required IconData icon,
+    required String title,
+    required String value,
+    required VoidCallback? onTap,
+  }) {
+    return ListTile(
+      enabled: onTap != null,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      leading: Icon(icon, color: _primary, size: 20),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: _onSurface,
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+        ),
       ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              color: onTap == null
+                  ? _onSurfaceVariant.withValues(alpha: 0.55)
+                  : _onSurfaceVariant,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: onTap == null
+                ? _onSurfaceVariant.withValues(alpha: 0.55)
+                : _onSurfaceVariant,
+          ),
+        ],
+      ),
+      onTap: onTap,
+    );
+  }
+
+  Widget _durationSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle('Duration'),
+        const SizedBox(height: 8),
+        _settingsCard(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+              child: Row(
+                children: [
+                  const Text(
+                    'Custom duration',
+                    style: TextStyle(
+                      color: _onSurface,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '$sliderValue min',
+                    style: const TextStyle(
+                      color: _primary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Slider(
+              value: sliderValue.toDouble(),
+              min: 1,
+              max: 120,
+              divisions: 119,
+              label: '$sliderValue min',
+              onChanged: onSliderChanged,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: Text(
+                '$voicesCount voice${voicesCount == 1 ? '' : 's'} loaded',
+                style: const TextStyle(color: _onSurfaceVariant, fontSize: 11),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -552,18 +672,14 @@ class TimerPanel extends StatelessWidget {
         const SizedBox(height: 10),
         _settingsCard(
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(14, 12, 14, 8),
-              child: Text(
-                'Announcement interval',
-                style: TextStyle(
-                  color: _onSurface,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+            _optionRow(
+              icon: Icons.schedule_rounded,
+              title: 'Announcement interval',
+              value: '$timerAnnounceEvery min',
+              onTap: timerSpeakOn
+                  ? () => _showTimerAnnounceSheet(context)
+                  : null,
             ),
-            _intervalChips(),
           ],
         ),
         const SizedBox(height: 10),
@@ -604,50 +720,6 @@ class TimerPanel extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => _showChainPresetSheet(context),
               ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        _settingsCard(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-              child: Row(
-                children: [
-                  const Text(
-                    'Duration',
-                    style: TextStyle(
-                      color: _onSurface,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '$sliderValue min',
-                    style: const TextStyle(
-                      color: _primary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Slider(
-              value: sliderValue.toDouble(),
-              min: 1,
-              max: 120,
-              divisions: 119,
-              label: '$sliderValue min',
-              onChanged: onSliderChanged,
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-              child: Text(
-                '$voicesCount voice${voicesCount == 1 ? '' : 's'} loaded',
-                style: const TextStyle(color: _onSurfaceVariant, fontSize: 11),
-              ),
-            ),
           ],
         ),
       ],
@@ -720,6 +792,8 @@ class TimerPanel extends StatelessWidget {
                     _actions(),
                     const SizedBox(height: 16),
                     _quickPresets(),
+                    const SizedBox(height: 14),
+                    _durationSection(),
                     const SizedBox(height: 14),
                     _advancedOptions(context),
                   ],
