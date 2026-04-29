@@ -8,6 +8,7 @@ class PrefKeys {
   static const clockOn = 'ClockOn';
   static const clockIntervalMins = 'ClockIntervalMins';
   static const clockShowMilliseconds = 'ClockShowMilliseconds';
+  static const clockShowSeconds = 'ClockShowSeconds';
   static const clockSpeakTime = 'ClockSpeakTime';
   static const clockSpeakRepeatCount = 'ClockSpeakRepeatCount';
   static const clockNoiseOn = 'ClockNoiseOn';

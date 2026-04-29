@@ -17,6 +17,7 @@ class ClockPanel extends StatelessWidget {
 
   final int clockIntervalMins;
   final bool clockShowMilliseconds;
+  final bool clockShowSeconds;
   final bool clockSpeakTime;
   final int clockSpeakRepeatCount;
   final bool clockNoiseOn;
@@ -29,6 +30,7 @@ class ClockPanel extends StatelessWidget {
   final List<int> motivationDelayOptions;
   final ValueChanged<int?> onClockIntervalChanged;
   final ValueChanged<bool?> onClockShowMillisecondsChanged;
+  final ValueChanged<bool?> onClockShowSecondsChanged;
   final ValueChanged<bool?> onClockSpeakTimeChanged;
   final ValueChanged<int?> onClockSpeakRepeatCountChanged;
   final ValueChanged<bool?> onClockNoiseOnChanged;
@@ -46,6 +48,7 @@ class ClockPanel extends StatelessWidget {
     required this.onExitApp,
     required this.clockIntervalMins,
     required this.clockShowMilliseconds,
+    required this.clockShowSeconds,
     required this.clockSpeakTime,
     required this.clockSpeakRepeatCount,
     required this.clockNoiseOn,
@@ -58,6 +61,7 @@ class ClockPanel extends StatelessWidget {
     required this.motivationDelayOptions,
     required this.onClockIntervalChanged,
     required this.onClockShowMillisecondsChanged,
+    required this.onClockShowSecondsChanged,
     required this.onClockSpeakTimeChanged,
     required this.onClockSpeakRepeatCountChanged,
     required this.onClockNoiseOnChanged,
@@ -393,6 +397,12 @@ class ClockPanel extends StatelessWidget {
               labelBuilder: (mins) => 'Announce every $mins min',
               onSelected: onClockIntervalChanged,
             ),
+          ),
+          _switchRow(
+            icon: Icons.access_time_filled_rounded,
+            title: 'Show seconds',
+            value: clockShowSeconds,
+            onChanged: onClockShowSecondsChanged,
           ),
           _switchRow(
             icon: Icons.timer_rounded,

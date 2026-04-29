@@ -198,6 +198,7 @@ class TimerPanel extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final diameter = math.min(constraints.maxWidth * 0.86, 260.0);
+          final scale = (diameter / 260.0).clamp(0.78, 1.0);
           return Center(
             child: SizedBox.square(
               dimension: diameter,
@@ -209,92 +210,97 @@ class TimerPanel extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Container(
-                        width: 42,
-                        height: 42,
+                        width: 42 * scale,
+                        height: 42 * scale,
                         decoration: const BoxDecoration(
                           color: Color(0xFFF1EFFF),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.hourglass_empty_rounded,
                           color: _primary,
-                          size: 24,
+                          size: 24 * scale,
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      const Text(
+                      SizedBox(height: 20 * scale),
+                      Text(
                         'Remaining time',
                         style: TextStyle(
                           color: _onSurfaceVariant,
-                          fontSize: 12,
+                          fontSize: 12 * scale,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 18),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: RichText(
-                          textAlign: TextAlign.center,
-                          text: TextSpan(
-                            style: const TextStyle(
-                              color: _onSurface,
-                              fontFeatures: [FontFeature.tabularFigures()],
-                            ),
-                            children: [
-                              TextSpan(
-                                text: minutes,
-                                style: const TextStyle(
-                                  fontSize: 48,
-                                  height: 0.95,
-                                  fontWeight: FontWeight.w800,
-                                ),
+                      SizedBox(height: 18 * scale),
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: RichText(
+                            textAlign: TextAlign.center,
+                            text: TextSpan(
+                              style: const TextStyle(
+                                color: _onSurface,
+                                fontFeatures: [FontFeature.tabularFigures()],
                               ),
-                              const TextSpan(
-                                text: ':',
-                                style: TextStyle(
-                                  fontSize: 46,
-                                  height: 0.95,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              TextSpan(
-                                text: seconds,
-                                style: const TextStyle(
-                                  fontSize: 48,
-                                  height: 0.95,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              if (millis != null)
+                              children: [
                                 TextSpan(
-                                  text: '.$millis',
-                                  style: const TextStyle(
-                                    color: _onSurfaceVariant,
-                                    fontSize: 20,
+                                  text: minutes,
+                                  style: TextStyle(
+                                    fontSize: 48 * scale,
                                     height: 0.95,
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                            ],
+                                TextSpan(
+                                  text: ':',
+                                  style: TextStyle(
+                                    fontSize: 46 * scale,
+                                    height: 0.95,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: seconds,
+                                  style: TextStyle(
+                                    fontSize: 48 * scale,
+                                    height: 0.95,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                if (millis != null)
+                                  TextSpan(
+                                    text: '.$millis',
+                                    style: TextStyle(
+                                      color: _onSurfaceVariant,
+                                      fontSize: 20 * scale,
+                                      height: 0.95,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 18),
+                      SizedBox(height: 14 * scale),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.search_rounded,
                             color: _onSurfaceVariant,
-                            size: 14,
+                            size: 14 * scale,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _endLabel(context),
-                            style: const TextStyle(
-                              color: _onSurfaceVariant,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
+                          SizedBox(width: 6 * scale),
+                          Flexible(
+                            child: Text(
+                              _endLabel(context),
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: _onSurfaceVariant,
+                                fontSize: 11 * scale,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
@@ -665,56 +671,63 @@ class TimerPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return ColoredBox(
       color: _surface,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 430),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 430,
+                maxHeight: constraints.maxHeight,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                child: ListView(
+                  padding: EdgeInsets.zero,
                   children: [
-                    const Expanded(
-                      child: Text(
-                        'Timer',
-                        style: TextStyle(
-                          color: _onSurface,
-                          fontSize: 18,
-                          height: 1,
-                          fontWeight: FontWeight.w800,
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Timer',
+                            style: TextStyle(
+                              color: _onSurface,
+                              fontSize: 18,
+                              height: 1,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ),
-                      ),
+                        _topAction(
+                          icon: Icons.power_settings_new_rounded,
+                          tooltip: 'Shutdown app',
+                          onPressed: onExitApp,
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          tooltip: 'Fullscreen',
+                          onPressed: onFullscreenPressed,
+                          icon: const Icon(
+                            Icons.fullscreen_rounded,
+                            color: _onSurface,
+                            size: 20,
+                          ),
+                        ),
+                      ],
                     ),
-                    _topAction(
-                      icon: Icons.power_settings_new_rounded,
-                      tooltip: 'Shutdown app',
-                      onPressed: onExitApp,
-                    ),
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      tooltip: 'Fullscreen',
-                      onPressed: onFullscreenPressed,
-                      icon: const Icon(
-                        Icons.fullscreen_rounded,
-                        color: _onSurface,
-                        size: 20,
-                      ),
-                    ),
+                    const SizedBox(height: 8),
+                    _timerCircle(context),
+                    const SizedBox(height: 14),
+                    _actions(),
+                    const SizedBox(height: 16),
+                    _quickPresets(),
+                    const SizedBox(height: 14),
+                    _advancedOptions(context),
                   ],
                 ),
-                const SizedBox(height: 8),
-                _timerCircle(context),
-                const SizedBox(height: 14),
-                _actions(),
-                const SizedBox(height: 16),
-                _quickPresets(),
-                const SizedBox(height: 14),
-                _advancedOptions(context),
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

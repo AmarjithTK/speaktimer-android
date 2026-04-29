@@ -77,8 +77,10 @@ class SettingsService {
           prefs.getBool(PrefKeys.ttsVolumeBoostEnabled) ?? false,
       clockOn: prefs.getBool(PrefKeys.clockOn) ?? false,
       clockIntervalMins: prefs.getInt(PrefKeys.clockIntervalMins) ?? 30,
-      clockShowMilliseconds:
+        clockShowMilliseconds:
           prefs.getBool(PrefKeys.clockShowMilliseconds) ?? true,
+        clockShowSeconds:
+          prefs.getBool(PrefKeys.clockShowSeconds) ?? true,
       clockSpeakTime: prefs.getBool(PrefKeys.clockSpeakTime) ?? true,
         clockSpeakRepeatCount:
           (prefs.getInt(PrefKeys.clockSpeakRepeatCount) ?? 1).clamp(1, 3),
@@ -148,6 +150,10 @@ class SettingsService {
     await prefs.setBool(
       PrefKeys.clockShowMilliseconds,
       settings.clockShowMilliseconds,
+    );
+    await prefs.setBool(
+      PrefKeys.clockShowSeconds,
+      settings.clockShowSeconds,
     );
     await prefs.setBool(PrefKeys.clockSpeakTime, settings.clockSpeakTime);
     await prefs.setInt(

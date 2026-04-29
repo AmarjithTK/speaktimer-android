@@ -1,0 +1,7 @@
+Analyzing speaktimer-android...                                 
+
+  error • The method 'debugPrint' isn't defined for the type 'SpeechService' • lib/services/speech_service.dart:807:9 • undefined_method
+  error • The method 'debugPrint' isn't defined for the type 'SpeechService' • lib/services/speech_service.dart:821:9 • undefined_method
+  error • The named parameter 'ttsMaxVolumeLockEnabled' is required, but there's no corresponding argument • test/services/settings_service_test.dart:30:21 • missing_required_argument
+  error • The named parameter 'ttsVolumeBoostEnabled' is required, but there's no corresponding argument • test/services/settings_service_test.dart:30:21 • missing_required_argument
+

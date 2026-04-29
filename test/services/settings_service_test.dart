@@ -40,6 +40,7 @@ void main() {
         appFontSizeMultiplier: 1.0,
         clockIntervalMins: 15,
         clockShowMilliseconds: true,
+        clockShowSeconds: true,
         motivationOn: true,
         motivationCategory: 'Focus',
         motivationDelaySeconds: 20,

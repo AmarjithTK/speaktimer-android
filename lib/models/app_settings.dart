@@ -7,6 +7,7 @@ class AppSettings {
   final bool clockOn;
   final int clockIntervalMins;
   final bool clockShowMilliseconds;
+  final bool clockShowSeconds;
   final bool clockSpeakTime;
   final int clockSpeakRepeatCount;
   final bool clockNoiseOn;
@@ -46,6 +47,7 @@ class AppSettings {
     required this.clockOn,
     required this.clockIntervalMins,
     required this.clockShowMilliseconds,
+    required this.clockShowSeconds,
     required this.clockSpeakTime,
     required this.clockSpeakRepeatCount,
     required this.clockNoiseOn,
