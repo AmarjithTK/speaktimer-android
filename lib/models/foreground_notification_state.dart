@@ -18,9 +18,9 @@ class ForegroundNotificationState {
   });
 
   String get title {
-    if (isTimerRunning) return 'lifer (Timer Running)';
-    if (isStopwatchRunning) return 'lifer (Stopwatch Running)';
-    return 'lifer (Clock Mode)';
+    if (isTimerRunning) return 'SolasFlow (Timer Running)';
+    if (isStopwatchRunning) return 'SolasFlow (Stopwatch Running)';
+    return 'SolasFlow (Clock Mode)';
   }
 
   String get text {

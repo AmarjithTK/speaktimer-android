@@ -1,8 +1,8 @@
 // ============================================================================
-// LIFER - A Productivity Timer & Meditation App
+// SOLASFLOW - A Productivity Timer & Meditation App
 // ============================================================================
 //
-// **Version:** 3.0.0
+// **Version:** 1.0.0
 // **Platform:** Android, iOS, Web, macOS, Linux, Windows
 // **Target:** Dart ^3.11.3, Flutter stable
 //
@@ -55,7 +55,6 @@
 // - [ ] Session history & analytics
 // - [ ] Haptic feedback on timer complete
 // - [ ] Circular progress indicator widget
-// - [ ] Material You dynamic colors (Android 12+)
 // - [ ] Cloud sync of settings & session history
 // - [ ] Wear OS companion app
 // - [ ] Export session data to Google Fit
@@ -67,13 +66,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart'
-    show SharedPreferences;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dynamic_color/dynamic_color.dart';
 
 import 'l10n/app_localizations.dart';
 import 'theme/palette.dart';
@@ -95,18 +93,13 @@ import 'widgets/timer_panel.dart';
 import 'widgets/stopwatch_panel.dart';
 import 'widgets/settings_panel.dart';
 import 'widgets/help_panel.dart';
+import 'services/voice_session_manager.dart';
 
 final ValueNotifier<ThemeMode> appThemeModeNotifier = ValueNotifier(
   ThemeMode.light,
 );
 
 final ValueNotifier<double> appFontSizeNotifier = ValueNotifier(1.0);
-
-const String _ownerActivationCode = String.fromEnvironment(
-  'OWNER_ACCESS_CODE',
-  defaultValue: '',
-);
-const String _ownerActivationUnlockedKey = 'OwnerActivationUnlocked';
 
 void setAppThemeMode(bool isDark) {
   appThemeModeNotifier.value = isDark ? ThemeMode.dark : ThemeMode.light;
@@ -141,39 +134,59 @@ class MyTaskHandler extends TaskHandler {
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   FlutterForegroundTask.initCommunicationPort();
-  runApp(const LiferApp());
+  runApp(const SolasFlowApp());
 }
 
-class LiferApp extends StatelessWidget {
-  const LiferApp({super.key});
+class SolasFlowApp extends StatelessWidget {
+  const SolasFlowApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return WithForegroundTask(
-      child: ValueListenableBuilder<ThemeMode>(
-        valueListenable: appThemeModeNotifier,
-        builder: (context, themeMode, _) {
-          return ValueListenableBuilder<double>(
-            valueListenable: appFontSizeNotifier,
-            builder: (context, fontSizeMultiplier, _) {
-              final l10n = AppLocalizations.of(context);
-              return MaterialApp(
-                title: l10n?.appTitle ?? 'lifer',
-                debugShowCheckedModeBanner: false,
-                localizationsDelegates: AppLocalizations.localizationsDelegates,
-                supportedLocales: AppLocalizations.supportedLocales,
-                themeMode: themeMode,
-                builder: (context, child) {
-                  return MediaQuery(
-                    data: MediaQuery.of(context).copyWith(
-                      textScaler: TextScaler.linear(fontSizeMultiplier),
+      child: DynamicColorBuilder(
+        builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
+          return ValueListenableBuilder<ThemeMode>(
+            valueListenable: appThemeModeNotifier,
+            builder: (context, themeMode, _) {
+              return ValueListenableBuilder<double>(
+                valueListenable: appFontSizeNotifier,
+                builder: (context, fontSizeMultiplier, _) {
+                  final l10n = AppLocalizations.of(context);
+                  return MaterialApp(
+                    title: l10n?.appTitle ?? 'SolasFlow',
+                    debugShowCheckedModeBanner: false,
+                    localizationsDelegates:
+                        AppLocalizations.localizationsDelegates,
+                    supportedLocales: AppLocalizations.supportedLocales,
+                    themeMode: themeMode,
+                    builder: (context, child) {
+                      return MediaQuery(
+                        data: MediaQuery.of(context).copyWith(
+                          textScaler:
+                              TextScaler.linear(fontSizeMultiplier),
+                        ),
+                        child: child!,
+                      );
+                    },
+                    theme: _buildSolasFlowTheme(
+                      lightDynamic ??
+                          ColorScheme.fromSeed(
+                            seedColor: const Color(0xFF6256D9),
+                            brightness: Brightness.light,
+                          ),
+                      Brightness.light,
                     ),
-                    child: child!,
+                    darkTheme: _buildSolasFlowTheme(
+                      darkDynamic ??
+                          ColorScheme.fromSeed(
+                            seedColor: const Color(0xFF6256D9),
+                            brightness: Brightness.dark,
+                          ),
+                      Brightness.dark,
+                    ),
+                    home: const MainScreen(),
                   );
                 },
-                theme: _buildLiferTheme(Brightness.light),
-                darkTheme: _buildLiferTheme(Brightness.dark),
-                home: const ActivationGate(child: MainScreen()),
               );
             },
           );
@@ -183,11 +196,7 @@ class LiferApp extends StatelessWidget {
   }
 }
 
-ThemeData _buildLiferTheme(Brightness brightness) {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: const Color(0xFF6256D9),
-    brightness: brightness,
-  );
+ThemeData _buildSolasFlowTheme(ColorScheme scheme, Brightness brightness) {
   final base = ThemeData(
     colorScheme: scheme,
     useMaterial3: true,
@@ -218,19 +227,27 @@ ThemeData _buildLiferTheme(Brightness brightness) {
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         shape: const StadiumBorder(),
-        textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+        textStyle: textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.w800,
+        ),
       ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         elevation: 0,
         shape: const StadiumBorder(),
-        textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+        textStyle: textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.w800,
+        ),
       ),
     ),
     chipTheme: base.chipTheme.copyWith(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      labelStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+      ),
+      labelStyle: textTheme.labelLarge?.copyWith(
+        fontWeight: FontWeight.w700,
+      ),
       selectedColor: scheme.primaryContainer,
       secondarySelectedColor: scheme.primaryContainer,
       showCheckmark: false,
@@ -256,20 +273,24 @@ ThemeData _buildLiferTheme(Brightness brightness) {
     ),
     navigationBarTheme: NavigationBarThemeData(
       height: 78,
-      elevation: 0,
-      backgroundColor: const Color(0xFFFCFAFF),
-      indicatorColor: const Color(0xFFECE8FA),
+      elevation: 3,
+      shadowColor: scheme.shadow,
+      surfaceTintColor: scheme.surfaceTint,
+      backgroundColor: scheme.surface,
+      indicatorColor: scheme.secondaryContainer,
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
         return textTheme.labelMedium?.copyWith(
-          color: selected ? const Color(0xFF6750D8) : const Color(0xFF5D5B78),
+          color:
+              selected ? scheme.primary : scheme.onSurfaceVariant,
           fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
         );
       }),
       iconTheme: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
         return IconThemeData(
-          color: selected ? const Color(0xFF6750D8) : const Color(0xFF5D5B78),
+          color:
+              selected ? scheme.primary : scheme.onSurfaceVariant,
           size: selected ? 26 : 24,
         );
       }),
@@ -282,145 +303,6 @@ ThemeData _buildLiferTheme(Brightness brightness) {
       ),
     ),
   );
-}
-
-class ActivationGate extends StatefulWidget {
-  final Widget child;
-
-  const ActivationGate({super.key, required this.child});
-
-  @override
-  State<ActivationGate> createState() => _ActivationGateState();
-}
-
-class _ActivationGateState extends State<ActivationGate> {
-  final TextEditingController _codeController = TextEditingController();
-  bool _loading = true;
-  bool _unlocked = false;
-  bool _submitting = false;
-  String? _errorText;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_loadUnlockState());
-  }
-
-  @override
-  void dispose() {
-    _codeController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadUnlockState() async {
-    if (_ownerActivationCode.isEmpty) {
-      if (!mounted) return;
-      setState(() {
-        _unlocked = true;
-        _loading = false;
-      });
-      return;
-    }
-
-    final prefs = await SharedPreferences.getInstance();
-    final unlocked = prefs.getBool(_ownerActivationUnlockedKey) ?? false;
-
-    if (!mounted) return;
-    setState(() {
-      _unlocked = unlocked;
-      _loading = false;
-    });
-  }
-
-  Future<void> _submitCode() async {
-    if (_submitting) return;
-    final entered = _codeController.text.trim();
-
-    setState(() {
-      _submitting = true;
-      _errorText = null;
-    });
-
-    if (entered == _ownerActivationCode) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_ownerActivationUnlockedKey, true);
-      if (!mounted) return;
-      setState(() {
-        _unlocked = true;
-        _submitting = false;
-      });
-      return;
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _submitting = false;
-      _errorText = 'Invalid activation code.';
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    if (_unlocked) {
-      return widget.child;
-    }
-
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Activation Required',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Enter owner activation code to unlock this app on this device.',
-                    style: TextStyle(fontSize: 14),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _codeController,
-                    obscureText: true,
-                    enableSuggestions: false,
-                    autocorrect: false,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => unawaited(_submitCode()),
-                    decoration: InputDecoration(
-                      labelText: 'Activation code',
-                      errorText: _errorText,
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _submitting
-                          ? null
-                          : () => unawaited(_submitCode()),
-                      child: Text(_submitting ? 'Checking...' : 'Unlock App'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class MainScreen extends StatefulWidget {
@@ -454,8 +336,28 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   /// MethodChannel for receiving widget button actions from native Android
   static const MethodChannel _widgetChannel = MethodChannel(
-    'com.atherpulse.lifer/widget',
+    'com.atherpulse.solasflow/widget',
   );
+
+  /// MethodChannel for checking system permissions
+  static const MethodChannel _permissionsChannel = MethodChannel(
+    'com.atherpulse.solasflow/permissions',
+  );
+
+  /// Check if accessibility service is enabled for auto-start on reboot
+  Future<bool> checkAccessibilityEnabled() async {
+    try {
+      return await _permissionsChannel.invokeMethod('isAccessibilityEnabled') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> openAccessibilitySettings() async {
+    try {
+      await _permissionsChannel.invokeMethod('openAccessibilitySettings');
+    } catch (_) {}
+  }
 
   /// Plays ambient background sounds (rain, waterfall, fire, stream)
   /// Handles volume and audio session management
@@ -473,6 +375,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// Provides fallback to English if Malayalam unavailable
   final MalayalamTtsService _malayalamTtsService = MalayalamTtsService();
 
+  /// Singleton voice session manager for consistent language selection
+  final VoiceSessionManager _voiceSessionManager = VoiceSessionManager();
+
   /// Manages timer countdown logic: starts, pauses, resumes, calculates display
   /// Handles announcement timings based on user preferences
   final TimerService _timerService = TimerService();
@@ -486,7 +391,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   final ForegroundNotificationService _foregroundNotificationService =
       const ForegroundNotificationService(
         notificationIconMetaDataName:
-            'com.atherpulse.lifer.service.NOTIFICATION_ICON',
+            'com.atherpulse.solasflow.service.NOTIFICATION_ICON',
       );
 
   /// ============================================================================
@@ -800,7 +705,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   final List<double> volumeLists = [0.1, 0.2, 0.6, 0.8, 1.0];
 
   /// Quick preset timer values (in minutes) for rapid timer setup
-  final List<int> presetValues = [5, 10, 15, 20, 25, 30, 45, 60, 90, 120];
+  final List<int> presetValues = [
+    1, 2, 3, 5, 7,
+    10, 12, 15, 17, 20,
+    22, 25, 27, 30, 35,
+    40, 45, 50, 55, 60,
+    70, 75, 90, 100, 120,
+  ];
 
   /// Available clock announcement intervals (in minutes)
   final List<int> clockIntervalOptions = [1, 2, 5, 10, 15, 20, 30, 60];
@@ -858,8 +769,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (!_supportsForegroundTask) return;
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
-        channelId: 'speaktimer_fg',
-        channelName: 'Speak Timer',
+        channelId: 'solasflow_fg',
+        channelName: 'SolasFlow',
         channelDescription: 'Keeps timer alive in background',
         channelImportance: NotificationChannelImportance.LOW,
         priority: NotificationPriority.LOW,
@@ -1819,8 +1730,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Map<dynamic, dynamic>? getPreferredVoice() {
-    return _speechService.preferredVoice(
-      voices: voices,
+    return _voiceSessionManager.getPreferredVoice(
+      voiceResolver: () => _speechService.preferredVoice(
+        voices: voices,
+        voiceListMode: voiceListMode,
+        favoriteVoiceName: favoriteVoiceName,
+        favoriteVoiceLocale: favoriteVoiceLocale,
+      ),
       voiceListMode: voiceListMode,
       favoriteVoiceName: favoriteVoiceName,
       favoriteVoiceLocale: favoriteVoiceLocale,
@@ -1828,8 +1744,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   bool _isMalayalamActive(Map<dynamic, dynamic>? preferredVoice) {
-    return _malayalamTtsService.isMalayalamMode(
-      voiceListMode: voiceListMode,
+    return _voiceSessionManager.isMalayalamActive(
+      isMalayalamResolver: (voice) => _malayalamTtsService.isMalayalamMode(
+        voiceListMode: voiceListMode,
+        preferredVoice: voice,
+      ),
       preferredVoice: preferredVoice,
     );
   }
@@ -1926,7 +1845,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       speechQueue.clear();
       return;
     }
-    speechQueue.add(SpeechItem(text));
+    final pv = getPreferredVoice();
+    final useMalayalam = _isMalayalamActive(pv);
+    final language = useMalayalam ? 'ml' : 'en';
+    speechQueue.add(SpeechItem(text, language: language));
     drainQueue();
   }
 
@@ -2714,103 +2636,98 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     return SafeArea(
       child: ColoredBox(
         color: const Color(0xFFFEFBFF),
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            ClockPanel(
-              onExitApp: () => unawaited(_exitAppFully()),
-              onFullscreenPressed: () => _openFullscreenFocus(
-                specificMode: FullscreenFocusMode.clock,
-                forceHorizontal: true,
-              ),
-              onFullscreenImmersivePressed: () => _openFullscreenFocus(
-                specificMode: FullscreenFocusMode.clock,
-                forceHorizontal: true,
-                startImmersive: true,
-              ),
-              clockOn: clockOn,
-              currentTimeDisplay: currentTimeDisplay,
-              toggleClock: toggleClock,
-              clockIntervalMins: clockIntervalMins,
-              clockShowMilliseconds: clockShowMilliseconds,
-              clockSpeakTime: clockSpeakTime,
-              clockSpeakRepeatCount: clockSpeakRepeatCount,
-              clockNoiseOn: clockNoiseOn,
-              motivationOn: motivationOn,
-              motivationCategory: motivationCategory,
-              motivationDelaySeconds: motivationDelaySeconds,
-              clockIntervalOptions: clockIntervalOptions,
-              clockSpeakRepeatOptions: clockSpeakRepeatOptions,
-              motivationCategories: motivationCategories,
-              motivationDelayOptions: motivationDelayOptions,
-              clockShowSeconds: clockShowSeconds,
-              onClockIntervalChanged: (val) {
-                if (val == null) return;
-                setState(() {
-                  clockIntervalMins = val;
-                  _lsSave();
-                });
-                if (clockOn) startClock();
-              },
-              onClockShowMillisecondsChanged: (val) {
-                setState(() {
-                  clockShowMilliseconds = val ?? true;
-                  currentTimeDisplay = _formatCurrentTime(DateTime.now());
-                  _lsSave();
-                });
-              },
-              onClockShowSecondsChanged: (val) {
-                setState(() {
-                  clockShowSeconds = val ?? true;
-                  currentTimeDisplay = _formatCurrentTime(DateTime.now());
-                  _lsSave();
-                });
-              },
-              onClockSpeakTimeChanged: (val) {
-                setState(() {
-                  clockSpeakTime = val ?? true;
-                  _lsSave();
-                });
-                if (clockOn && clockSpeakTime) {
-                  speakClock(timeToWords());
-                }
-              },
-              onClockSpeakRepeatCountChanged: (val) {
-                if (val == null) return;
-                setState(() {
-                  clockSpeakRepeatCount = val.clamp(1, 3);
-                  _lsSave();
-                });
-              },
-              onClockNoiseOnChanged: (val) {
-                setState(() {
-                  clockNoiseOn = val ?? false;
-                  _lsSave();
-                });
-                _applyAudioSettings();
-              },
-              onMotivationChanged: (val) {
-                setState(() {
-                  motivationOn = val ?? true;
-                  _lsSave();
-                });
-              },
-              onMotivationCategoryChanged: (val) {
-                if (val == null) return;
-                setState(() {
-                  motivationCategory = val;
-                  _lsSave();
-                });
-              },
-              onMotivationDelayChanged: (val) {
-                if (val == null) return;
-                setState(() {
-                  motivationDelaySeconds = val;
-                  _lsSave();
-                });
-              },
-            ),
-          ],
+        child: ClockPanel(
+          onExitApp: () => unawaited(_exitAppFully()),
+          onFullscreenPressed: () => _openFullscreenFocus(
+            specificMode: FullscreenFocusMode.clock,
+            forceHorizontal: true,
+          ),
+          onFullscreenImmersivePressed: () => _openFullscreenFocus(
+            specificMode: FullscreenFocusMode.clock,
+            forceHorizontal: true,
+            startImmersive: true,
+          ),
+          clockOn: clockOn,
+          currentTimeDisplay: currentTimeDisplay,
+          toggleClock: toggleClock,
+          clockIntervalMins: clockIntervalMins,
+          clockShowMilliseconds: clockShowMilliseconds,
+          clockSpeakTime: clockSpeakTime,
+          clockSpeakRepeatCount: clockSpeakRepeatCount,
+          clockNoiseOn: clockNoiseOn,
+          motivationOn: motivationOn,
+          motivationCategory: motivationCategory,
+          motivationDelaySeconds: motivationDelaySeconds,
+          clockIntervalOptions: clockIntervalOptions,
+          clockSpeakRepeatOptions: clockSpeakRepeatOptions,
+          motivationCategories: motivationCategories,
+          motivationDelayOptions: motivationDelayOptions,
+          clockShowSeconds: clockShowSeconds,
+          onClockIntervalChanged: (val) {
+            if (val == null) return;
+            setState(() {
+              clockIntervalMins = val;
+              _lsSave();
+            });
+            if (clockOn) startClock();
+          },
+          onClockShowMillisecondsChanged: (val) {
+            setState(() {
+              clockShowMilliseconds = val ?? true;
+              currentTimeDisplay = _formatCurrentTime(DateTime.now());
+              _lsSave();
+            });
+          },
+          onClockShowSecondsChanged: (val) {
+            setState(() {
+              clockShowSeconds = val ?? true;
+              currentTimeDisplay = _formatCurrentTime(DateTime.now());
+              _lsSave();
+            });
+          },
+          onClockSpeakTimeChanged: (val) {
+            setState(() {
+              clockSpeakTime = val ?? true;
+              _lsSave();
+            });
+            if (clockOn && clockSpeakTime) {
+              speakClock(timeToWords());
+            }
+          },
+          onClockSpeakRepeatCountChanged: (val) {
+            if (val == null) return;
+            setState(() {
+              clockSpeakRepeatCount = val.clamp(1, 3);
+              _lsSave();
+            });
+          },
+          onClockNoiseOnChanged: (val) {
+            setState(() {
+              clockNoiseOn = val ?? false;
+              _lsSave();
+            });
+            _applyAudioSettings();
+          },
+          onMotivationChanged: (val) {
+            setState(() {
+              motivationOn = val ?? true;
+              _lsSave();
+            });
+          },
+          onMotivationCategoryChanged: (val) {
+            if (val == null) return;
+            setState(() {
+              motivationCategory = val;
+              _lsSave();
+            });
+          },
+          onMotivationDelayChanged: (val) {
+            if (val == null) return;
+            setState(() {
+              motivationDelaySeconds = val;
+              _lsSave();
+            });
+          },
         ),
       ),
     );
@@ -2902,6 +2819,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
   }
 
+  int _lapCount = 0;
+  List<String> _lapTimes = [];
+
+  void _recordLap() {
+    setState(() {
+      _lapCount++;
+      _lapTimes.insert(0, 'Lap $_lapCount  $stopwatchElapsedValue');
+    });
+  }
+
   Widget _buildStopwatchTab() {
     return SafeArea(
       child: ColoredBox(
@@ -2921,7 +2848,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           isRunning: stopwatchInterval != null,
           startStopwatch: startStopwatch,
           stopStopwatch: stopStopwatch,
-          resetStopwatch: resetStopwatch,
+          resetStopwatch: () {
+            resetStopwatch();
+            setState(() {
+              _lapCount = 0;
+              _lapTimes = [];
+            });
+          },
+          onLap: _recordLap,
+          lapCount: _lapCount,
+          lapTimes: _lapTimes,
           stopwatchSpeakOn: stopwatchSpeakOn,
           stopwatchShowMilliseconds: stopwatchShowMilliseconds,
           stopwatchSpeakDelaySeconds: stopwatchSpeakDelaySeconds,
@@ -2961,183 +2897,197 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     return SafeArea(
       child: ColoredBox(
         color: const Color(0xFFFEFBFF),
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            SettingsPanel(
-              soundChosen: soundChosen,
-              noiseVolume: noiseVolume,
-              speakVolume: speakVolume,
-              ttsMaxVolumeLockEnabled: ttsMaxVolumeLockEnabled,
-              ttsVolumeBoostEnabled: ttsVolumeBoostEnabled,
-              appFontSizeMultiplier: appFontSizeNotifier.value,
-              onAppFontSizeMultiplierChanged: (val) {
-                if (val != null) {
-                  setState(() {
-                    setAppFontSizeMultiplier(val);
-                    _lsSave();
-                  });
-                }
-              },
-              fullscreenDarkTheme: fullscreenDarkTheme,
-              fullscreenDimBrightness: fullscreenDimBrightness,
-              fullscreenStartLandscape: fullscreenStartLandscape,
-              muteSpeechAfterMidnight: muteSpeechAfterMidnight,
-              nightMuteMode: nightMuteMode,
-              sleepStartLabel: _formatMinutesAs12Hour(sleepStartMinutes),
-              sleepEndLabel: _formatMinutesAs12Hour(sleepEndMinutes),
-              soundList: soundList,
-              volumeLists: volumeLists,
-              isSpeechActive: isSpeechActive,
-              speechQueueLength: speechQueue.length,
-              voiceListMode: voiceListMode,
-              speechEngineMode: speechEngineMode,
-              speechEngineRuntime: _speechService.lastEngineUsed,
-              speechEngineRuntimeDetail: _speechService.lastEngineDetail,
-              voices: settingsVoices,
-              favoriteVoiceName: favoriteVoiceName,
-              favoriteVoiceLocale: favoriteVoiceLocale,
-              onSoundChanged: (val) {
-                setState(() {
-                  soundChosen = val!;
-                  _lsSave();
-                  _applyAudioSettings();
-                });
-              },
-              onNoiseVolumeChanged: (val) {
-                setState(() {
-                  noiseVolume = val!;
-                  _lsSave();
-                  _applyAudioSettings();
-                });
-              },
-              onSpeakVolumeChanged: (val) {
-                setState(() {
-                  speakVolume = val!;
-                  _lsSave();
-                });
-              },
-              onTtsMaxVolumeLockEnabledChanged: (val) {
-                setState(() {
-                  ttsMaxVolumeLockEnabled = val ?? false;
-                  _lsSave();
-                });
-              },
-              onTtsVolumeBoostEnabledChanged: (val) {
-                setState(() {
-                  ttsVolumeBoostEnabled = val ?? false;
-                  _lsSave();
-                });
-              },
-              onFullscreenDarkThemeChanged: (val) {
-                setState(() {
-                  fullscreenDarkTheme = val ?? true;
-                  _lsSave();
-                });
-              },
-              onFullscreenDimBrightnessChanged: (val) {
-                setState(() {
-                  fullscreenDimBrightness = val ?? false;
-                  _lsSave();
-                });
-              },
-              onFullscreenStartLandscapeChanged: (val) {
-                setState(() {
-                  fullscreenStartLandscape = val ?? false;
-                  _lsSave();
-                });
-              },
-              onMuteSpeechAfterMidnightChanged: (val) {
-                setState(() {
-                  muteSpeechAfterMidnight = val ?? false;
-                  if (!muteSpeechAfterMidnight) {
-                    autoNightMuteActive = false;
-                    _cancelNightIdleTimer();
-                    nightResumeSpeechTimer?.cancel();
-                  } else if (nightMuteMode == 'automatic') {
-                    _startNightIdleTimerIfNeeded();
-                  }
-                  if (_isSpeechMutedForSleep()) {
-                    speechQueue.clear();
-                  }
-                  _lsSave();
-                });
-              },
-              onNightMuteModeChanged: (val) {
-                if (val == null) return;
-                setState(() {
-                  nightMuteMode = val;
-                  if (nightMuteMode == 'manual') {
-                    autoNightMuteActive = false;
-                    _cancelNightIdleTimer();
-                    nightResumeSpeechTimer?.cancel();
-                  } else if (muteSpeechAfterMidnight) {
-                    autoNightMuteActive = false;
-                    _startNightIdleTimerIfNeeded();
-                  }
-                  if (_isSpeechMutedForSleep()) {
-                    speechQueue.clear();
-                  }
-                  _lsSave();
-                });
-              },
-              onPickSleepStart: () {
-                unawaited(_pickSleepStartTime());
-              },
-              onPickSleepEnd: () {
-                unawaited(_pickSleepEndTime());
-              },
-              onVoiceListModeChanged: (val) {
-                if (val == null) return;
-                setState(() {
-                  voiceListMode = _speechService.normalizeVoiceLanguageMode(
-                    val,
-                  );
+        child: SettingsPanel(
+          soundChosen: soundChosen,
+          noiseVolume: noiseVolume,
+          speakVolume: speakVolume,
+          ttsMaxVolumeLockEnabled: ttsMaxVolumeLockEnabled,
+          ttsVolumeBoostEnabled: ttsVolumeBoostEnabled,
+          appFontSizeMultiplier: appFontSizeNotifier.value,
+          onAppFontSizeMultiplierChanged: (val) {
+            if (val != null) {
+              setState(() {
+                setAppFontSizeMultiplier(val);
+                _lsSave();
+              });
+            }
+          },
+          fullscreenDarkTheme: fullscreenDarkTheme,
+          fullscreenDimBrightness: fullscreenDimBrightness,
+          fullscreenStartLandscape: fullscreenStartLandscape,
+          muteSpeechAfterMidnight: muteSpeechAfterMidnight,
+          nightMuteMode: nightMuteMode,
+          sleepStartLabel: _formatMinutesAs12Hour(sleepStartMinutes),
+          sleepEndLabel: _formatMinutesAs12Hour(sleepEndMinutes),
+          soundList: soundList,
+          volumeLists: volumeLists,
+          isSpeechActive: isSpeechActive,
+          speechQueueLength: speechQueue.length,
+          voiceListMode: voiceListMode,
+          speechEngineMode: speechEngineMode,
+          speechEngineRuntime: _speechService.lastEngineUsed,
+          speechEngineRuntimeDetail: _speechService.lastEngineDetail,
+          voices: settingsVoices,
+          favoriteVoiceName: favoriteVoiceName,
+          favoriteVoiceLocale: favoriteVoiceLocale,
+          onSoundChanged: (val) {
+            setState(() {
+              soundChosen = val!;
+              _lsSave();
+              _applyAudioSettings();
+            });
+          },
+          onNoiseVolumeChanged: (val) {
+            setState(() {
+              noiseVolume = val!;
+              _lsSave();
+              _applyAudioSettings();
+            });
+          },
+          onSpeakVolumeChanged: (val) {
+            setState(() {
+              speakVolume = val!;
+              _lsSave();
+            });
+          },
+          onTtsMaxVolumeLockEnabledChanged: (val) {
+            setState(() {
+              ttsMaxVolumeLockEnabled = val ?? false;
+              _lsSave();
+            });
+          },
+          onTtsVolumeBoostEnabledChanged: (val) {
+            setState(() {
+              ttsVolumeBoostEnabled = val ?? false;
+              _lsSave();
+            });
+          },
+          onFullscreenDarkThemeChanged: (val) {
+            setState(() {
+              fullscreenDarkTheme = val ?? true;
+              _lsSave();
+            });
+          },
+          onFullscreenDimBrightnessChanged: (val) {
+            setState(() {
+              fullscreenDimBrightness = val ?? false;
+              _lsSave();
+            });
+          },
+          onFullscreenStartLandscapeChanged: (val) {
+            setState(() {
+              fullscreenStartLandscape = val ?? false;
+              _lsSave();
+            });
+          },
+          onMuteSpeechAfterMidnightChanged: (val) {
+            setState(() {
+              muteSpeechAfterMidnight = val ?? false;
+              if (!muteSpeechAfterMidnight) {
+                autoNightMuteActive = false;
+                _cancelNightIdleTimer();
+                nightResumeSpeechTimer?.cancel();
+              } else if (nightMuteMode == 'automatic') {
+                _startNightIdleTimerIfNeeded();
+              }
+              if (_isSpeechMutedForSleep()) {
+                speechQueue.clear();
+              }
+              _lsSave();
+            });
+          },
+          onNightMuteModeChanged: (val) {
+            if (val == null) return;
+            setState(() {
+              nightMuteMode = val;
+              if (nightMuteMode == 'manual') {
+                autoNightMuteActive = false;
+                _cancelNightIdleTimer();
+                nightResumeSpeechTimer?.cancel();
+              } else if (muteSpeechAfterMidnight) {
+                autoNightMuteActive = false;
+                _startNightIdleTimerIfNeeded();
+              }
+              if (_isSpeechMutedForSleep()) {
+                speechQueue.clear();
+              }
+              _lsSave();
+            });
+          },
+          onPickSleepStart: () {
+            unawaited(_pickSleepStartTime());
+          },
+          onPickSleepEnd: () {
+            unawaited(_pickSleepEndTime());
+          },
+          onVoiceListModeChanged: (val) {
+            if (val == null) return;
+            // Reset voice session and clear speech queue on language change
+            _voiceSessionManager.resetSession();
+            speechQueue.clear();
+            unawaited(flutterTts.stop());
+            setState(() {
+              voiceListMode = _speechService.normalizeVoiceLanguageMode(
+                val,
+              );
 
-                  final available = _availableVoicesForSettings();
-                  final hasFavorite = available.any(
-                    (voice) =>
-                        voice['name']?.toString() == favoriteVoiceName &&
-                        voice['locale']?.toString() == favoriteVoiceLocale,
-                  );
-                  if (!hasFavorite) {
-                    favoriteVoiceName = null;
-                    favoriteVoiceLocale = null;
-                  }
-                  _lsSave();
-                });
-              },
-              onSpeechEngineModeChanged: (val) {
-                if (val == null) return;
-                setState(() {
-                  speechEngineMode = _speechService.normalizeSpeechEngineMode(
-                    val,
-                  );
-                  _lsSave();
-                });
-              },
-              onFavoriteVoiceChanged: (val) {
-                setState(() {
-                  if (val == null || val == '__auto__') {
-                    favoriteVoiceName = null;
-                    favoriteVoiceLocale = null;
-                  } else {
-                    final parts = val.split('|');
-                    if (parts.length == 2) {
-                      favoriteVoiceName = parts[0];
-                      favoriteVoiceLocale = parts[1];
-                    }
-                  }
-                  _lsSave();
-                });
-              },
-              onOpenHelp: () {
-                Navigator.of(
-                  context,
-                ).push(MaterialPageRoute(builder: (_) => _buildHelpTab()));
-              },
-            ),
-          ],
+              final available = _availableVoicesForSettings();
+              final hasFavorite = available.any(
+                (voice) =>
+                    voice['name']?.toString() == favoriteVoiceName &&
+                    voice['locale']?.toString() == favoriteVoiceLocale,
+              );
+              if (!hasFavorite) {
+                favoriteVoiceName = null;
+                favoriteVoiceLocale = null;
+              }
+              _lsSave();
+            });
+          },
+          onSpeechEngineModeChanged: (val) {
+            if (val == null) return;
+            setState(() {
+              speechEngineMode = _speechService.normalizeSpeechEngineMode(
+                val,
+              );
+              _lsSave();
+            });
+          },
+          onFavoriteVoiceChanged: (val) {
+            setState(() {
+              if (val == null || val == '__auto__') {
+                favoriteVoiceName = null;
+                favoriteVoiceLocale = null;
+              } else {
+                final parts = val.split('|');
+                if (parts.length == 2) {
+                  favoriteVoiceName = parts[0];
+                  favoriteVoiceLocale = parts[1];
+                }
+              }
+              _lsSave();
+            });
+          },
+          accessibilityEnabled: false, // will be set on init
+          onOpenAccessibility: () => unawaited(openAccessibilitySettings()),
+          onOpenGoals: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => Scaffold(
+                  appBar: AppBar(
+                    elevation: 0,
+                    title: const Text('Goals'),
+                  ),
+                  body: _buildGoalsTab(),
+                ),
+              ),
+            );
+          },
+          onOpenHelp: () {
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => _buildHelpTab()));
+          },
         ),
       ),
     );
@@ -3148,11 +3098,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final nextGoal = hasGoals
         ? goalReminderItems[goalReminderNextIndex % goalReminderItems.length]
         : null;
-    const surface = Color(0xFFFEFBFF);
-    const onSurface = Color(0xFF1C1B1F);
-    const onSurfaceVariant = Color(0xFF49454F);
-    const outline = Color(0xFFE6E0EA);
-    const primary = Color(0xFF3F55F6);
+    final cs = Theme.of(context).colorScheme;
+    final primary = cs.primary;
+    final outline = cs.outlineVariant;
+    final onSurfaceVariant = cs.onSurfaceVariant;
 
     String intervalLabel(int mins) {
       if (mins == 60) return 'Every 1 hour';
@@ -3164,7 +3113,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       await showModalBottomSheet<void>(
         context: context,
         showDragHandle: true,
-        backgroundColor: surface,
+        backgroundColor: cs.surfaceContainerLow,
         builder: (context) => SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
@@ -3172,10 +3121,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Reminder interval',
+                Text('Reminder interval',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: onSurface,
+                    color: cs.onSurface,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -3184,7 +3132,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   final selected = mins == goalReminderIntervalMins;
                   return ListTile(
                     selected: selected,
-                    selectedTileColor: const Color(0xFFEFF2FF),
+                    selectedTileColor: cs.primaryContainer.withAlpha(80),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -3221,11 +3169,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         visualDensity: VisualDensity.compact,
         tooltip: tooltip,
         onPressed: onPressed,
-        icon: Icon(icon, color: onSurface, size: 20),
+        icon: Icon(icon, color: cs.onSurface, size: 20),
       );
     }
 
-    Widget card({required Widget child, Color color = surface}) {
+    Widget card({required Widget child, Color? color}) {
       return DecoratedBox(
         decoration: BoxDecoration(
           color: color,
@@ -3255,8 +3203,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               ),
             )
           : OutlinedButton.styleFrom(
-              foregroundColor: onSurface,
-              side: const BorderSide(color: outline),
+              foregroundColor: cs.onSurface,
+              side: BorderSide(color: outline),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -3287,7 +3235,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       final isNext =
           hasGoals && index == goalReminderNextIndex % goalReminderItems.length;
       return DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: outline)),
         ),
         child: ListTile(
@@ -3297,17 +3245,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             color: isNext ? primary : onSurfaceVariant,
             size: 20,
           ),
-          title: Text(
-            goal,
-            style: const TextStyle(
-              color: onSurface,
+          title: Text(goal,
+            style: TextStyle(
+              color: cs.onSurface,
               fontSize: 14,
               fontWeight: FontWeight.w800,
             ),
           ),
           subtitle: Text(
             isNext ? 'Next reminder' : intervalLabel(goalReminderIntervalMins),
-            style: const TextStyle(
+            style: TextStyle(
               color: onSurfaceVariant,
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -3321,7 +3268,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 tooltip: 'Edit goal',
                 onPressed: () =>
                     unawaited(_showGoalInputDialog(editIndex: index)),
-                icon: const Icon(
+                icon: Icon(
                   Icons.edit_outlined,
                   color: onSurfaceVariant,
                   size: 18,
@@ -3331,7 +3278,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 visualDensity: VisualDensity.compact,
                 tooltip: 'Delete goal',
                 onPressed: () => _removeGoalAt(index),
-                icon: const Icon(
+                icon: Icon(
                   Icons.delete_outline_rounded,
                   color: onSurfaceVariant,
                   size: 18,
@@ -3345,7 +3292,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     return SafeArea(
       child: ColoredBox(
-        color: surface,
+        color: cs.surface,
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
@@ -3359,11 +3306,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     children: [
                       Row(
                         children: [
-                          const Expanded(
-                            child: Text(
-                              'Goals',
+                          Expanded(
+                            child: Text('Goals',
                               style: TextStyle(
-                                color: onSurface,
+                                color: cs.onSurface,
                                 fontSize: 18,
                                 height: 1,
                                 fontWeight: FontWeight.w800,
@@ -3384,7 +3330,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       ),
                       const SizedBox(height: 14),
                       card(
-                        color: const Color(0xFFFAF9FF),
+                        color: cs.surfaceContainerLow,
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Row(
@@ -3392,11 +3338,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               Container(
                                 width: 42,
                                 height: 42,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFEFF2FF),
+                                decoration: BoxDecoration(
+                                  color: cs.primaryContainer.withAlpha(80),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.flag_rounded,
                                   color: primary,
                                 ),
@@ -3406,10 +3352,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
-                                      "Today's Focus",
+                                    Text("Today's Focus",
                                       style: TextStyle(
-                                        color: onSurface,
+                                        color: cs.onSurface,
                                         fontSize: 15,
                                         fontWeight: FontWeight.w900,
                                       ),
@@ -3420,7 +3365,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                           'Add goals to hear focused reminders.',
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         color: onSurfaceVariant,
                                         fontSize: 12,
                                         fontWeight: FontWeight.w500,
@@ -3483,19 +3428,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               },
                               activeThumbColor: Colors.white,
                               activeTrackColor: primary,
-                              secondary: const Icon(
+                              secondary: Icon(
                                 Icons.notifications_active_outlined,
                                 color: primary,
                               ),
-                              title: const Text(
-                                'Goal reminders',
+                              title: Text('Goal reminders',
                                 style: TextStyle(
-                                  color: onSurface,
+                                  color: cs.onSurface,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
-                              subtitle: const Text(
+                              subtitle: Text(
                                 'Round-robin spoken reminders',
                                 style: TextStyle(
                                   color: onSurfaceVariant,
@@ -3504,14 +3448,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                               ),
                             ),
                             ListTile(
-                              leading: const Icon(
+                              leading: Icon(
                                 Icons.schedule_rounded,
                                 color: primary,
                               ),
-                              title: const Text(
-                                'Reminder interval',
+                              title: Text('Reminder interval',
                                 style: TextStyle(
-                                  color: onSurface,
+                                  color: cs.onSurface,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w800,
                                 ),
@@ -3521,7 +3464,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                 children: [
                                   Text(
                                     intervalLabel(goalReminderIntervalMins),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: onSurfaceVariant,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
@@ -3536,8 +3479,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      Text(
-                        'Goals',
+                      Text('Goals',
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           color: onSurfaceVariant,
                           fontWeight: FontWeight.w800,
@@ -3546,8 +3488,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       const SizedBox(height: 8),
                       if (!hasGoals)
                         card(
-                          child: const Padding(
-                            padding: EdgeInsets.all(16),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
                             child: Text(
                               'No goals yet. Add one goal or bulk add one per line.',
                               style: TextStyle(
@@ -3633,111 +3575,117 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return Scaffold(
-      appBar:
-          currentTabIndex == 1 ||
-              currentTabIndex == 0 ||
-              currentTabIndex == 2 ||
-              currentTabIndex == 3 ||
-              currentTabIndex == 4
-          ? null
-          : AppBar(
-              toolbarHeight: 64,
-              elevation: 0,
-              title: Text(
-                AppLocalizations.of(context)?.appTitle ?? 'Lifer',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  color: scheme.onSurface,
-                  fontWeight: FontWeight.w800,
+    return OrientationBuilder(
+      builder: (context, orientation) {
+        return Scaffold(
+          appBar:
+              currentTabIndex == 1 ||
+                  currentTabIndex == 0 ||
+                  currentTabIndex == 2 ||
+                  currentTabIndex == 3 ||
+                  currentTabIndex == 4
+              ? null
+              : AppBar(
+                  toolbarHeight: 64,
+                  elevation: 0,
+                  title: Text(
+                    AppLocalizations.of(context)?.appTitle ?? 'SolasFlow',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: scheme.onSurface,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  actions: [
+                    IconButton.filledTonal(
+                      onPressed: () => unawaited(_exitAppFully()),
+                      tooltip: 'Shutdown app',
+                      icon: const Icon(Icons.power_settings_new_rounded),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: _openFullscreenFocus,
+                      tooltip: 'Open Focus Fullscreen',
+                      icon: const Icon(Icons.fullscreen_rounded),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  centerTitle: true,
                 ),
-              ),
-              actions: [
-                IconButton.filledTonal(
-                  onPressed: () => unawaited(_exitAppFully()),
-                  tooltip: 'Shutdown app',
-                  icon: const Icon(Icons.power_settings_new_rounded),
+          body: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) {
+              final offsetAnim =
+                  Tween<Offset>(
+                    begin: const Offset(0, 0.03),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                    ),
+                  );
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: offsetAnim,
+                  child: child,
                 ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: _openFullscreenFocus,
-                  tooltip: 'Open Focus Fullscreen',
-                  icon: const Icon(Icons.fullscreen_rounded),
-                ),
-                const SizedBox(width: 12),
-              ],
-              centerTitle: true,
-            ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        transitionBuilder: (child, animation) {
-          final offsetAnim =
-              Tween<Offset>(
-                begin: const Offset(0, 0.03),
-                end: Offset.zero,
-              ).animate(
-                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
               );
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(position: offsetAnim, child: child),
-          );
-        },
-        child: KeyedSubtree(
-          key: ValueKey<int>(currentTabIndex),
-          child: currentTabIndex == 0
-              ? _buildSpeakClockTab()
-              : (currentTabIndex == 1
-                    ? _buildTimerSetupTab()
-                    : (currentTabIndex == 2
-                          ? _buildStopwatchTab()
-                          : (currentTabIndex == 3
-                                ? _buildGoalsTab()
-                                : _buildSettingsTab()))),
-        ),
-      ),
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          NavigationBar(
-            selectedIndex: currentTabIndex,
-            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-            onDestinationSelected: (index) {
-              setState(() {
-                currentTabIndex = index;
-              });
             },
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.access_time_outlined),
-                selectedIcon: Icon(Icons.access_time_rounded),
-                label: 'Clock',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.hourglass_empty_rounded),
-                selectedIcon: Icon(Icons.hourglass_full_rounded),
-                label: 'Timer',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.av_timer_outlined),
-                selectedIcon: Icon(Icons.av_timer_rounded),
-                label: 'Stopwatch',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.flag_outlined),
-                selectedIcon: Icon(Icons.flag_rounded),
-                label: 'Goals',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.settings_outlined),
-                selectedIcon: Icon(Icons.settings_rounded),
-                label: 'Settings',
-              ),
-            ],
+            child: KeyedSubtree(
+              key: ValueKey<int>(currentTabIndex),
+              child: currentTabIndex == 0
+                  ? _buildSpeakClockTab()
+                  : (currentTabIndex == 1
+                        ? _buildTimerSetupTab()
+                        : (currentTabIndex == 2
+                              ? _buildStopwatchTab()
+                              : _buildSettingsTab())),
+            ),
           ),
-        ],
-      ),
+          bottomNavigationBar: orientation == Orientation.portrait
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    NavigationBar(
+                      selectedIndex: currentTabIndex,
+                      labelBehavior:
+                          NavigationDestinationLabelBehavior.alwaysShow,
+                      onDestinationSelected: (index) {
+                        setState(() {
+                          currentTabIndex = index;
+                        });
+                      },
+                      destinations: const [
+                        NavigationDestination(
+                          icon: Icon(Icons.access_time_outlined),
+                          selectedIcon: Icon(Icons.access_time_rounded),
+                          label: 'Clock',
+                        ),
+                        NavigationDestination(
+                          icon: Icon(Icons.hourglass_empty_rounded),
+                          selectedIcon: Icon(Icons.hourglass_full_rounded),
+                          label: 'Timer',
+                        ),
+                        NavigationDestination(
+                          icon: Icon(Icons.av_timer_outlined),
+                          selectedIcon: Icon(Icons.av_timer_rounded),
+                          label: 'Stopwatch',
+                        ),
+                        NavigationDestination(
+                          icon: Icon(Icons.settings_outlined),
+                          selectedIcon: Icon(Icons.settings_rounded),
+                          label: 'Settings',
+                        ),
+                      ],
+                    ),
+                  ],
+                )
+              : null,
+        );
+      },
     );
   }
 }

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lifer/services/timer_service.dart';
+import 'package:solasflow/services/timer_service.dart';
 
 void main() {
   group('TimerService.tick', () {

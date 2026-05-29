@@ -1,19 +1,24 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <application
-        android:label="lifer"
+        android:label="SolasFlow"
         android:name="${applicationName}"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher">
 
         <meta-data
-            android:name="com.atherpulse.lifer.service.NOTIFICATION_ICON"
-            android:resource="@drawable/ic_stat_lifer" />
+            android:name="com.atherpulse.solasflow.service.NOTIFICATION_ICON"
+            android:resource="@drawable/ic_stat_solasflow" />
 
         <!-- flutter_foreground_task Android 14 requirements -->
         <service
@@ -52,7 +57,7 @@
         <receiver
             android:name=".TimerPresetsWidget"
             android:exported="true"
-            android:label="Lifer Timer Presets">
+            android:label="SolasFlow Timer Presets">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -65,7 +70,7 @@
         <receiver
             android:name=".SpeechControlsWidget"
             android:exported="true"
-            android:label="Lifer Speech Controls">
+            android:label="SolasFlow Speech Controls">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -73,6 +78,31 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/speech_controls_widget_info" />
         </receiver>
+
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <!-- Boot Completed Receiver -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Accessibility Service (placeholder for background launch exemption) -->
+        <service
+            android:name=".AutoStartAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
 
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

@@ -1,6 +1,6 @@
 {
-    "name": "lifer",
-    "short_name": "lifer",
+    "name": "solasflow",
+    "short_name": "solasflow",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

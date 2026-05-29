@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lifer/features/motivation/services/quote_rotation_service.dart';
+import 'package:solasflow/features/motivation/services/quote_rotation_service.dart';
 
 void main() {
   group('QuoteRotationService', () {

@@ -9,7 +9,7 @@ class AppLocalizationsMl extends AppLocalizations {
   AppLocalizationsMl([String locale = 'ml']) : super(locale);
 
   @override
-  String get appTitle => 'ലൈഫർ';
+  String get appTitle => 'സോളസ്ഫ്ലോ';
 
   @override
   String get helpTitle => 'സഹായം / വിവരങ്ങൾ';

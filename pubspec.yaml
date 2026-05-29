@@ -1,5 +1,5 @@
-name: lifer
-description: "A new Flutter project."
+name: solasflow
+description: "SolasFlow - A Productivity Timer & Meditation App"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 7.0.0+7
+version: 1.0.0+1
 
 environment:
   sdk: ^3.11.3
@@ -49,6 +49,7 @@ dependencies:
   quick_actions: ^1.0.8
   process_run: ^0.14.2
   url_launcher: ^6.3.2
+  dynamic_color: ^1.7.0
 
 dev_dependencies:
   flutter_test:
@@ -81,7 +82,7 @@ flutter:
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
-  # For details regarding adding assets from package dependencies, see
+  # For details regarding adding assets from dependency packages, see
   # https://flutter.dev/to/asset-from-package
 
   fonts:
@@ -91,5 +92,5 @@ flutter:
         - asset: assets/fonts/Roboto-Italic.ttf
           style: italic
 
-  # For details regarding fonts from package dependencies,
+  # For details regarding fonts from dependency packages,
   # see https://flutter.dev/to/font-from-package

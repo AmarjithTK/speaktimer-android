@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">lifer</string>
+    <string name="app_name">SolasFlow</string>
     <string name="timer_presets_widget_description">Quick-start timer presets widget</string>
     <string name="speech_controls_widget_description">Toggle speech announcements widget</string>
+    <string name="accessibility_service_description">Allows SolasFlow to automatically restart after device reboot.</string>
 </resources>

@@ -1,12 +1,5 @@
 import 'package:flutter/material.dart';
 
-const _surface = Color(0xFFFEFBFF);
-const _onSurface = Color(0xFF1C1B1F);
-const _onSurfaceVariant = Color(0xFF49454F);
-const _outline = Color(0xFFE6E0EA);
-const _primary = Color(0xFF3F55F6);
-const _softBlue = Color(0xFFEFF2FF);
-
 class ClockPanel extends StatelessWidget {
   final VoidCallback onFullscreenPressed;
   final VoidCallback onFullscreenImmersivePressed;
@@ -95,47 +88,52 @@ class ClockPanel extends StatelessWidget {
     required String Function(int) labelBuilder,
     required ValueChanged<int?> onSelected,
   }) async {
+    final cs = Theme.of(context).colorScheme;
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      backgroundColor: _surface,
-      builder: (context) => SafeArea(
+      backgroundColor: cs.surfaceContainerLow,
+      builder: (sheetContext) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: _onSurface,
-                  fontWeight: FontWeight.w800,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.65,
+            ),
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              ...values.map((value) {
-                final selected = value == selectedValue;
-                return ListTile(
-                  selected: selected,
-                  selectedTileColor: _softBlue,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  leading: Icon(
-                    selected
-                        ? Icons.radio_button_checked_rounded
-                        : Icons.radio_button_unchecked_rounded,
-                    color: selected ? _primary : _onSurfaceVariant,
-                  ),
-                  title: Text(labelBuilder(value)),
-                  onTap: () {
-                    onSelected(value);
-                    Navigator.of(context).pop();
-                  },
-                );
-              }),
-            ],
+                const SizedBox(height: 8),
+                ...values.map((value) {
+                  final selected = value == selectedValue;
+                  return ListTile(
+                    selected: selected,
+                    selectedTileColor: cs.primaryContainer.withAlpha(80),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    leading: Icon(
+                      selected
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      color: selected ? cs.primary : cs.onSurfaceVariant,
+                    ),
+                    title: Text(labelBuilder(value)),
+                    onTap: () {
+                      onSelected(value);
+                      Navigator.of(context).pop();
+                    },
+                  );
+                }),
+              ],
+            ),
           ),
         ),
       ),
@@ -149,11 +147,12 @@ class ClockPanel extends StatelessWidget {
     required String selectedValue,
     required ValueChanged<String?> onSelected,
   }) async {
+    final cs = Theme.of(context).colorScheme;
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      backgroundColor: _surface,
-      builder: (context) => SafeArea(
+      backgroundColor: cs.surfaceContainerLow,
+      builder: (sheetContext) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
           child: Column(
@@ -163,7 +162,7 @@ class ClockPanel extends StatelessWidget {
               Text(
                 title,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: _onSurface,
+                  color: cs.onSurface,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -172,7 +171,7 @@ class ClockPanel extends StatelessWidget {
                 final selected = value == selectedValue;
                 return ListTile(
                   selected: selected,
-                  selectedTileColor: _softBlue,
+                  selectedTileColor: cs.primaryContainer.withAlpha(80),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -180,7 +179,7 @@ class ClockPanel extends StatelessWidget {
                     selected
                         ? Icons.radio_button_checked_rounded
                         : Icons.radio_button_unchecked_rounded,
-                    color: selected ? _primary : _onSurfaceVariant,
+                    color: selected ? cs.primary : cs.onSurfaceVariant,
                   ),
                   title: Text(value),
                   onTap: () {
@@ -197,6 +196,7 @@ class ClockPanel extends StatelessWidget {
   }
 
   Widget _timeCard(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final display = _splitClockDisplay(currentTimeDisplay);
 
     return GestureDetector(
@@ -205,10 +205,10 @@ class ClockPanel extends StatelessWidget {
       onDoubleTap: onFullscreenImmersivePressed,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 42),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF5667FF), Color(0xFF3048E8)],
+          gradient: LinearGradient(
+            colors: [cs.primary, cs.primary.withAlpha(200)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -216,16 +216,16 @@ class ClockPanel extends StatelessWidget {
         ),
         child: Column(
           children: [
-            const Text(
+            Text(
               'CURRENT TIME',
               style: TextStyle(
-                color: Colors.white70,
-                fontSize: 11,
+                color: cs.onPrimary.withValues(alpha: 0.7),
+                fontSize: 12,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.4,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Row(
@@ -234,9 +234,9 @@ class ClockPanel extends StatelessWidget {
                 children: [
                   Text(
                     display.time,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 38,
+                    style: TextStyle(
+                      color: cs.onPrimary,
+                      fontSize: 48,
                       height: 1,
                       fontWeight: FontWeight.w800,
                       fontFeatures: [FontFeature.tabularFigures()],
@@ -247,9 +247,9 @@ class ClockPanel extends StatelessWidget {
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Text(
                         '.${display.fraction}',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 16,
+                        style: TextStyle(
+                          color: cs.onPrimary.withValues(alpha: 0.7),
+                          fontSize: 18,
                           fontWeight: FontWeight.w700,
                           fontFeatures: [FontFeature.tabularFigures()],
                         ),
@@ -260,9 +260,9 @@ class ClockPanel extends StatelessWidget {
                       padding: const EdgeInsets.only(left: 8, bottom: 5),
                       child: Text(
                         display.suffix!,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
+                        style: TextStyle(
+                          color: cs.onPrimary,
+                          fontSize: 18,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -270,11 +270,11 @@ class ClockPanel extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Text(
               'Tap for fullscreen',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.82),
+                color: cs.onPrimary.withValues(alpha: 0.82),
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -286,52 +286,61 @@ class ClockPanel extends StatelessWidget {
   }
 
   Widget _speakingRow() {
-    return _card(
-      child: SwitchListTile(
-        value: clockOn,
-        onChanged: (_) => toggleClock(),
-        activeThumbColor: Colors.white,
-        activeTrackColor: _primary,
-        secondary: Icon(
-          clockOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-          color: _primary,
-          size: 20,
-        ),
-        title: Text(
-          clockOn ? 'Speaking is ON' : 'Speaking is OFF',
-          style: const TextStyle(
-            color: _onSurface,
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
+    return Builder(
+      builder: (context) {
+        final cs = Theme.of(context).colorScheme;
+        return _card(
+          context,
+          child: SwitchListTile(
+            value: clockOn,
+            onChanged: (_) => toggleClock(),
+            activeThumbColor: cs.onPrimary,
+            activeTrackColor: cs.primary,
+            secondary: Icon(
+              clockOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+              color: cs.primary,
+              size: 20,
+            ),
+            title: Text(
+              clockOn ? 'Speaking is ON' : 'Speaking is OFF',
+              style: TextStyle(
+                color: cs.onSurface,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _card({required Widget child}) {
+  Widget _card(BuildContext context, {required Widget child}) {
+    final cs = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: _surface,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _outline),
+        border: Border.all(color: cs.outlineVariant),
       ),
       child: child,
     );
   }
 
-  Widget _optionRow({
+  Widget _optionRow(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required String value,
     required VoidCallback onTap,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return ListTile(
-      leading: Icon(icon, color: _primary, size: 20),
+      leading: Icon(icon, color: cs.primary, size: 20),
       title: Text(
         title,
-        style: const TextStyle(
-          color: _onSurface,
+        style: TextStyle(
+          color: cs.onSurface,
           fontSize: 13,
           fontWeight: FontWeight.w800,
         ),
@@ -341,16 +350,16 @@ class ClockPanel extends StatelessWidget {
         children: [
           Text(
             value,
-            style: const TextStyle(
-              color: _onSurfaceVariant,
+            style: TextStyle(
+              color: cs.onSurfaceVariant,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(width: 4),
-          const Icon(
+          Icon(
             Icons.keyboard_arrow_down_rounded,
-            color: _onSurfaceVariant,
+            color: cs.onSurfaceVariant,
           ),
         ],
       ),
@@ -358,22 +367,24 @@ class ClockPanel extends StatelessWidget {
     );
   }
 
-  Widget _switchRow({
+  Widget _switchRow(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required bool value,
     required ValueChanged<bool?> onChanged,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return SwitchListTile(
       value: value,
       onChanged: onChanged,
-      activeThumbColor: Colors.white,
-      activeTrackColor: _primary,
-      secondary: Icon(icon, color: _primary, size: 20),
+      activeThumbColor: cs.onPrimary,
+      activeTrackColor: cs.primary,
+      secondary: Icon(icon, color: cs.primary, size: 20),
       title: Text(
         title,
-        style: const TextStyle(
-          color: _onSurface,
+        style: TextStyle(
+          color: cs.onSurface,
           fontSize: 13,
           fontWeight: FontWeight.w800,
         ),
@@ -383,9 +394,11 @@ class ClockPanel extends StatelessWidget {
 
   Widget _settingsList(BuildContext context) {
     return _card(
+      context,
       child: Column(
         children: [
           _optionRow(
+            context,
             icon: Icons.schedule_rounded,
             title: 'Announcement interval',
             value: '$clockIntervalMins min',
@@ -399,24 +412,28 @@ class ClockPanel extends StatelessWidget {
             ),
           ),
           _switchRow(
+            context,
             icon: Icons.access_time_filled_rounded,
             title: 'Show seconds',
             value: clockShowSeconds,
             onChanged: onClockShowSecondsChanged,
           ),
           _switchRow(
+            context,
             icon: Icons.timer_rounded,
             title: 'Show milliseconds',
             value: clockShowMilliseconds,
             onChanged: onClockShowMillisecondsChanged,
           ),
           _switchRow(
+            context,
             icon: Icons.record_voice_over_rounded,
             title: 'Announce time',
             value: clockSpeakTime,
             onChanged: onClockSpeakTimeChanged,
           ),
           _optionRow(
+            context,
             icon: Icons.repeat_rounded,
             title: 'Repeat announcement',
             value:
@@ -431,12 +448,14 @@ class ClockPanel extends StatelessWidget {
             ),
           ),
           _switchRow(
+            context,
             icon: Icons.graphic_eq_rounded,
             title: 'Background sound',
             value: clockNoiseOn,
             onChanged: onClockNoiseOnChanged,
           ),
           _switchRow(
+            context,
             icon: Icons.format_quote_rounded,
             title: 'Motivational quotes',
             value: motivationOn,
@@ -444,6 +463,7 @@ class ClockPanel extends StatelessWidget {
           ),
           if (motivationOn) ...[
             _optionRow(
+              context,
               icon: Icons.category_rounded,
               title: 'Quote category',
               value: motivationCategory,
@@ -456,6 +476,7 @@ class ClockPanel extends StatelessWidget {
               ),
             ),
             _optionRow(
+              context,
               icon: Icons.timelapse_rounded,
               title: 'Motivation delay',
               value: '$motivationDelaySeconds sec',
@@ -474,75 +495,87 @@ class ClockPanel extends StatelessWidget {
     );
   }
 
-  Widget _topAction({
+  Widget _topAction(
+    BuildContext context, {
     required IconData icon,
     required String tooltip,
     required VoidCallback onPressed,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return IconButton(
       visualDensity: VisualDensity.compact,
       tooltip: tooltip,
       onPressed: onPressed,
-      icon: Icon(icon, color: _onSurface, size: 20),
+      icon: Icon(icon, color: cs.onSurface, size: 20),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: _surface,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 430),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+    final cs = Theme.of(context).colorScheme;
+    return OrientationBuilder(
+      builder: (context, orientation) {
+        final isLandscape = orientation == Orientation.landscape;
+        return ColoredBox(
+          color: cs.surface,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: isLandscape ? double.infinity : 430,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                child: ListView(
+                  padding: EdgeInsets.zero,
                   children: [
-                    const Expanded(
-                      child: Text(
-                        'Speaking Clock',
-                        style: TextStyle(
-                          color: _onSurface,
-                          fontSize: 18,
-                          height: 1,
-                          fontWeight: FontWeight.w800,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Speaking Clock',
+                            style: TextStyle(
+                              color: cs.onSurface,
+                              fontSize: 18,
+                              height: 1,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ),
+                        _topAction(
+                          context,
+                          icon: Icons.power_settings_new_rounded,
+                          tooltip: 'Shutdown app',
+                          onPressed: onExitApp,
+                        ),
+                        _topAction(
+                          context,
+                          icon: Icons.fullscreen_rounded,
+                          tooltip: 'Fullscreen',
+                          onPressed: onFullscreenPressed,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _timeCard(context),
+                    const SizedBox(height: 12),
+                    _speakingRow(),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Clock options',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    _topAction(
-                      icon: Icons.power_settings_new_rounded,
-                      tooltip: 'Shutdown app',
-                      onPressed: onExitApp,
-                    ),
-                    _topAction(
-                      icon: Icons.fullscreen_rounded,
-                      tooltip: 'Fullscreen',
-                      onPressed: onFullscreenPressed,
-                    ),
+                    const SizedBox(height: 8),
+                    _settingsList(context),
                   ],
                 ),
-                const SizedBox(height: 16),
-                _timeCard(context),
-                const SizedBox(height: 12),
-                _speakingRow(),
-                const SizedBox(height: 16),
-                Text(
-                  'Clock options',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: _onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _settingsList(context),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

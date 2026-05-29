@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lifer/core/pref_keys.dart';
-import 'package:lifer/models/app_settings.dart';
-import 'package:lifer/services/settings_service.dart';
+import 'package:solasflow/core/pref_keys.dart';
+import 'package:solasflow/models/app_settings.dart';
+import 'package:solasflow/services/settings_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

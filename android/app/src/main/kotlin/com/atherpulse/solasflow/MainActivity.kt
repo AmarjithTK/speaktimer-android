@@ -1,17 +1,19 @@
-package com.atherpulse.lifer
+package com.atherpulse.solasflow
 
 import android.content.Intent
 import android.content.Context
 import android.media.AudioManager
 import android.os.Bundle
+import android.provider.Settings
+import android.accessibilityservice.AccessibilityService
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
 
-    private val WIDGET_CHANNEL = "com.atherpulse.lifer/widget"
-    private val AUDIO_CHANNEL = "com.atherpulse.lifer/audio"
+    private val WIDGET_CHANNEL = "com.atherpulse.solasflow/widget"
+    private val AUDIO_CHANNEL = "com.atherpulse.solasflow/audio"
     private var methodChannel: MethodChannel? = null
     private var audioChannel: MethodChannel? = null
     private var pendingWidgetAction: String? = null
@@ -64,6 +66,31 @@ class MainActivity : FlutterActivity() {
 
                 else -> result.notImplemented()
             }
+        }
+
+        // Permissions channel: accessibility service check & settings
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.atherpulse.solasflow/permissions")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "isAccessibilityEnabled" -> {
+                        result.success(isAccessibilityServiceEnabled())
+                    }
+                    "openAccessibilitySettings" -> {
+                        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        result.success(true)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val enabledServices = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        return enabledServices.split(':').any { service ->
+            service.contains("com.atherpulse.solasflow/.AutoStartAccessibilityService")
         }
     }
 

@@ -8,7 +8,7 @@ import '../models/speech_item.dart';
 
 class SpeechService {
   static const MethodChannel _audioChannel = MethodChannel(
-    'com.atherpulse.lifer/audio',
+    'com.atherpulse.solasflow/audio',
   );
 
   Map<String, dynamic>? _sherpaManifestCache;
@@ -112,9 +112,9 @@ class SpeechService {
   String _linuxRuntimeBaseDir() {
     final home = Platform.environment['HOME'];
     if (home == null || home.isEmpty) {
-      return '${Directory.systemTemp.path}${Platform.pathSeparator}lifer_runtime';
+      return '${Directory.systemTemp.path}${Platform.pathSeparator}solasflow_runtime';
     }
-    return '$home${Platform.pathSeparator}.local${Platform.pathSeparator}share${Platform.pathSeparator}lifer_runtime';
+    return '$home${Platform.pathSeparator}.local${Platform.pathSeparator}share${Platform.pathSeparator}solasflow_runtime';
   }
 
   bool _fileExists(String path) => File(path).existsSync();
@@ -184,7 +184,7 @@ class SpeechService {
     final alreadyReady = mustHave.every(_fileExists);
     if (alreadyReady) return;
 
-    final tmpRoot = '${Directory.systemTemp.path}${Platform.pathSeparator}lifer_sherpa_bootstrap';
+    final tmpRoot = '${Directory.systemTemp.path}${Platform.pathSeparator}solasflow_sherpa_bootstrap';
     await Directory(tmpRoot).create(recursive: true);
 
     Future<String> downloadArchive(String name) async {
@@ -649,14 +649,13 @@ class SpeechService {
     final normalized = mode.trim().toLowerCase();
     switch (normalized) {
       case 'malayalam':
+        return 'malayalam';
       case 'english':
-      case 'auto':
-        return normalized;
       case 'all':
       case 'pleasant':
-        return 'english';
+      case 'auto':
       default:
-        return 'auto';
+        return 'english';
     }
   }
 

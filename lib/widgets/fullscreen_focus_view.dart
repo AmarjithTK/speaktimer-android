@@ -474,26 +474,29 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
 
   @override
   Widget build(BuildContext context) {
-    const lightBg = Color(0xFFFEFBFF);
-    const lightSurface = Color(0xFFF8F6FF);
-    const lightOnSurface = Color(0xFF10122D);
-    const lightVariant = Color(0xFF5A5872);
-    const lightOutline = Color(0xFFE6E0EA);
-    const darkBg = Color(0xFF11121A);
-    const darkSurface = Color(0xFF1D1B27);
-    const darkOnSurface = Color(0xFFF2EFFA);
-    const darkVariant = Color(0xFFC9C3D8);
-    const darkOutline = Color(0xFF3A3748);
-    const primary = Color(0xFF6750F6);
-
-    final bg = _darkTheme ? darkBg : lightBg;
-    final fg = _darkTheme ? darkOnSurface : lightOnSurface;
-    final variant = _darkTheme ? darkVariant : lightVariant;
-    final surface = _darkTheme ? darkSurface : lightSurface;
-    final outline = _darkTheme ? darkOutline : lightOutline;
-    final selectedBg = _darkTheme
-        ? const Color(0xFF2C2745)
-        : const Color(0xFFECE8FA);
+    final cs = Theme.of(context).colorScheme;
+    // Use the proper Monet dark scheme when _darkTheme is active
+    final Color bg, fg, variant, surface, outline, selectedBg;
+    if (_darkTheme) {
+      final darkScheme = ColorScheme.fromSeed(
+        seedColor: cs.primary,
+        brightness: Brightness.dark,
+      );
+      bg = darkScheme.surface;
+      fg = darkScheme.onSurface;
+      variant = darkScheme.onSurfaceVariant;
+      surface = darkScheme.surfaceContainerLow;
+      outline = darkScheme.outlineVariant;
+      selectedBg = darkScheme.secondaryContainer;
+    } else {
+      bg = cs.surface;
+      fg = cs.onSurface;
+      variant = cs.onSurfaceVariant;
+      surface = cs.surfaceContainerLow;
+      outline = cs.outlineVariant;
+      selectedBg = cs.secondaryContainer;
+    }
+    final primary = cs.primary;
 
     final showActionButtons =
         _mode == FullscreenFocusMode.timer ||

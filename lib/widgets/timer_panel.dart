@@ -2,13 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-const _surface = Color(0xFFFEFBFF);
-const _onSurface = Color(0xFF1C1B1F);
-const _onSurfaceVariant = Color(0xFF49454F);
-const _outline = Color(0xFFE6E0EA);
-const _primary = Color(0xFF3F55F6);
-const _primarySoft = Color(0xFFE7E9FF);
-
 class TimerPanel extends StatelessWidget {
   final String timerValue;
   final int sliderValue;
@@ -93,11 +86,12 @@ class TimerPanel extends StatelessWidget {
   }
 
   Future<void> _showChainPresetSheet(BuildContext context) async {
+    final cs = Theme.of(context).colorScheme;
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      backgroundColor: _surface,
-      builder: (context) {
+      backgroundColor: cs.surfaceContainerLow,
+      builder: (sheetContext) {
         final theme = Theme.of(context);
         return SafeArea(
           child: Padding(
@@ -109,7 +103,7 @@ class TimerPanel extends StatelessWidget {
                 Text(
                   'Chain preset',
                   style: theme.textTheme.titleLarge?.copyWith(
-                    color: _onSurface,
+                    color: cs.onSurface,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -121,12 +115,12 @@ class TimerPanel extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                     ),
                     selected: selected,
-                    selectedTileColor: _primarySoft,
+                    selectedTileColor: cs.primaryContainer.withAlpha(80),
                     leading: Icon(
                       selected
                           ? Icons.radio_button_checked_rounded
                           : Icons.radio_button_unchecked_rounded,
-                      color: selected ? _primary : _onSurfaceVariant,
+                      color: selected ? cs.primary : cs.onSurfaceVariant,
                     ),
                     title: Text(entry.key),
                     subtitle: Text('${entry.value.join(' / ')} min'),
@@ -145,51 +139,54 @@ class TimerPanel extends StatelessWidget {
   }
 
   Future<void> _showTimerAnnounceSheet(BuildContext context) async {
+    final cs = Theme.of(context).colorScheme;
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      backgroundColor: _surface,
-      builder: (context) {
+      backgroundColor: cs.surfaceContainerLow,
+      builder: (sheetContext) {
         final theme = Theme.of(context);
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Announcement interval',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    color: _onSurface,
-                    fontWeight: FontWeight.w800,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.65,
+              ),
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  Text(
+                    'Announcement interval',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                ...timerAnnounceOptions.map((mins) {
-                  final selected = mins == timerAnnounceEvery;
-                  return ListTile(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    selected: selected,
-                    selectedTileColor: _primarySoft,
-                    leading: Icon(
-                      selected
-                          ? Icons.radio_button_checked_rounded
-                          : Icons.radio_button_unchecked_rounded,
-                      color: selected ? _primary : _onSurfaceVariant,
-                    ),
-                    title: Text('Announce every $mins min'),
-                    onTap: timerSpeakOn
-                        ? () {
-                            onTimerAnnounceEveryChanged(mins);
-                            Navigator.of(context).pop();
-                          }
-                        : null,
-                  );
-                }),
-              ],
+                  const SizedBox(height: 8),
+                  ...timerAnnounceOptions.map((mins) {
+                    final selected = mins == timerAnnounceEvery;
+                    return ListTile(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      selected: selected,
+                      selectedTileColor: cs.primaryContainer.withAlpha(80),
+                      leading: Icon(
+                        selected
+                            ? Icons.radio_button_checked_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        color: selected ? cs.primary : cs.onSurfaceVariant,
+                      ),
+                      title: Text('Announce every $mins min'),
+                      onTap: () {
+                        onTimerAnnounceEveryChanged(mins);
+                        Navigator.of(context).pop();
+                      },
+                    );
+                  }),
+                ],
+              ),
             ),
           ),
         );
@@ -197,46 +194,50 @@ class TimerPanel extends StatelessWidget {
     );
   }
 
-  Widget _settingsCard({required List<Widget> children}) {
+  Widget _settingsCard(BuildContext context, {required List<Widget> children}) {
+    final cs = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: _surface,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _outline),
+        border: Border.all(color: cs.outlineVariant),
       ),
       child: Column(children: children),
     );
   }
 
-  Widget _switchRow({
+  Widget _switchRow(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required String subtitle,
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return SwitchListTile(
       value: value,
       onChanged: onChanged,
-      activeThumbColor: Colors.white,
-      activeTrackColor: _primary,
-      secondary: Icon(icon, color: _primary, size: 20),
+      activeThumbColor: cs.onPrimary,
+      activeTrackColor: cs.primary,
+      secondary: Icon(icon, color: cs.primary, size: 20),
       title: Text(
         title,
-        style: const TextStyle(
-          color: _onSurface,
+        style: TextStyle(
+          color: cs.onSurface,
           fontSize: 14,
           fontWeight: FontWeight.w700,
         ),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(color: _onSurfaceVariant, fontSize: 12),
+        style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
       ),
     );
   }
 
   Widget _timerCircle(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final timerParts = _splitTimer(timerValue);
     final minutes = timerParts.$1;
     final seconds = timerParts.$2;
@@ -256,7 +257,11 @@ class TimerPanel extends StatelessWidget {
             child: SizedBox.square(
               dimension: diameter,
               child: CustomPaint(
-                painter: _TimerRingPainter(progress: progress),
+                painter: _TimerRingPainter(
+                  progress: progress,
+                  primary: cs.primary,
+                  trackColor: cs.primaryContainer.withAlpha(100),
+                ),
                 child: Padding(
                   padding: EdgeInsets.all(diameter * 0.16),
                   child: Column(
@@ -265,13 +270,13 @@ class TimerPanel extends StatelessWidget {
                       Container(
                         width: 42 * scale,
                         height: 42 * scale,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFF1EFFF),
+                        decoration: BoxDecoration(
+                          color: cs.primaryContainer.withAlpha(120),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           Icons.hourglass_empty_rounded,
-                          color: _primary,
+                          color: cs.primary,
                           size: 24 * scale,
                         ),
                       ),
@@ -279,7 +284,7 @@ class TimerPanel extends StatelessWidget {
                       Text(
                         'Remaining time',
                         style: TextStyle(
-                          color: _onSurfaceVariant,
+                          color: cs.onSurfaceVariant,
                           fontSize: 12 * scale,
                           fontWeight: FontWeight.w700,
                         ),
@@ -291,9 +296,11 @@ class TimerPanel extends StatelessWidget {
                           child: RichText(
                             textAlign: TextAlign.center,
                             text: TextSpan(
-                              style: const TextStyle(
-                                color: _onSurface,
-                                fontFeatures: [FontFeature.tabularFigures()],
+                              style: TextStyle(
+                                color: cs.onSurface,
+                                fontFeatures: [
+                                  FontFeature.tabularFigures(),
+                                ],
                               ),
                               children: [
                                 TextSpan(
@@ -324,7 +331,7 @@ class TimerPanel extends StatelessWidget {
                                   TextSpan(
                                     text: '.$millis',
                                     style: TextStyle(
-                                      color: _onSurfaceVariant,
+                                      color: cs.onSurfaceVariant,
                                       fontSize: 20 * scale,
                                       height: 0.95,
                                       fontWeight: FontWeight.w700,
@@ -341,7 +348,7 @@ class TimerPanel extends StatelessWidget {
                         children: [
                           Icon(
                             Icons.search_rounded,
-                            color: _onSurfaceVariant,
+                            color: cs.onSurfaceVariant,
                             size: 14 * scale,
                           ),
                           SizedBox(width: 6 * scale),
@@ -350,7 +357,7 @@ class TimerPanel extends StatelessWidget {
                               _endLabel(context),
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: _onSurfaceVariant,
+                                color: cs.onSurfaceVariant,
                                 fontSize: 11 * scale,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -369,7 +376,8 @@ class TimerPanel extends StatelessWidget {
     );
   }
 
-  Widget _actions() {
+  Widget _actions(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final primaryIcon = isRunning
         ? Icons.pause_rounded
         : Icons.play_arrow_rounded;
@@ -385,8 +393,8 @@ class TimerPanel extends StatelessWidget {
             icon: Icon(primaryIcon, size: 18),
             label: Text(primaryLabel),
             style: FilledButton.styleFrom(
-              backgroundColor: _primary,
-              foregroundColor: Colors.white,
+              backgroundColor: cs.primary,
+              foregroundColor: cs.onPrimary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -408,8 +416,8 @@ class TimerPanel extends StatelessWidget {
                   icon: const Icon(Icons.stop_rounded, size: 16),
                   label: const Text('Stop'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: _onSurface,
-                    side: const BorderSide(color: _outline),
+                    foregroundColor: cs.onSurface,
+                    side: BorderSide(color: cs.outlineVariant),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -430,8 +438,8 @@ class TimerPanel extends StatelessWidget {
                   icon: const Icon(Icons.refresh_rounded, size: 16),
                   label: const Text('Reset'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: _onSurface,
-                    side: const BorderSide(color: _outline),
+                    foregroundColor: cs.onSurface,
+                    side: BorderSide(color: cs.outlineVariant),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -449,13 +457,13 @@ class TimerPanel extends StatelessWidget {
     );
   }
 
-  Widget _presetChip(int preset) {
+  Widget _presetChip(BuildContext context, int preset) {
+    final cs = Theme.of(context).colorScheme;
     final selected = preset == sliderValue;
-    return SizedBox(
-      width: 40,
-      height: 46,
+    return AspectRatio(
+      aspectRatio: 1.0,
       child: Material(
-        color: selected ? _primary : _surface,
+        color: selected ? cs.primary : cs.surface,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
@@ -463,7 +471,7 @@ class TimerPanel extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
-              border: selected ? null : Border.all(color: _outline),
+              border: selected ? null : Border.all(color: cs.outlineVariant, width: 0.5),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -471,18 +479,18 @@ class TimerPanel extends StatelessWidget {
                 Text(
                   '$preset',
                   style: TextStyle(
-                    color: selected ? Colors.white : _onSurface,
-                    fontSize: 13,
+                    color: selected ? cs.onPrimary : cs.onSurface,
+                    fontSize: 12,
                     height: 1,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 1),
                 Text(
                   'min',
                   style: TextStyle(
-                    color: selected ? Colors.white : _onSurfaceVariant,
-                    fontSize: 10,
+                    color: selected ? cs.onPrimary : cs.onSurfaceVariant,
+                    fontSize: 8,
                     height: 1,
                     fontWeight: FontWeight.w600,
                   ),
@@ -495,64 +503,62 @@ class TimerPanel extends StatelessWidget {
     );
   }
 
-  Widget _quickPresets() {
-    final visiblePresets = presetValues
-        .where((value) => const {5, 10, 15, 25, 45, 90, 120}.contains(value))
-        .toList();
+  Widget _quickPresets(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Quick presets',
           style: TextStyle(
-            color: _onSurface,
+            color: cs.onSurface,
             fontSize: 13,
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 8),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          clipBehavior: Clip.none,
-          child: Row(
-            children: [
-              for (final preset in visiblePresets) ...[
-                _presetChip(preset),
-                const SizedBox(width: 6),
-              ],
-            ],
-          ),
+        const SizedBox(height: 6),
+        GridView.count(
+          crossAxisCount: 5,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 4,
+          crossAxisSpacing: 4,
+          childAspectRatio: 1.0,
+          children: presetValues.map((p) => _presetChip(context, p)).toList(),
         ),
       ],
     );
   }
 
-  Widget _sectionTitle(String title) {
+  Widget _sectionTitle(BuildContext context, String title) {
+    final cs = Theme.of(context).colorScheme;
     return Text(
       title,
-      style: const TextStyle(
-        color: _onSurface,
+      style: TextStyle(
+        color: cs.onSurface,
         fontSize: 13,
         fontWeight: FontWeight.w800,
       ),
     );
   }
 
-  Widget _optionRow({
+  Widget _optionRow(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required String value,
     required VoidCallback? onTap,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return ListTile(
       enabled: onTap != null,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      leading: Icon(icon, color: _primary, size: 20),
+      leading: Icon(icon, color: cs.primary, size: 20),
       title: Text(
         title,
-        style: const TextStyle(
-          color: _onSurface,
+        style: TextStyle(
+          color: cs.onSurface,
           fontSize: 13,
           fontWeight: FontWeight.w800,
         ),
@@ -564,8 +570,8 @@ class TimerPanel extends StatelessWidget {
             value,
             style: TextStyle(
               color: onTap == null
-                  ? _onSurfaceVariant.withValues(alpha: 0.55)
-                  : _onSurfaceVariant,
+                  ? cs.onSurfaceVariant.withValues(alpha: 0.55)
+                  : cs.onSurfaceVariant,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -574,8 +580,8 @@ class TimerPanel extends StatelessWidget {
           Icon(
             Icons.keyboard_arrow_down_rounded,
             color: onTap == null
-                ? _onSurfaceVariant.withValues(alpha: 0.55)
-                : _onSurfaceVariant,
+                ? cs.onSurfaceVariant.withValues(alpha: 0.55)
+                : cs.onSurfaceVariant,
           ),
         ],
       ),
@@ -583,22 +589,28 @@ class TimerPanel extends StatelessWidget {
     );
   }
 
-  Widget _durationSection() {
+  Widget _durationSection(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final durationChips = [1, 3, 5, 10, 15, 25, 30, 45, 60, 90, 120];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionTitle('Duration'),
+        _sectionTitle(context, 'Duration'),
         const SizedBox(height: 8),
         _settingsCard(
+          context,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
               child: Row(
                 children: [
-                  const Text(
+                  Icon(Icons.timer_outlined, color: cs.primary, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
                     'Custom duration',
                     style: TextStyle(
-                      color: _onSurface,
+                      color: cs.onSurface,
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                     ),
@@ -606,28 +618,53 @@ class TimerPanel extends StatelessWidget {
                   const Spacer(),
                   Text(
                     '$sliderValue min',
-                    style: const TextStyle(
-                      color: _primary,
-                      fontSize: 13,
+                    style: TextStyle(
+                      color: cs.primary,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ],
               ),
             ),
-            Slider(
-              value: sliderValue.toDouble(),
-              min: 1,
-              max: 120,
-              divisions: 119,
-              label: '$sliderValue min',
-              onChanged: onSliderChanged,
+            // Chip row for quick duration selection
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: durationChips.map((mins) {
+                  final selected = mins == sliderValue;
+                  return ChoiceChip(
+                    label: Text('$mins'),
+                    selected: selected,
+                    onSelected: (_) => onSliderChanged(mins.toDouble()),
+                    selectedColor: cs.primaryContainer,
+                    labelStyle: TextStyle(
+                      color: selected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    side: BorderSide(
+                      color: selected ? cs.primary : cs.outlineVariant,
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
+            const SizedBox(height: 8),
+            // Removed the old Slider, keeping voice count
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
               child: Text(
                 '$voicesCount voice${voicesCount == 1 ? '' : 's'} loaded',
-                style: const TextStyle(color: _onSurfaceVariant, fontSize: 11),
+                style: TextStyle(
+                  color: cs.onSurfaceVariant,
+                  fontSize: 11,
+                ),
               ),
             ),
           ],
@@ -637,16 +674,19 @@ class TimerPanel extends StatelessWidget {
   }
 
   Widget _advancedOptions(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final stepCount = chainPresets[chainPresetKey]?.length ?? 1;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionTitle('Advanced'),
+        _sectionTitle(context, 'Advanced'),
         const SizedBox(height: 8),
         _settingsCard(
+          context,
           children: [
             _switchRow(
+              context,
               icon: Icons.graphic_eq_rounded,
               title: 'Background noise',
               subtitle: 'Play ambient sound during timer',
@@ -654,6 +694,7 @@ class TimerPanel extends StatelessWidget {
               onChanged: (value) => onTimerNoiseOnChanged(value),
             ),
             _switchRow(
+              context,
               icon: Icons.record_voice_over_rounded,
               title: 'Speak remaining time',
               subtitle: 'Announce progress while focusing',
@@ -661,6 +702,7 @@ class TimerPanel extends StatelessWidget {
               onChanged: (value) => onTimerSpeakOnChanged(value),
             ),
             _switchRow(
+              context,
               icon: Icons.timer_rounded,
               title: 'Show milliseconds',
               subtitle: 'Use a precise timer display',
@@ -671,21 +713,24 @@ class TimerPanel extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         _settingsCard(
+          context,
           children: [
             _optionRow(
+              context,
               icon: Icons.schedule_rounded,
               title: 'Announcement interval',
               value: '$timerAnnounceEvery min',
-              onTap: timerSpeakOn
-                  ? () => _showTimerAnnounceSheet(context)
-                  : null,
+              // Always allow opening regardless of timerSpeakOn state
+              onTap: () => _showTimerAnnounceSheet(context),
             ),
           ],
         ),
         const SizedBox(height: 10),
         _settingsCard(
+          context,
           children: [
             _switchRow(
+              context,
               icon: Icons.repeat_rounded,
               title: 'Chain timers',
               subtitle: chainModeOn
@@ -697,23 +742,23 @@ class TimerPanel extends StatelessWidget {
             if (chainModeOn)
               ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                leading: const Icon(
+                leading: Icon(
                   Icons.low_priority_rounded,
-                  color: _primary,
+                  color: cs.primary,
                   size: 20,
                 ),
-                title: const Text(
+                title: Text(
                   'Chain preset',
                   style: TextStyle(
-                    color: _onSurface,
+                    color: cs.onSurface,
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 subtitle: Text(
                   chainPresetKey,
-                  style: const TextStyle(
-                    color: _onSurfaceVariant,
+                  style: TextStyle(
+                    color: cs.onSurfaceVariant,
                     fontSize: 12,
                   ),
                 ),
@@ -726,126 +771,183 @@ class TimerPanel extends StatelessWidget {
     );
   }
 
-  Widget _topAction({
+  Widget _topAction(
+    BuildContext context, {
     required IconData icon,
     required String tooltip,
     required VoidCallback onPressed,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return IconButton(
       visualDensity: VisualDensity.compact,
       tooltip: tooltip,
       onPressed: onPressed,
-      icon: Icon(icon, color: _onSurface, size: 20),
+      icon: Icon(icon, color: cs.onSurface, size: 20),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: _surface,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: 430,
-                maxHeight: constraints.maxHeight,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                child: ListView(
-                  padding: EdgeInsets.zero,
-                  children: [
-                    Row(
+    final cs = Theme.of(context).colorScheme;
+    return OrientationBuilder(
+      builder: (context, orientation) {
+        final isLandscape = orientation == Orientation.landscape;
+        return ColoredBox(
+          color: cs.surface,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: isLandscape ? double.infinity : 430,
+                    maxHeight: constraints.maxHeight,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                    child: ListView(
+                      padding: EdgeInsets.zero,
                       children: [
-                        const Expanded(
-                          child: Text(
-                            'Timer',
-                            style: TextStyle(
-                              color: _onSurface,
-                              fontSize: 18,
-                              height: 1,
-                              fontWeight: FontWeight.w800,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Timer',
+                                style: TextStyle(
+                                  color: cs.onSurface,
+                                  fontSize: 18,
+                                  height: 1,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
                             ),
-                          ),
+                            _topAction(
+                              context,
+                              icon: Icons.power_settings_new_rounded,
+                              tooltip: 'Shutdown app',
+                              onPressed: onExitApp,
+                            ),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              tooltip: 'Fullscreen',
+                              onPressed: onFullscreenPressed,
+                              icon: Icon(
+                                Icons.fullscreen_rounded,
+                                color: cs.onSurface,
+                                size: 20,
+                              ),
+                            ),
+                          ],
                         ),
-                        _topAction(
-                          icon: Icons.power_settings_new_rounded,
-                          tooltip: 'Shutdown app',
-                          onPressed: onExitApp,
-                        ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          tooltip: 'Fullscreen',
-                          onPressed: onFullscreenPressed,
-                          icon: const Icon(
-                            Icons.fullscreen_rounded,
-                            color: _onSurface,
-                            size: 20,
-                          ),
-                        ),
+                        const SizedBox(height: 8),
+                        _timerCircle(context),
+                        const SizedBox(height: 14),
+                        _actions(context),
+                        const SizedBox(height: 16),
+                        _quickPresets(context),
+                        const SizedBox(height: 14),
+                        _durationSection(context),
+                        const SizedBox(height: 14),
+                        _advancedOptions(context),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    _timerCircle(context),
-                    const SizedBox(height: 14),
-                    _actions(),
-                    const SizedBox(height: 16),
-                    _quickPresets(),
-                    const SizedBox(height: 14),
-                    _durationSection(),
-                    const SizedBox(height: 14),
-                    _advancedOptions(context),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
 
 class _TimerRingPainter extends CustomPainter {
   final double progress;
+  final Color primary;
+  final Color trackColor;
 
-  const _TimerRingPainter({required this.progress});
+  const _TimerRingPainter({
+    required this.progress,
+    required this.primary,
+    required this.trackColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final strokeWidth = math.max(size.width * 0.024, 6.0);
-    final rect =
-        Offset(strokeWidth / 2, strokeWidth / 2) &
-        Size(size.width - strokeWidth, size.height - strokeWidth);
-    final trackPaint = Paint()
-      ..color = const Color(0xFFDAD7F8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-    final progressPaint = Paint()
-      ..color = _primary
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
+    final strokeWidth = math.max(size.width * 0.028, 7.0);
+    final halfStroke = strokeWidth / 2;
+    final rect = Rect.fromLTWH(
+      halfStroke,
+      halfStroke,
+      size.width - strokeWidth,
+      size.height - strokeWidth,
+    );
 
+    // Outer shadow ring
+    final shadowPaint = Paint()
+      ..color = primary.withAlpha(25)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth + 4;
+    canvas.drawArc(rect, 0, math.pi * 2, false, shadowPaint);
+
+    // Track ring
+    final trackPaint = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
     canvas.drawArc(rect, 0, math.pi * 2, false, trackPaint);
+
     if (progress > 0) {
+      // Progress arc with gradient effect
       final sweep = math.pi * 2 * progress;
+      final progressPaint = Paint()
+        ..shader = SweepGradient(
+          center: Alignment.center,
+          startAngle: -math.pi / 2,
+          endAngle: -math.pi / 2 + sweep,
+          colors: [
+            primary.withAlpha(180),
+            primary,
+            primary.withAlpha(230),
+          ],
+        ).createShader(rect)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round;
       canvas.drawArc(rect, -math.pi / 2, sweep, false, progressPaint);
+
+      // Knob glow
       final angle = -math.pi / 2 + sweep;
       final radius = rect.width / 2;
       final center = rect.center;
-      final knob = Offset(
+      final knobPos = Offset(
         center.dx + math.cos(angle) * radius,
         center.dy + math.sin(angle) * radius,
       );
-      canvas.drawCircle(knob, strokeWidth * 0.9, Paint()..color = _primary);
+      final glowPaint = Paint()
+        ..color = primary.withAlpha(40)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+      canvas.drawCircle(knobPos, strokeWidth * 1.5, glowPaint);
+
+      // Knob
+      canvas.drawCircle(knobPos, strokeWidth * 0.9, Paint()..color = primary);
+
+      // Knob highlight
+      final highlightPaint = Paint()
+        ..color = Colors.white.withAlpha(100);
+      canvas.drawCircle(
+        Offset(knobPos.dx - strokeWidth * 0.2, knobPos.dy - strokeWidth * 0.2),
+        strokeWidth * 0.3,
+        highlightPaint,
+      );
     }
   }
 
   @override
   bool shouldRepaint(covariant _TimerRingPainter oldDelegate) {
-    return oldDelegate.progress != progress;
+    return oldDelegate.progress != progress ||
+        oldDelegate.primary != primary;
   }
 }

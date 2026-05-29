@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace "com.atherpulse.lifer"
+    namespace "com.atherpulse.solasflow"
     compileSdk flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.atherpulse.lifer"
+        applicationId "com.atherpulse.solasflow"
         minSdk flutter.minSdkVersion
         targetSdk flutter.targetSdkVersion
         versionCode flutter.versionCode
