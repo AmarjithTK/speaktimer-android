@@ -45,3 +45,9 @@ app.*.map.json
 /android/app/release
 
 !lib
+
+# Signing keystores (NEVER commit these)
+*.jks
+*.keystore
+keystore.properties
+key.properties
