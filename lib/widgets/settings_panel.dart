@@ -335,11 +335,11 @@ class SettingsPanel extends StatelessWidget {
 
   Widget _card(BuildContext context, List<Widget> children) {
     final cs = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: cs.surface,
+    return Material(
+      color: cs.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outlineVariant),
+        side: BorderSide(color: cs.outlineVariant),
       ),
       child: Column(children: children),
     );
@@ -786,8 +786,12 @@ class SettingsPanel extends StatelessWidget {
                         _sectionTitle(context, 'Auto-start'),
                         _card(context, [
                           SwitchListTile(
-                            value: accessibilityEnabled,
-                            onChanged: (val) => onOpenAccessibility?.call(),
+                              value: accessibilityEnabled,
+                              onChanged: (val) {
+                                if (!accessibilityEnabled) {
+                                  onOpenAccessibility?.call();
+                                }
+                              },
                             activeThumbColor: cs.onPrimary,
                             activeTrackColor: cs.primary,
                             secondary: Icon(

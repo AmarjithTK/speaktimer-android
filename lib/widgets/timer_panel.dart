@@ -196,11 +196,11 @@ class TimerPanel extends StatelessWidget {
 
   Widget _settingsCard(BuildContext context, {required List<Widget> children}) {
     final cs = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: cs.surface,
+    return Material(
+      color: cs.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.outlineVariant),
+        side: BorderSide(color: cs.outlineVariant),
       ),
       child: Column(children: children),
     );

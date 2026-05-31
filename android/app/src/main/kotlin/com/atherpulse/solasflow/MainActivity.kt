@@ -90,7 +90,7 @@ class MainActivity : FlutterActivity() {
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
         ) ?: return false
         return enabledServices.split(':').any { service ->
-            service.contains("com.atherpulse.solasflow/.AutoStartAccessibilityService")
+            service.contains("AutoStartAccessibilityService")
         }
     }
 

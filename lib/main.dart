@@ -169,19 +169,19 @@ class SolasFlowApp extends StatelessWidget {
                       );
                     },
                     theme: _buildSolasFlowTheme(
-                      lightDynamic ??
+                      _darkenColors(lightDynamic ??
                           ColorScheme.fromSeed(
                             seedColor: const Color(0xFF6256D9),
                             brightness: Brightness.light,
-                          ),
+                          )),
                       Brightness.light,
                     ),
                     darkTheme: _buildSolasFlowTheme(
-                      darkDynamic ??
+                      _darkenColors(darkDynamic ??
                           ColorScheme.fromSeed(
                             seedColor: const Color(0xFF6256D9),
                             brightness: Brightness.dark,
-                          ),
+                          )),
                       Brightness.dark,
                     ),
                     home: const MainScreen(),
@@ -194,6 +194,27 @@ class SolasFlowApp extends StatelessWidget {
       ),
     );
   }
+}
+
+ColorScheme _darkenColors(ColorScheme scheme) {
+  Color darken(Color c) => Color.lerp(c, Colors.black, 0.2) ?? c;
+  return scheme.copyWith(
+    primary: darken(scheme.primary),
+    onPrimary: darken(scheme.onPrimary),
+    primaryContainer: darken(scheme.primaryContainer),
+    secondary: darken(scheme.secondary),
+    secondaryContainer: darken(scheme.secondaryContainer),
+    tertiary: darken(scheme.tertiary),
+    tertiaryContainer: darken(scheme.tertiaryContainer),
+    surface: darken(scheme.surface),
+    surfaceContainer: darken(scheme.surfaceContainer),
+    surfaceContainerHigh: darken(scheme.surfaceContainerHigh),
+    surfaceContainerHighest: darken(scheme.surfaceContainerHighest),
+    surfaceContainerLow: darken(scheme.surfaceContainerLow),
+    surfaceContainerLowest: darken(scheme.surfaceContainerLowest),
+    error: darken(scheme.error),
+    errorContainer: darken(scheme.errorContainer),
+  );
 }
 
 ThemeData _buildSolasFlowTheme(ColorScheme scheme, Brightness brightness) {
@@ -583,6 +604,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   /// Enable/disable periodic goal reminders
   bool goalReminderOn = false;
+
+  /// Accessibility service enabled for auto-start after reboot
+  bool _accessibilityEnabled = false;
 
   /// Goal reminder interval in minutes
   int goalReminderIntervalMins = 60;
@@ -1255,6 +1279,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     unawaited(_writeWidgetState());
     if (clockOn) {
       Future.delayed(const Duration(milliseconds: 200), startClock);
+    }
+    // Check accessibility status
+    unawaited(_refreshAccessibilityStatus());
+  }
+
+  Future<void> _refreshAccessibilityStatus() async {
+    final enabled = await checkAccessibilityEnabled();
+    if (mounted) {
+      setState(() => _accessibilityEnabled = enabled);
     }
   }
 
@@ -3068,8 +3101,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               _lsSave();
             });
           },
-          accessibilityEnabled: false, // will be set on init
-          onOpenAccessibility: () => unawaited(openAccessibilitySettings()),
+          accessibilityEnabled: _accessibilityEnabled,
+          onOpenAccessibility: () async {
+            await openAccessibilitySettings();
+            // Re-check after returning from settings
+            await Future.delayed(const Duration(seconds: 2));
+            unawaited(_refreshAccessibilityStatus());
+          },
           onOpenGoals: () {
             Navigator.of(context).push(
               MaterialPageRoute(
