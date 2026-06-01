@@ -104,7 +104,7 @@ class TimerPanel extends StatelessWidget {
                   'Chain preset',
                   style: theme.textTheme.titleLarge?.copyWith(
                     color: cs.onSurface,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -160,7 +160,7 @@ class TimerPanel extends StatelessWidget {
                     'Announcement interval',
                     style: theme.textTheme.titleLarge?.copyWith(
                       color: cs.onSurface,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -226,7 +226,7 @@ class TimerPanel extends StatelessWidget {
         style: TextStyle(
           color: cs.onSurface,
           fontSize: 14,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
         ),
       ),
       subtitle: Text(
@@ -286,7 +286,7 @@ class TimerPanel extends StatelessWidget {
                         style: TextStyle(
                           color: cs.onSurfaceVariant,
                           fontSize: 12 * scale,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                       SizedBox(height: 18 * scale),
@@ -308,7 +308,7 @@ class TimerPanel extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 48 * scale,
                                     height: 0.95,
-                                    fontWeight: FontWeight.w800,
+                                    fontWeight: FontWeight.w900,
                                   ),
                                 ),
                                 TextSpan(
@@ -316,7 +316,7 @@ class TimerPanel extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 46 * scale,
                                     height: 0.95,
-                                    fontWeight: FontWeight.w800,
+                                    fontWeight: FontWeight.w900,
                                   ),
                                 ),
                                 TextSpan(
@@ -324,7 +324,7 @@ class TimerPanel extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 48 * scale,
                                     height: 0.95,
-                                    fontWeight: FontWeight.w800,
+                                    fontWeight: FontWeight.w900,
                                   ),
                                 ),
                                 if (millis != null)
@@ -334,7 +334,7 @@ class TimerPanel extends StatelessWidget {
                                       color: cs.onSurfaceVariant,
                                       fontSize: 20 * scale,
                                       height: 0.95,
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w800,
                                     ),
                                   ),
                               ],
@@ -359,7 +359,7 @@ class TimerPanel extends StatelessWidget {
                               style: TextStyle(
                                 color: cs.onSurfaceVariant,
                                 fontSize: 11 * scale,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
@@ -400,7 +400,7 @@ class TimerPanel extends StatelessWidget {
               ),
               textStyle: const TextStyle(
                 fontSize: 14,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ),
@@ -423,7 +423,7 @@ class TimerPanel extends StatelessWidget {
                     ),
                     textStyle: const TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
@@ -445,7 +445,7 @@ class TimerPanel extends StatelessWidget {
                     ),
                     textStyle: const TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
@@ -482,7 +482,7 @@ class TimerPanel extends StatelessWidget {
                     color: selected ? cs.onPrimary : cs.onSurface,
                     fontSize: 12,
                     height: 1,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
                 const SizedBox(height: 1),
@@ -492,7 +492,7 @@ class TimerPanel extends StatelessWidget {
                     color: selected ? cs.onPrimary : cs.onSurfaceVariant,
                     fontSize: 8,
                     height: 1,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -514,7 +514,7 @@ class TimerPanel extends StatelessWidget {
           style: TextStyle(
             color: cs.onSurface,
             fontSize: 13,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
           ),
         ),
         const SizedBox(height: 6),
@@ -538,7 +538,7 @@ class TimerPanel extends StatelessWidget {
       style: TextStyle(
         color: cs.onSurface,
         fontSize: 13,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w900,
       ),
     );
   }
@@ -560,7 +560,7 @@ class TimerPanel extends StatelessWidget {
         style: TextStyle(
           color: cs.onSurface,
           fontSize: 13,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w900,
         ),
       ),
       trailing: Row(
@@ -573,7 +573,7 @@ class TimerPanel extends StatelessWidget {
                   ? cs.onSurfaceVariant.withValues(alpha: 0.55)
                   : cs.onSurfaceVariant,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(width: 4),
@@ -612,7 +612,7 @@ class TimerPanel extends StatelessWidget {
                     style: TextStyle(
                       color: cs.onSurface,
                       fontSize: 13,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                   const Spacer(),
@@ -621,7 +621,7 @@ class TimerPanel extends StatelessWidget {
                     style: TextStyle(
                       color: cs.primary,
                       fontSize: 14,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ],
@@ -642,7 +642,7 @@ class TimerPanel extends StatelessWidget {
                     selectedColor: cs.primaryContainer,
                     labelStyle: TextStyle(
                       color: selected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
-                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                      fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
                       fontSize: 12,
                     ),
                     shape: RoundedRectangleBorder(
@@ -752,7 +752,7 @@ class TimerPanel extends StatelessWidget {
                   style: TextStyle(
                     color: cs.onSurface,
                     fontSize: 13,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
                 subtitle: Text(
@@ -816,7 +816,7 @@ class TimerPanel extends StatelessWidget {
                                   color: cs.onSurface,
                                   fontSize: 18,
                                   height: 1,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w900,
                                 ),
                               ),
                             ),

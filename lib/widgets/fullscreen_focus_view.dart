@@ -207,76 +207,64 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
     final mins = timerParts.$1;
     final secs = timerParts.$2;
     final millis = timerParts.$3;
-    const valueSize = 160.0;
-    const separatorSize = 128.0;
-    const millisSize = 42.0;
+    const valueSize = 200.0;
+    const separatorSize = 160.0;
+    const millisSize = 52.0;
 
-    return LayoutBuilder(
-      builder: (_, constraints) {
-        final width = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : double.infinity;
-        final height = constraints.maxHeight.isFinite
-            ? constraints.maxHeight
-            : double.infinity;
-
-        return Center(
-          child: SizedBox(
-            width: width,
-            height: height,
-            child: FittedBox(
-              fit: BoxFit.contain,
-              alignment: Alignment.center,
-              child: RichText(
-                textAlign: TextAlign.center,
-                text: TextSpan(
-                  style: TextStyle(
-                    color: fg,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                  children: [
-                    TextSpan(
-                      text: mins,
-                      style: TextStyle(
-                        fontSize: valueSize,
-                        fontWeight: FontWeight.w800,
-                        height: 1,
-                      ),
-                    ),
-                    TextSpan(
-                      text: ':',
-                      style: TextStyle(
-                        fontSize: separatorSize,
-                        fontWeight: FontWeight.w700,
-                        color: fg.withAlpha(190),
-                        height: 1,
-                      ),
-                    ),
-                    TextSpan(
-                      text: secs,
-                      style: TextStyle(
-                        fontSize: valueSize,
-                        fontWeight: FontWeight.w800,
-                        height: 1,
-                      ),
-                    ),
-                    if (millis != null)
-                      TextSpan(
-                        text: '.$millis',
-                        style: TextStyle(
-                          fontSize: millisSize,
-                          fontWeight: FontWeight.w700,
-                          color: fg.withAlpha(190),
-                          height: 1,
-                        ),
-                      ),
-                  ],
-                ),
+    return Center(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.center,
+        child: SizedBox(
+          width: valueSize * 5.5,
+          child: RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(
+              style: TextStyle(
+                color: fg,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
+              children: [
+                TextSpan(
+                  text: mins,
+                  style: TextStyle(
+                    fontSize: valueSize,
+                    fontWeight: FontWeight.w900,
+                    height: 1,
+                  ),
+                ),
+                TextSpan(
+                  text: ':',
+                  style: TextStyle(
+                    fontSize: separatorSize,
+                    fontWeight: FontWeight.w800,
+                    color: fg.withAlpha(190),
+                    height: 1,
+                  ),
+                ),
+                TextSpan(
+                  text: secs,
+                  style: TextStyle(
+                    fontSize: valueSize,
+                    fontWeight: FontWeight.w900,
+                    height: 1,
+                  ),
+                ),
+                if (millis != null)
+                  TextSpan(
+                    text: '.$millis',
+                    style: TextStyle(
+                      fontSize: millisSize,
+                      fontWeight: FontWeight.w800,
+                      color: fg.withAlpha(190),
+                      height: 1,
+                    ),
+                  ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -284,59 +272,47 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
     final clockParts = _splitClockDisplay(_clockText);
     final mainTime = clockParts.$1;
     final millis = clockParts.$2;
-    const valueSize = 132.0;
-    const millisSize = 42.0;
+    const valueSize = 168.0;
+    const millisSize = 52.0;
 
-    return LayoutBuilder(
-      builder: (_, constraints) {
-        final width = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : double.infinity;
-        final height = constraints.maxHeight.isFinite
-            ? constraints.maxHeight
-            : double.infinity;
-
-        return Center(
-          child: SizedBox(
-            width: width,
-            height: height,
-            child: FittedBox(
-              fit: BoxFit.contain,
-              alignment: Alignment.center,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    mainTime,
+    return Center(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.center,
+        child: SizedBox(
+          width: valueSize * 5.5,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                mainTime,
+                style: TextStyle(
+                  color: fg,
+                  fontSize: valueSize,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                  letterSpacing: 0,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              if (millis != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    '.$millis',
                     style: TextStyle(
-                      color: fg,
-                      fontSize: valueSize,
+                      color: fg.withAlpha(190),
+                      fontSize: millisSize,
                       fontWeight: FontWeight.w800,
-                      height: 1,
-                      letterSpacing: 0,
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
-                  if (millis != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Text(
-                        '.$millis',
-                        style: TextStyle(
-                          color: fg.withAlpha(190),
-                          fontSize: millisSize,
-                          fontWeight: FontWeight.w700,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
+                ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 

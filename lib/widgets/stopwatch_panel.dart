@@ -69,7 +69,7 @@ class StopwatchPanel extends StatelessWidget {
                   'Speak elapsed every',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: cs.onSurface,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -134,7 +134,7 @@ class StopwatchPanel extends StatelessWidget {
         style: TextStyle(
           color: cs.onSurface,
           fontSize: 14,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w900,
         ),
       ),
       subtitle: Text(
@@ -159,7 +159,7 @@ class StopwatchPanel extends StatelessWidget {
         style: TextStyle(
           color: cs.onSurface,
           fontSize: 14,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w900,
         ),
       ),
       trailing: Row(
@@ -170,7 +170,7 @@ class StopwatchPanel extends StatelessWidget {
             style: TextStyle(
               color: cs.onSurfaceVariant,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(width: 4),
@@ -191,7 +191,7 @@ class StopwatchPanel extends StatelessWidget {
       style: TextStyle(
         color: cs.onSurface,
         fontSize: 13,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w900,
       ),
     );
   }
@@ -217,7 +217,7 @@ class StopwatchPanel extends StatelessWidget {
               style: TextStyle(
                 color: cs.onSurfaceVariant,
                 fontSize: 11,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w900,
                 letterSpacing: 0.4,
               ),
             ),
@@ -230,7 +230,7 @@ class StopwatchPanel extends StatelessWidget {
                   color: cs.onSurface,
                   fontSize: 42,
                   height: 1,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w900,
                   fontFeatures: [FontFeature.tabularFigures()],
                 ),
               ),
@@ -288,7 +288,7 @@ class StopwatchPanel extends StatelessWidget {
               style: TextStyle(
                 color: cs.onSurface,
                 fontSize: 14,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w900,
               ),
             ),
             const SizedBox(height: 6),
@@ -332,7 +332,7 @@ class StopwatchPanel extends StatelessWidget {
                     style: TextStyle(
                       color: cs.onSurface,
                       fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
@@ -368,7 +368,7 @@ class StopwatchPanel extends StatelessWidget {
               ),
               textStyle: const TextStyle(
                 fontSize: 14,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ),
@@ -392,7 +392,7 @@ class StopwatchPanel extends StatelessWidget {
                     ),
                     textStyle: const TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
@@ -414,7 +414,7 @@ class StopwatchPanel extends StatelessWidget {
                     ),
                     textStyle: const TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
@@ -436,7 +436,7 @@ class StopwatchPanel extends StatelessWidget {
                     ),
                     textStyle: const TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
@@ -532,7 +532,7 @@ class StopwatchPanel extends StatelessWidget {
                                   color: cs.onSurface,
                                   fontSize: 18,
                                   height: 1,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w900,
                                 ),
                               ),
                             ),
@@ -584,7 +584,7 @@ class _TimeUnitLabel extends StatelessWidget {
       style: TextStyle(
         color: color,
         fontSize: 11,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w800,
       ),
     );
   }
@@ -604,7 +604,7 @@ class _LapHeader extends StatelessWidget {
       style: TextStyle(
         color: color,
         fontSize: 11,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w800,
       ),
     );
   }

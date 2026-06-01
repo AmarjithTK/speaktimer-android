@@ -72,6 +72,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dynamic_color/dynamic_color.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'l10n/app_localizations.dart';
 import 'theme/palette.dart';
@@ -222,12 +223,10 @@ ThemeData _buildSolasFlowTheme(ColorScheme scheme, Brightness brightness) {
     colorScheme: scheme,
     useMaterial3: true,
     brightness: brightness,
-    fontFamily: 'Roboto',
-    fontFamilyFallback: const ['Google Sans', 'Product Sans', 'Arial'],
+    fontFamily: GoogleFonts.poppins().fontFamily,
+    fontFamilyFallback: const ['Arial'],
   );
-  final textTheme = base.textTheme.apply(
-    fontFamily: 'Roboto',
-    fontFamilyFallback: const ['Google Sans', 'Product Sans', 'Arial'],
+  final textTheme = GoogleFonts.poppinsTextTheme(base.textTheme).apply(
     bodyColor: scheme.onSurface,
     displayColor: scheme.onSurface,
   );
@@ -1285,7 +1284,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _refreshAccessibilityStatus() async {
+    debugPrint('[A11y-DEBUG] _refreshAccessibilityStatus() called');
     final enabled = await checkAccessibilityEnabled();
+    debugPrint('[A11y-DEBUG] _refreshAccessibilityStatus() result: $enabled (was: $_accessibilityEnabled)');
     if (mounted) {
       setState(() => _accessibilityEnabled = enabled);
     }
@@ -1956,7 +1957,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    debugPrint('[A11y-DEBUG] didChangeAppLifecycleState: $state, _accessibilityEnabled=$_accessibilityEnabled');
     _handleNightUsageStateChange(state);
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('[A11y-DEBUG] App resumed — refreshing accessibility status');
+      unawaited(_refreshAccessibilityStatus());
+    }
   }
 
   bool _isSpeechMutedForSleep() {
@@ -3103,10 +3109,21 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           },
           accessibilityEnabled: _accessibilityEnabled,
           onOpenAccessibility: () async {
+            debugPrint('[A11y-DEBUG] onOpenAccessibility called, current _accessibilityEnabled=$_accessibilityEnabled');
+            // Perform a live check to avoid acting on stale cached state
+            final enabled = await checkAccessibilityEnabled();
+            debugPrint('[A11y-DEBUG] Live accessibility check result: $enabled');
+            if (enabled) {
+              if (mounted) {
+                setState(() => _accessibilityEnabled = true);
+              }
+              return;
+            }
+            // Service is genuinely disabled — open system settings
             await openAccessibilitySettings();
-            // Re-check after returning from settings
-            await Future.delayed(const Duration(seconds: 2));
-            unawaited(_refreshAccessibilityStatus());
+            debugPrint('[A11y-DEBUG] openAccessibilitySettings() returned — resume handler will re-check on return');
+            // No delayed refresh needed: didChangeAppLifecycleState handles
+            // the re-check when the user returns via AppLifecycleState.resumed
           },
           onOpenGoals: () {
             Navigator.of(context).push(

@@ -107,7 +107,7 @@ class ClockPanel extends StatelessWidget {
                   title,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: cs.onSurface,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -163,7 +163,7 @@ class ClockPanel extends StatelessWidget {
                 title,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: cs.onSurface,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(height: 8),
@@ -221,7 +221,7 @@ class ClockPanel extends StatelessWidget {
               style: TextStyle(
                 color: cs.onPrimary.withValues(alpha: 0.7),
                 fontSize: 12,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w900,
                 letterSpacing: 0.4,
               ),
             ),
@@ -238,7 +238,7 @@ class ClockPanel extends StatelessWidget {
                       color: cs.onPrimary,
                       fontSize: 48,
                       height: 1,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
                       fontFeatures: [FontFeature.tabularFigures()],
                     ),
                   ),
@@ -250,7 +250,7 @@ class ClockPanel extends StatelessWidget {
                         style: TextStyle(
                           color: cs.onPrimary.withValues(alpha: 0.7),
                           fontSize: 18,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                           fontFeatures: [FontFeature.tabularFigures()],
                         ),
                       ),
@@ -263,7 +263,7 @@ class ClockPanel extends StatelessWidget {
                         style: TextStyle(
                           color: cs.onPrimary,
                           fontSize: 18,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
@@ -276,7 +276,7 @@ class ClockPanel extends StatelessWidget {
               style: TextStyle(
                 color: cs.onPrimary.withValues(alpha: 0.82),
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -306,7 +306,7 @@ class ClockPanel extends StatelessWidget {
               style: TextStyle(
                 color: cs.onSurface,
                 fontSize: 14,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ),
@@ -342,7 +342,7 @@ class ClockPanel extends StatelessWidget {
         style: TextStyle(
           color: cs.onSurface,
           fontSize: 13,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w900,
         ),
       ),
       trailing: Row(
@@ -353,7 +353,7 @@ class ClockPanel extends StatelessWidget {
             style: TextStyle(
               color: cs.onSurfaceVariant,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(width: 4),
@@ -386,7 +386,7 @@ class ClockPanel extends StatelessWidget {
         style: TextStyle(
           color: cs.onSurface,
           fontSize: 13,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );
@@ -537,7 +537,7 @@ class ClockPanel extends StatelessWidget {
                               color: cs.onSurface,
                               fontSize: 18,
                               height: 1,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
                         ),
@@ -564,7 +564,7 @@ class ClockPanel extends StatelessWidget {
                       'Clock options',
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: cs.onSurfaceVariant,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                     const SizedBox(height: 8),

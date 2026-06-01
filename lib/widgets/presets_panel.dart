@@ -44,7 +44,7 @@ class PresetsPanel extends StatelessWidget {
                     p.toString(),
                     style: TextStyle(
                       color: palette.primary,
-                      fontWeight: p >= 90 ? FontWeight.bold : FontWeight.w500,
+                      fontWeight: p >= 90 ? FontWeight.bold : FontWeight.w600,
                       fontSize: 12,
                     ),
                   ),

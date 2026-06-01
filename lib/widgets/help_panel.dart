@@ -41,7 +41,7 @@ class HelpPanel extends StatelessWidget {
               style: TextStyle(
                 color: cs.onPrimary,
                 fontSize: 12,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ),
@@ -53,7 +53,7 @@ class HelpPanel extends StatelessWidget {
                 Text(title,
                   style: TextStyle(
                     color: cs.onSurface,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     fontSize: 13,
                   ),
                 ),
@@ -99,7 +99,7 @@ class HelpPanel extends StatelessWidget {
         title: Text(title,
           style: TextStyle(
             color: cs.onSurface,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
             fontSize: 14,
           ),
         ),
@@ -173,7 +173,7 @@ class HelpPanel extends StatelessWidget {
                       style: TextStyle(
                         color: cs.onSurface,
                         fontSize: 13,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                     if (muteSpeechAfterMidnight)
@@ -193,7 +193,7 @@ class HelpPanel extends StatelessWidget {
         Text('Quick Start',
           style: TextStyle(
             color: cs.onSurface,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w900,
             fontSize: 15,
           ),
         ),
@@ -217,7 +217,7 @@ class HelpPanel extends StatelessWidget {
         Text('FAQ',
           style: TextStyle(
             color: cs.onSurface,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w900,
             fontSize: 15,
           ),
         ),

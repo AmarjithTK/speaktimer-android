@@ -277,7 +277,7 @@ class SettingsPanel extends StatelessWidget {
       style: TextStyle(
         color: cs.onSurface,
         fontSize: 18,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w900,
       ),
     );
   }
@@ -304,7 +304,7 @@ class SettingsPanel extends StatelessWidget {
       ),
       title: Text(
         title,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
       ),
       subtitle: subtitle == null
           ? null
@@ -327,7 +327,7 @@ class SettingsPanel extends StatelessWidget {
         style: TextStyle(
           color: cs.onSurface,
           fontSize: 13,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );
@@ -362,7 +362,7 @@ class SettingsPanel extends StatelessWidget {
         style: TextStyle(
           color: cs.onSurface,
           fontSize: 13,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w900,
         ),
       ),
       trailing: Row(
@@ -378,7 +378,7 @@ class SettingsPanel extends StatelessWidget {
               style: TextStyle(
                 color: cs.onSurfaceVariant,
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -408,7 +408,7 @@ class SettingsPanel extends StatelessWidget {
         style: TextStyle(
           color: cs.onSurface,
           fontSize: 13,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w900,
         ),
       ),
       subtitle: subtitle == null
@@ -427,35 +427,6 @@ class SettingsPanel extends StatelessWidget {
   Widget _divider(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Divider(height: 1, indent: 52, color: cs.outlineVariant);
-  }
-
-  Widget _filledAction(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-  }) {
-    final cs = Theme.of(context).colorScheme;
-    return SizedBox(
-      width: double.infinity,
-      height: 42,
-      child: FilledButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 18),
-        label: Text(label),
-        style: FilledButton.styleFrom(
-          backgroundColor: cs.primary,
-          foregroundColor: cs.onPrimary,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          textStyle: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ),
-    );
   }
 
   @override
@@ -488,9 +459,6 @@ class SettingsPanel extends StatelessWidget {
         );
       }),
     ];
-    final status = isSpeechActive
-        ? 'Speaking'
-        : (speechQueueLength > 0 ? '$speechQueueLength queued' : 'Ready');
 
     return OrientationBuilder(
       builder: (context, orientation) {
@@ -513,7 +481,7 @@ class SettingsPanel extends StatelessWidget {
                         color: cs.onSurface,
                         fontSize: 18,
                         height: 1,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                     Expanded(
@@ -613,7 +581,7 @@ class SettingsPanel extends StatelessWidget {
                                 style: TextStyle(
                                   color: cs.onSurfaceVariant,
                                   fontSize: 11,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ),
@@ -663,7 +631,7 @@ class SettingsPanel extends StatelessWidget {
                                     style: TextStyle(
                                       color: cs.onSurface,
                                       fontSize: 13,
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w900,
                                     ),
                                   ),
                                   const Spacer(),
@@ -672,7 +640,7 @@ class SettingsPanel extends StatelessWidget {
                                     style: TextStyle(
                                       color: cs.primary,
                                       fontSize: 12,
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w900,
                                     ),
                                   ),
                                 ],
@@ -776,7 +744,7 @@ class SettingsPanel extends StatelessWidget {
                                     ),
                                     textStyle: const TextStyle(
                                       fontSize: 13,
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w900,
                                     ),
                                   ),
                                 ),
@@ -788,10 +756,10 @@ class SettingsPanel extends StatelessWidget {
                           SwitchListTile(
                               value: accessibilityEnabled,
                               onChanged: (val) {
-                                if (!accessibilityEnabled) {
+                                  // Always delegate to the callback — it performs
+                                  // a live accessibility check to avoid stale state
                                   onOpenAccessibility?.call();
-                                }
-                              },
+                                },
                             activeThumbColor: cs.onPrimary,
                             activeTrackColor: cs.primary,
                             secondary: Icon(
@@ -804,7 +772,7 @@ class SettingsPanel extends StatelessWidget {
                               style: TextStyle(
                                 color: cs.onSurface,
                                 fontSize: 13,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w900,
                               ),
                             ),
                             subtitle: Text(
@@ -818,47 +786,7 @@ class SettingsPanel extends StatelessWidget {
                             ),
                           ),
                         ]),
-                        _sectionTitle(context, 'Help & Status'),
-                          _card(context, [
-                            Padding(
-                              padding: const EdgeInsets.all(14),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _filledAction(
-                                    context,
-                                    icon: Icons.help_outline_rounded,
-                                    label: 'Help / How it works',
-                                    onPressed: onOpenHelp,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        isSpeechActive
-                                            ? Icons.volume_up_rounded
-                                            : Icons.check_circle_outline_rounded,
-                                        color: cs.primary,
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          '$status - A/B gap: 10 s',
-                                          style: TextStyle(
-                                            color: cs.onSurfaceVariant,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ]),
-                          _sectionTitle(context, 'About'),
+                        _sectionTitle(context, 'About'),
                           _card(context, [
                             ListTile(
                               dense: true,
@@ -876,7 +804,7 @@ class SettingsPanel extends StatelessWidget {
                                 style: TextStyle(
                                   color: Color(0xFF1C1B1F),
                                   fontSize: 13,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w900,
                                 ),
                               ),
                               subtitle: const Text(
@@ -884,7 +812,7 @@ class SettingsPanel extends StatelessWidget {
                                 style: TextStyle(
                                   color: Color(0xFF49454F),
                                   fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                               trailing: const Icon(
