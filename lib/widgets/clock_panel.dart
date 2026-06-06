@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 class ClockPanel extends StatelessWidget {
   final VoidCallback onFullscreenPressed;
   final VoidCallback onFullscreenImmersivePressed;
-  final bool clockOn;
   final String currentTimeDisplay;
-  final VoidCallback toggleClock;
   final VoidCallback onExitApp;
 
   final int clockIntervalMins;
@@ -35,9 +33,7 @@ class ClockPanel extends StatelessWidget {
     super.key,
     required this.onFullscreenPressed,
     required this.onFullscreenImmersivePressed,
-    required this.clockOn,
     required this.currentTimeDisplay,
-    required this.toggleClock,
     required this.onExitApp,
     required this.clockIntervalMins,
     required this.clockShowMilliseconds,
@@ -285,36 +281,6 @@ class ClockPanel extends StatelessWidget {
     );
   }
 
-  Widget _speakingRow() {
-    return Builder(
-      builder: (context) {
-        final cs = Theme.of(context).colorScheme;
-        return _card(
-          context,
-          child: SwitchListTile(
-            value: clockOn,
-            onChanged: (_) => toggleClock(),
-            activeThumbColor: cs.onPrimary,
-            activeTrackColor: cs.primary,
-            secondary: Icon(
-              clockOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-              color: cs.primary,
-              size: 20,
-            ),
-            title: Text(
-              clockOn ? 'Speaking is ON' : 'Speaking is OFF',
-              style: TextStyle(
-                color: cs.onSurface,
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Widget _card(BuildContext context, {required Widget child}) {
     final cs = Theme.of(context).colorScheme;
     return Material(
@@ -557,8 +523,6 @@ class ClockPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     _timeCard(context),
-                    const SizedBox(height: 12),
-                    _speakingRow(),
                     const SizedBox(height: 16),
                     Text(
                       'Clock options',

@@ -768,8 +768,7 @@ class SpeechService {
     required FlutterTts flutterTts,
     required SpeechItem item,
     required double speakVolume,
-    required bool ttsMaxVolumeLockEnabled,
-    required bool ttsVolumeBoostEnabled,
+    required bool maximumSpeechVolume,
     required Map<dynamic, dynamic>? preferredVoice,
     required bool useMalayalamNuance,
     required String speechEngineMode,
@@ -821,14 +820,14 @@ class SpeechService {
       await flutterTts.setSpeechRate(item.isQuote ? 0.45 : 0.5);
     }
 
-    final ttsVolume = ttsVolumeBoostEnabled
+    final ttsVolume = maximumSpeechVolume
       ? (speakVolume + 0.40).clamp(0.0, 1.0)
       : speakVolume.clamp(0.0, 1.0);
 
     await flutterTts.setVolume(ttsVolume);
 
     double? originalVolume;
-    if (ttsMaxVolumeLockEnabled && Platform.isAndroid) {
+    if (maximumSpeechVolume && Platform.isAndroid) {
       try {
         await flutterTts.awaitSpeakCompletion(true);
       } catch (_) {

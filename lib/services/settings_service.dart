@@ -26,7 +26,7 @@ import '../models/app_settings.dart';
 class SettingsService {
   /// Current schema version: increment when preference structure changes
   /// Used to detect and run migrations for old stored data
-  static const int _currentSchemaVersion = 7;
+  static const int _currentSchemaVersion = 8;
 
   String _normalizeVoiceLanguageMode(String? mode) {
     final normalized = mode?.trim().toLowerCase() ?? '';
@@ -71,10 +71,8 @@ class SettingsService {
       soundChosen: sound,
       noiseVolume: prefs.getDouble(PrefKeys.noiseVolume) ?? 1.0,
       speakVolume: prefs.getDouble(PrefKeys.speakVolume) ?? 1.0,
-      ttsMaxVolumeLockEnabled:
-          prefs.getBool(PrefKeys.ttsMaxVolumeLockEnabled) ?? false,
-      ttsVolumeBoostEnabled:
-          prefs.getBool(PrefKeys.ttsVolumeBoostEnabled) ?? false,
+      maximumSpeechVolume:
+          prefs.getBool(PrefKeys.maximumSpeechVolume) ?? false,
       clockOn: prefs.getBool(PrefKeys.clockOn) ?? false,
       clockIntervalMins: prefs.getInt(PrefKeys.clockIntervalMins) ?? 30,
         clockShowMilliseconds:
@@ -127,6 +125,7 @@ class SettingsService {
       ),
       favoriteVoiceName: prefs.getString(PrefKeys.favoriteVoiceName),
       favoriteVoiceLocale: prefs.getString(PrefKeys.favoriteVoiceLocale),
+      speechMasterOn: prefs.getBool(PrefKeys.speechMasterOn) ?? true,
       appFontSizeMultiplier: prefs.getDouble(PrefKeys.appFontSizeMultiplier) ?? 1.0,
     );
   }
@@ -138,12 +137,8 @@ class SettingsService {
     await prefs.setDouble(PrefKeys.noiseVolume, settings.noiseVolume);
     await prefs.setDouble(PrefKeys.speakVolume, settings.speakVolume);
     await prefs.setBool(
-      PrefKeys.ttsMaxVolumeLockEnabled,
-      settings.ttsMaxVolumeLockEnabled,
-    );
-    await prefs.setBool(
-      PrefKeys.ttsVolumeBoostEnabled,
-      settings.ttsVolumeBoostEnabled,
+      PrefKeys.maximumSpeechVolume,
+      settings.maximumSpeechVolume,
     );
     await prefs.setBool(PrefKeys.clockOn, settings.clockOn);
     await prefs.setInt(PrefKeys.clockIntervalMins, settings.clockIntervalMins);
@@ -242,6 +237,7 @@ class SettingsService {
       await prefs.remove(PrefKeys.favoriteVoiceLocale);
     }
 
+    await prefs.setBool(PrefKeys.speechMasterOn, settings.speechMasterOn);
     await prefs.setDouble(PrefKeys.appFontSizeMultiplier, settings.appFontSizeMultiplier);
   }
 
@@ -287,14 +283,23 @@ class SettingsService {
     }
 
     if (currentVersion < 6) {
-      if (!prefs.containsKey(PrefKeys.ttsMaxVolumeLockEnabled)) {
-        await prefs.setBool(PrefKeys.ttsMaxVolumeLockEnabled, false);
+      if (!prefs.containsKey('TtsMaxVolumeLockEnabled')) {
+        await prefs.setBool('TtsMaxVolumeLockEnabled', false);
       }
     }
 
     if (currentVersion < 7) {
       if (!prefs.containsKey(PrefKeys.clockSpeakRepeatCount)) {
         await prefs.setInt(PrefKeys.clockSpeakRepeatCount, 1);
+      }
+    }
+
+    if (currentVersion < 8) {
+      final oldBoost = prefs.getBool('TtsVolumeBoostEnabled') ?? false;
+      final oldLock = prefs.getBool('TtsMaxVolumeLockEnabled') ?? false;
+      final combined = oldBoost || oldLock;
+      if (!prefs.containsKey(PrefKeys.maximumSpeechVolume)) {
+        await prefs.setBool(PrefKeys.maximumSpeechVolume, combined);
       }
     }
 

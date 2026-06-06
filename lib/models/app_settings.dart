@@ -2,8 +2,7 @@ class AppSettings {
   final String soundChosen;
   final double noiseVolume;
   final double speakVolume;
-  final bool ttsMaxVolumeLockEnabled;
-  final bool ttsVolumeBoostEnabled;
+  final bool maximumSpeechVolume;
   final bool clockOn;
   final int clockIntervalMins;
   final bool clockShowMilliseconds;
@@ -36,14 +35,14 @@ class AppSettings {
   final String speechEngineMode;
   final String? favoriteVoiceName;
   final String? favoriteVoiceLocale;
+  final bool speechMasterOn;
   final double appFontSizeMultiplier;
 
   const AppSettings({
     required this.soundChosen,
     required this.noiseVolume,
     required this.speakVolume,
-    required this.ttsMaxVolumeLockEnabled,
-    required this.ttsVolumeBoostEnabled,
+    required this.maximumSpeechVolume,
     required this.clockOn,
     required this.clockIntervalMins,
     required this.clockShowMilliseconds,
@@ -76,6 +75,7 @@ class AppSettings {
     required this.speechEngineMode,
     required this.favoriteVoiceName,
     required this.favoriteVoiceLocale,
+    required this.speechMasterOn,
     required this.appFontSizeMultiplier,
   });
 }

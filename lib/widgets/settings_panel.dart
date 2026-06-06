@@ -8,8 +8,8 @@ class SettingsPanel extends StatelessWidget {
   final String soundChosen;
   final double noiseVolume;
   final double speakVolume;
-  final bool ttsMaxVolumeLockEnabled;
-  final bool ttsVolumeBoostEnabled;
+  final bool maximumSpeechVolume;
+  final bool speechMasterOn;
   final double appFontSizeMultiplier;
   final ValueChanged<double?> onAppFontSizeMultiplierChanged;
   final bool fullscreenDarkTheme;
@@ -33,8 +33,8 @@ class SettingsPanel extends StatelessWidget {
   final ValueChanged<String?> onSoundChanged;
   final ValueChanged<double?> onNoiseVolumeChanged;
   final ValueChanged<double?> onSpeakVolumeChanged;
-  final ValueChanged<bool?> onTtsMaxVolumeLockEnabledChanged;
-  final ValueChanged<bool?> onTtsVolumeBoostEnabledChanged;
+  final ValueChanged<bool?> onMaximumSpeechVolumeChanged;
+  final ValueChanged<bool?> onSpeechMasterOnChanged;
   final ValueChanged<bool?> onFullscreenDarkThemeChanged;
   final ValueChanged<bool?> onFullscreenDimBrightnessChanged;
   final ValueChanged<bool?> onFullscreenStartLandscapeChanged;
@@ -46,7 +46,6 @@ class SettingsPanel extends StatelessWidget {
   final ValueChanged<String?> onSpeechEngineModeChanged;
   final ValueChanged<String?> onFavoriteVoiceChanged;
   final VoidCallback onOpenHelp;
-  final VoidCallback onOpenGoals;
   final VoidCallback? onOpenAccessibility;
   final bool accessibilityEnabled;
 
@@ -55,8 +54,8 @@ class SettingsPanel extends StatelessWidget {
     required this.soundChosen,
     required this.noiseVolume,
     required this.speakVolume,
-    required this.ttsMaxVolumeLockEnabled,
-    required this.ttsVolumeBoostEnabled,
+    required this.maximumSpeechVolume,
+    required this.speechMasterOn,
     required this.appFontSizeMultiplier,
     required this.onAppFontSizeMultiplierChanged,
     required this.fullscreenDarkTheme,
@@ -80,8 +79,8 @@ class SettingsPanel extends StatelessWidget {
     required this.onSoundChanged,
     required this.onNoiseVolumeChanged,
     required this.onSpeakVolumeChanged,
-    required this.onTtsMaxVolumeLockEnabledChanged,
-    required this.onTtsVolumeBoostEnabledChanged,
+    required this.onMaximumSpeechVolumeChanged,
+    required this.onSpeechMasterOnChanged,
     required this.onFullscreenDarkThemeChanged,
     required this.onFullscreenDimBrightnessChanged,
     required this.onFullscreenStartLandscapeChanged,
@@ -93,7 +92,6 @@ class SettingsPanel extends StatelessWidget {
     required this.onSpeechEngineModeChanged,
     required this.onFavoriteVoiceChanged,
     required this.onOpenHelp,
-    required this.onOpenGoals,
     this.onOpenAccessibility,
     this.accessibilityEnabled = false,
   });
@@ -488,8 +486,22 @@ class SettingsPanel extends StatelessWidget {
                       child: ListView(
                         padding: EdgeInsets.zero,
                         children: [
-                          _sectionTitle(context, 'Audio'),
+                          // ── Audio & Speech ──────────────────────────────
+                          _sectionTitle(context, 'Audio & Speech'),
                           _card(context, [
+                            _switchRow(
+                              context,
+                              icon: speechMasterOn
+                                  ? Icons.volume_up_rounded
+                                  : Icons.volume_off_rounded,
+                              title: 'Speech',
+                              subtitle: speechMasterOn
+                                  ? 'All speech on'
+                                  : 'All speech off',
+                              value: speechMasterOn,
+                              onChanged: onSpeechMasterOnChanged,
+                            ),
+                            _divider(context),
                             _selectRow(
                               context,
                               icon: Icons.music_note_rounded,
@@ -537,21 +549,14 @@ class SettingsPanel extends StatelessWidget {
                             _divider(context),
                             _switchRow(
                               context,
-                              icon: Icons.volume_up_outlined,
-                              title: 'Max device volume for TTS',
-                              value: ttsMaxVolumeLockEnabled,
-                              onChanged: onTtsMaxVolumeLockEnabledChanged,
-                            ),
-                            _divider(context),
-                            _switchRow(
-                              context,
-                              icon: Icons.surround_sound_rounded,
-                              title: 'Boost announcement speech',
-                              subtitle: 'TTS only',
-                              value: ttsVolumeBoostEnabled,
-                              onChanged: onTtsVolumeBoostEnabledChanged,
+                              icon: Icons.volume_up_rounded,
+                              title: 'Maximum Speech Volume',
+                              subtitle: 'Boost volume and lock device volume',
+                              value: maximumSpeechVolume,
+                              onChanged: onMaximumSpeechVolumeChanged,
                             ),
                           ]),
+                          // ── Voice ────────────────────────────────────────
                           _sectionTitle(context, 'Voice'),
                           _card(context, [
                             _selectRow(
@@ -568,12 +573,7 @@ class SettingsPanel extends StatelessWidget {
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                52,
-                                0,
-                                14,
-                                10,
-                              ),
+                              padding: const EdgeInsets.fromLTRB(52, 0, 14, 10),
                               child: Text(
                                 '$speechEngineRuntime - $speechEngineRuntimeDetail',
                                 maxLines: 2,
@@ -614,7 +614,8 @@ class SettingsPanel extends StatelessWidget {
                               ),
                             ),
                           ]),
-                          _sectionTitle(context, 'Appearance'),
+                          // ── Focus & Fullscreen ───────────────────────────
+                          _sectionTitle(context, 'Focus & Fullscreen'),
                           _card(context, [
                             Padding(
                               padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
@@ -680,7 +681,8 @@ class SettingsPanel extends StatelessWidget {
                               onChanged: onFullscreenStartLandscapeChanged,
                             ),
                           ]),
-                          _sectionTitle(context, 'Sleep mode'),
+                          // ── Sleep Mode ──────────────────────────────────
+                          _sectionTitle(context, 'Sleep Mode'),
                           _card(context, [
                             _switchRow(
                               context,
@@ -725,69 +727,66 @@ class SettingsPanel extends StatelessWidget {
                               ),
                             ],
                           ]),
-                          _sectionTitle(context, 'Goals'),
+                          // ── System ───────────────────────────────────────
+                          _sectionTitle(context, 'System'),
                           _card(context, [
-                            Padding(
-                              padding: const EdgeInsets.all(14),
-                              child: SizedBox(
-                                width: double.infinity,
-                                height: 42,
-                                child: FilledButton.icon(
-                                  onPressed: onOpenGoals,
-                                  icon: const Icon(Icons.flag_rounded, size: 18),
-                                  label: const Text('Manage Goals'),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: cs.primary,
-                                    foregroundColor: cs.onPrimary,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    textStyle: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
+                            SwitchListTile(
+                              value: accessibilityEnabled,
+                              onChanged: (val) {
+                                onOpenAccessibility?.call();
+                              },
+                              activeThumbColor: cs.onPrimary,
+                              activeTrackColor: cs.primary,
+                              secondary: Icon(
+                                Icons.power_settings_new_rounded,
+                                color: cs.primary,
+                                size: 20,
+                              ),
+                              title: Text(
+                                'Auto-start after reboot',
+                                style: TextStyle(
+                                  color: cs.onSurface,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              subtitle: Text(
+                                accessibilityEnabled
+                                    ? 'Accessibility service is ON'
+                                    : 'Tap to enable in system settings',
+                                style: TextStyle(
+                                  color: cs.onSurfaceVariant,
+                                  fontSize: 12,
                                 ),
                               ),
                             ),
-                          ]),
-                        _sectionTitle(context, 'Auto-start'),
-                        _card(context, [
-                          SwitchListTile(
-                              value: accessibilityEnabled,
-                              onChanged: (val) {
-                                  // Always delegate to the callback — it performs
-                                  // a live accessibility check to avoid stale state
-                                  onOpenAccessibility?.call();
-                                },
-                            activeThumbColor: cs.onPrimary,
-                            activeTrackColor: cs.primary,
-                            secondary: Icon(
-                              Icons.power_settings_new_rounded,
-                              color: cs.primary,
-                              size: 20,
-                            ),
-                            title: Text(
-                              'Auto-start after reboot',
-                              style: TextStyle(
-                                color: cs.onSurface,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w900,
+                            _divider(context),
+                            ListTile(
+                              dense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 2,
                               ),
-                            ),
-                            subtitle: Text(
-                              accessibilityEnabled
-                                  ? 'Accessibility service is ON'
-                                  : 'Tap to enable in system settings',
-                              style: TextStyle(
+                              leading: Icon(
+                                Icons.help_outline_rounded,
+                                color: cs.primary,
+                                size: 20,
+                              ),
+                              title: Text(
+                                'Help / Working',
+                                style: TextStyle(
+                                  color: cs.onSurface,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              trailing: Icon(
+                                Icons.chevron_right_rounded,
                                 color: cs.onSurfaceVariant,
-                                fontSize: 12,
                               ),
+                              onTap: onOpenHelp,
                             ),
-                          ),
-                        ]),
-                        _sectionTitle(context, 'About'),
-                          _card(context, [
+                            _divider(context),
                             ListTile(
                               dense: true,
                               contentPadding: const EdgeInsets.symmetric(
@@ -820,9 +819,7 @@ class SettingsPanel extends StatelessWidget {
                                 size: 18,
                               ),
                               onTap: () async {
-                                final url = Uri.parse(
-                                  'https://atherpulse.in',
-                                );
+                                final url = Uri.parse('https://atherpulse.in');
                                 await launchUrl(
                                   url,
                                   mode: LaunchMode.externalApplication,

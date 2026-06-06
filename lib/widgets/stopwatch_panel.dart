@@ -204,19 +204,22 @@ class StopwatchPanel extends StatelessWidget {
       onDoubleTap: onFullscreenImmersivePressed,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 32),
         decoration: BoxDecoration(
-          color: cs.surfaceContainerLow,
+          gradient: LinearGradient(
+            colors: [cs.primary, cs.primary.withAlpha(200)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: cs.outlineVariant),
         ),
         child: Column(
           children: [
             Text(
               'ELAPSED TIME',
               style: TextStyle(
-                color: cs.onSurfaceVariant,
-                fontSize: 11,
+                color: cs.onPrimary.withValues(alpha: 0.7),
+                fontSize: 12,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0.4,
               ),
@@ -227,7 +230,7 @@ class StopwatchPanel extends StatelessWidget {
               child: Text(
                 elapsedValue,
                 style: TextStyle(
-                  color: cs.onSurface,
+                  color: cs.onPrimary,
                   fontSize: 42,
                   height: 1,
                   fontWeight: FontWeight.w900,
@@ -239,13 +242,13 @@ class StopwatchPanel extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _TimeUnitLabel(cs.onSurfaceVariant, 'hr'),
+                _TimeUnitLabel(cs.onPrimary.withValues(alpha: 0.7), 'hr'),
                 const SizedBox(width: 30),
-                _TimeUnitLabel(cs.onSurfaceVariant, 'min'),
+                _TimeUnitLabel(cs.onPrimary.withValues(alpha: 0.7), 'min'),
                 const SizedBox(width: 30),
-                _TimeUnitLabel(cs.onSurfaceVariant, 'sec'),
+                _TimeUnitLabel(cs.onPrimary.withValues(alpha: 0.7), 'sec'),
                 const SizedBox(width: 30),
-                _TimeUnitLabel(cs.onSurfaceVariant, 'ms'),
+                _TimeUnitLabel(cs.onPrimary.withValues(alpha: 0.7), 'ms'),
               ],
             ),
           ],
@@ -353,16 +356,16 @@ class StopwatchPanel extends StatelessWidget {
         SizedBox(
           width: double.infinity,
           height: 46,
-          child: FilledButton.icon(
+          child: OutlinedButton.icon(
             onPressed: isRunning ? stopStopwatch : startStopwatch,
             icon: Icon(
               isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
               size: 18,
             ),
             label: Text(isRunning ? 'Pause' : 'Start'),
-            style: FilledButton.styleFrom(
-              backgroundColor: cs.primary,
-              foregroundColor: cs.onPrimary,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: cs.primary,
+              side: BorderSide(color: cs.primary, width: 1.5),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),

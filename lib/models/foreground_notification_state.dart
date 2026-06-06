@@ -7,6 +7,7 @@ class ForegroundNotificationState {
   final String stopwatchValue;
   final String currentTimeDisplay;
   final bool clockSpeechOn;
+  final bool speechMasterOn;
 
   const ForegroundNotificationState({
     required this.isTimerRunning,
@@ -15,6 +16,7 @@ class ForegroundNotificationState {
     required this.stopwatchValue,
     required this.currentTimeDisplay,
     required this.clockSpeechOn,
+    required this.speechMasterOn,
   });
 
   String get title {
@@ -42,6 +44,10 @@ class ForegroundNotificationState {
           id: 'btn_clock_speech',
           text: clockSpeechOn ? 'Clock Speech ON' : 'Clock Speech OFF',
         ),
+        NotificationButton(
+          id: 'btn_speech_master',
+          text: speechMasterOn ? 'Speech ON' : 'Speech OFF',
+        ),
         const NotificationButton(id: 'btn_exit', text: 'Exit'),
       ];
     }
@@ -54,6 +60,10 @@ class ForegroundNotificationState {
           id: 'btn_clock_speech',
           text: clockSpeechOn ? 'Clock Speech ON' : 'Clock Speech OFF',
         ),
+        NotificationButton(
+          id: 'btn_speech_master',
+          text: speechMasterOn ? 'Speech ON' : 'Speech OFF',
+        ),
         const NotificationButton(id: 'btn_exit', text: 'Exit'),
       ];
     }
@@ -63,6 +73,10 @@ class ForegroundNotificationState {
       NotificationButton(
         id: 'btn_clock_speech',
         text: clockSpeechOn ? 'Clock Speech ON' : 'Clock Speech OFF',
+      ),
+      NotificationButton(
+        id: 'btn_speech_master',
+        text: speechMasterOn ? 'Speech ON' : 'Speech OFF',
       ),
       const NotificationButton(id: 'btn_exit', text: 'Exit'),
     ];

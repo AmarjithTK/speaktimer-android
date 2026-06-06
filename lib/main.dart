@@ -503,7 +503,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int lastNotificationSyncMs = 0;
 
   /// Currently active tab index (0=SpeakClock, 1=Timer Setup, 2=Stopwatch, 3=Goals, 4=Settings)
-  int currentTabIndex = 0;
+  int currentTabIndex = 1;
 
   /// ============================================================================
   /// ANNOUNCEMENT TIMING - 10-second gap enforcement between speech segments
@@ -563,11 +563,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// Volume level for speech/TTS output (0.0-1.0)
   double speakVolume = 1.0;
 
-  /// Optional gain bump for TTS announcements only.
-  bool ttsVolumeBoostEnabled = false;
+  /// Combine boost + max device volume in one toggle
+  bool maximumSpeechVolume = false;
 
-  /// Optional hardware volume lock for TTS max
-  bool ttsMaxVolumeLockEnabled = false;
+  /// Global speech on/off — when OFF, suppresses ALL speech
+  bool speechMasterOn = true;
 
   /// Enable/disable clock announcements
   bool clockOn = false;
@@ -851,6 +851,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       stopwatchValue: stopwatchElapsedValue,
       currentTimeDisplay: idleTime,
       clockSpeechOn: clockOn,
+      speechMasterOn: speechMasterOn,
     );
   }
 
@@ -974,6 +975,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       case 'toggle_speech':
         setState(() {
           timerSpeakOn = !timerSpeakOn;
+          _lsSave();
+        });
+        _syncForegroundNotification(force: true);
+        break;
+      case 'toggle_speech_master':
+        setState(() {
+          speechMasterOn = !speechMasterOn;
+          if (!speechMasterOn) {
+            speechQueue.clear();
+            unawaited(flutterTts.stop());
+          }
           _lsSave();
         });
         _syncForegroundNotification(force: true);
@@ -1105,6 +1117,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   void _onReceiveTaskData(Object data) {
     if (data is String) {
       switch (data) {
+        case 'btn_speech_master':
+          setState(() {
+            speechMasterOn = !speechMasterOn;
+            if (!speechMasterOn) {
+              speechQueue.clear();
+              unawaited(flutterTts.stop());
+            }
+            _lsSave();
+          });
+          _syncForegroundNotification(force: true);
+          break;
         case 'btn_timer_toggle':
           if (timerInterval != null) {
             stopTimer();
@@ -1195,8 +1218,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       soundChosen = settings.soundChosen;
       noiseVolume = settings.noiseVolume;
       speakVolume = settings.speakVolume;
-      ttsMaxVolumeLockEnabled = settings.ttsMaxVolumeLockEnabled;
-      ttsVolumeBoostEnabled = settings.ttsVolumeBoostEnabled;
+      maximumSpeechVolume = settings.maximumSpeechVolume;
       clockOn = settings.clockOn;
       clockIntervalMins = settings.clockIntervalMins;
       clockShowMilliseconds = settings.clockShowMilliseconds;
@@ -1233,6 +1255,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       );
       favoriteVoiceName = settings.favoriteVoiceName;
       favoriteVoiceLocale = settings.favoriteVoiceLocale;
+      speechMasterOn = settings.speechMasterOn;
       setAppFontSizeMultiplier(settings.appFontSizeMultiplier);
 
       if (!motivationCategories.contains(motivationCategory)) {
@@ -1297,8 +1320,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       soundChosen: soundChosen,
       noiseVolume: noiseVolume,
       speakVolume: speakVolume,
-      ttsMaxVolumeLockEnabled: ttsMaxVolumeLockEnabled,
-      ttsVolumeBoostEnabled: ttsVolumeBoostEnabled,
+      maximumSpeechVolume: maximumSpeechVolume,
       clockOn: clockOn,
       clockIntervalMins: clockIntervalMins,
       clockShowMilliseconds: clockShowMilliseconds,
@@ -1331,6 +1353,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       speechEngineMode: speechEngineMode,
       favoriteVoiceName: favoriteVoiceName,
       favoriteVoiceLocale: favoriteVoiceLocale,
+      speechMasterOn: speechMasterOn,
       appFontSizeMultiplier: appFontSizeNotifier.value,
     );
   }
@@ -1350,6 +1373,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       await prefs.setBool('widget_timer_speak', timerSpeakOn);
       await prefs.setBool('widget_stopwatch_speak', stopwatchSpeakOn);
       await prefs.setBool('widget_goals_on', goalReminderOn);
+      await prefs.setBool('widget_speech_master', speechMasterOn);
       await prefs.setString('widget_timer_display', timerDisplayValue);
       // Ask native to refresh widget UI
       await _widgetChannel.invokeMethod('refreshWidgets');
@@ -1461,6 +1485,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           stopwatchSpeakOn = !stopwatchSpeakOn;
           _lsSave();
         });
+        break;
+      case 'toggle_speech_master':
+        setState(() {
+          speechMasterOn = !speechMasterOn;
+          if (!speechMasterOn) {
+            speechQueue.clear();
+            unawaited(flutterTts.stop());
+          }
+          _lsSave();
+        });
+        _syncForegroundNotification(force: true);
         break;
       case 'toggle_goals_speech':
         setState(() {
@@ -1645,19 +1680,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       speechQueue.clear();
       return;
     }
-
-    const gap = 10000;
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    final latestOtherSpeech = max(
-      max(lastClockSpoke, lastTimerSpoke),
-      lastStopwatchSpoke,
+    _speakAfterGap(
+      text: text,
+      getLatestOtherSpoke: () => max(
+        max(lastClockSpoke, lastTimerSpoke),
+        lastStopwatchSpoke,
+      ),
+      markSpoke: () => lastGoalReminderSpoke = DateTime.now().millisecondsSinceEpoch,
+      onFire: () => speak(text),
     );
-    final waitMs = max(0, gap - (nowMs - latestOtherSpeech));
-
-    Future.delayed(Duration(milliseconds: waitMs), () {
-      lastGoalReminderSpoke = DateTime.now().millisecondsSinceEpoch;
-      speak(text);
-    });
   }
 
   void _announceNextGoalReminder({bool force = false}) {
@@ -1838,8 +1869,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         flutterTts: flutterTts,
         item: item,
         speakVolume: speakVolume,
-        ttsMaxVolumeLockEnabled: ttsMaxVolumeLockEnabled,
-        ttsVolumeBoostEnabled: ttsVolumeBoostEnabled,
+        maximumSpeechVolume: maximumSpeechVolume,
         preferredVoice: pv,
         useMalayalamNuance: useMalayalam,
         speechEngineMode: speechEngineMode,
@@ -1856,8 +1886,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           flutterTts: flutterTts,
           item: item,
           speakVolume: speakVolume,
-          ttsMaxVolumeLockEnabled: ttsMaxVolumeLockEnabled,
-          ttsVolumeBoostEnabled: ttsVolumeBoostEnabled,
+          maximumSpeechVolume: maximumSpeechVolume,
           preferredVoice: retryVoice,
           useMalayalamNuance: _isMalayalamActive(retryVoice),
           speechEngineMode: speechEngineMode,
@@ -1966,6 +1995,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   bool _isSpeechMutedForSleep() {
+    // Global speech master toggle — when OFF, suppress everything
+    if (!speechMasterOn) return true;
+
     if (!muteSpeechAfterMidnight) return false;
     if (!_isNightTime()) {
       autoNightMuteActive = false;
@@ -1975,6 +2007,25 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       return true;
     }
     return autoNightMuteActive;
+  }
+
+  /// Centralized speech gap enforcement: ensures 10-second gap between different
+  /// announcement types (clock, timer, stopwatch, goal reminders) to prevent
+  /// overlapping speech. Replaces 4 duplicated implementations.
+  void _speakAfterGap({
+    required String text,
+    required int Function() getLatestOtherSpoke,
+    required void Function() markSpoke,
+    required VoidCallback onFire,
+  }) {
+    const gap = 10000;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final latestOther = getLatestOtherSpoke();
+    final waitMs = max(0, gap - (nowMs - latestOther));
+    Future.delayed(Duration(milliseconds: waitMs), () {
+      markSpoke();
+      onFire();
+    });
   }
 
   String timeToWords() {
@@ -2020,30 +2071,27 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       speechQueue.clear();
       return;
     }
-
-    const gap = 10000;
-    final latestOtherSpeech = max(
-      max(lastTimerSpoke, lastStopwatchSpoke),
-      lastGoalReminderSpoke,
+    _speakAfterGap(
+      text: text,
+      getLatestOtherSpoke: () => max(
+        max(lastTimerSpoke, lastStopwatchSpoke),
+        lastGoalReminderSpoke,
+      ),
+      markSpoke: () => lastClockSpoke = DateTime.now().millisecondsSinceEpoch,
+      onFire: () {
+        final repeatCount = clockSpeakRepeatCount.clamp(1, 3);
+        for (var i = 0; i < repeatCount; i++) {
+          speechQueue.add(SpeechItem(text, delayMs: i == 0 ? 0 : 350));
+        }
+        if (motivationOn) {
+          final quoteText = _nextQuoteForCategory(motivationCategory);
+          speechQueue.add(
+            SpeechItem(quoteText, isQuote: true, delayMs: motivationDelaySeconds * 1000),
+          );
+        }
+        drainQueue();
+      },
     );
-    final waitMs = max(
-      0,
-      gap - (DateTime.now().millisecondsSinceEpoch - latestOtherSpeech),
-    );
-    Future.delayed(Duration(milliseconds: waitMs), () {
-      lastClockSpoke = DateTime.now().millisecondsSinceEpoch;
-      final repeatCount = clockSpeakRepeatCount.clamp(1, 3);
-      for (var i = 0; i < repeatCount; i++) {
-        speechQueue.add(SpeechItem(text, delayMs: i == 0 ? 0 : 350));
-      }
-
-      if (motivationOn) {
-        final quoteText = _nextQuoteForCategory(motivationCategory);
-        final delayMs = motivationDelaySeconds * 1000;
-        speechQueue.add(SpeechItem(quoteText, isQuote: true, delayMs: delayMs));
-      }
-      drainQueue();
-    });
   }
 
   String _nextQuoteForCategory(String category) {
@@ -2072,20 +2120,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       speechQueue.clear();
       return;
     }
-
-    const gap = 10000;
-    final latestOtherSpeech = max(
-      max(lastClockSpoke, lastStopwatchSpoke),
-      lastGoalReminderSpoke,
+    _speakAfterGap(
+      text: text,
+      getLatestOtherSpoke: () => max(
+        max(lastClockSpoke, lastStopwatchSpoke),
+        lastGoalReminderSpoke,
+      ),
+      markSpoke: () => lastTimerSpoke = DateTime.now().millisecondsSinceEpoch,
+      onFire: () => speak(text),
     );
-    final waitMs = max(
-      0,
-      gap - (DateTime.now().millisecondsSinceEpoch - latestOtherSpeech),
-    );
-    Future.delayed(Duration(milliseconds: waitMs), () {
-      lastTimerSpoke = DateTime.now().millisecondsSinceEpoch;
-      speak(text);
-    });
   }
 
   int _currentTimerCentiseconds() {
@@ -2159,16 +2202,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       speechQueue.clear();
       return;
     }
-
-    const gap = 10000;
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    final latestOtherSpeech = max(lastClockSpoke, lastTimerSpoke);
-    final latestAnySpeech = max(latestOtherSpeech, lastGoalReminderSpoke);
-    final waitMs = max(0, gap - (nowMs - latestAnySpeech));
-    Future.delayed(Duration(milliseconds: waitMs), () {
-      lastStopwatchSpoke = DateTime.now().millisecondsSinceEpoch;
-      speak(text);
-    });
+    _speakAfterGap(
+      text: text,
+      getLatestOtherSpoke: () => max(
+        max(lastClockSpoke, lastTimerSpoke),
+        lastGoalReminderSpoke,
+      ),
+      markSpoke: () => lastStopwatchSpoke = DateTime.now().millisecondsSinceEpoch,
+      onFire: () => speak(text),
+    );
   }
 
   void _tickStopwatch(Timer timer) {
@@ -2686,9 +2728,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             forceHorizontal: true,
             startImmersive: true,
           ),
-          clockOn: clockOn,
           currentTimeDisplay: currentTimeDisplay,
-          toggleClock: toggleClock,
           clockIntervalMins: clockIntervalMins,
           clockShowMilliseconds: clockShowMilliseconds,
           clockSpeakTime: clockSpeakTime,
@@ -2940,8 +2980,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           soundChosen: soundChosen,
           noiseVolume: noiseVolume,
           speakVolume: speakVolume,
-          ttsMaxVolumeLockEnabled: ttsMaxVolumeLockEnabled,
-          ttsVolumeBoostEnabled: ttsVolumeBoostEnabled,
+          maximumSpeechVolume: maximumSpeechVolume,
+          speechMasterOn: speechMasterOn,
           appFontSizeMultiplier: appFontSizeNotifier.value,
           onAppFontSizeMultiplierChanged: (val) {
             if (val != null) {
@@ -2989,15 +3029,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               _lsSave();
             });
           },
-          onTtsMaxVolumeLockEnabledChanged: (val) {
+          onMaximumSpeechVolumeChanged: (val) {
             setState(() {
-              ttsMaxVolumeLockEnabled = val ?? false;
+              maximumSpeechVolume = val ?? false;
               _lsSave();
             });
           },
-          onTtsVolumeBoostEnabledChanged: (val) {
+          onSpeechMasterOnChanged: (val) {
             setState(() {
-              ttsVolumeBoostEnabled = val ?? false;
+              speechMasterOn = val ?? true;
+              if (!speechMasterOn) {
+                speechQueue.clear();
+                unawaited(flutterTts.stop());
+              }
               _lsSave();
             });
           },
@@ -3124,19 +3168,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             debugPrint('[A11y-DEBUG] openAccessibilitySettings() returned — resume handler will re-check on return');
             // No delayed refresh needed: didChangeAppLifecycleState handles
             // the re-check when the user returns via AppLifecycleState.resumed
-          },
-          onOpenGoals: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => Scaffold(
-                  appBar: AppBar(
-                    elevation: 0,
-                    title: const Text('Goals'),
-                  ),
-                  body: _buildGoalsTab(),
-                ),
-              ),
-            );
           },
           onOpenHelp: () {
             Navigator.of(

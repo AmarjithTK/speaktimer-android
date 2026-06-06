@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -236,142 +235,100 @@ class TimerPanel extends StatelessWidget {
     );
   }
 
-  Widget _timerCircle(BuildContext context) {
+  Widget _timeCard(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final timerParts = _splitTimer(timerValue);
-    final minutes = timerParts.$1;
-    final seconds = timerParts.$2;
-    final millis = timerParts.$3;
-    final totalSeconds = math.max(sliderValue * 60, 1);
-    final progress = (remainingSeconds / totalSeconds).clamp(0.0, 1.0);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onFullscreenPressed,
       onDoubleTap: onFullscreenImmersivePressed,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final diameter = math.min(constraints.maxWidth * 0.86, 260.0);
-          final scale = (diameter / 260.0).clamp(0.78, 1.0);
-          return Center(
-            child: SizedBox.square(
-              dimension: diameter,
-              child: CustomPaint(
-                painter: _TimerRingPainter(
-                  progress: progress,
-                  primary: cs.primary,
-                  trackColor: cs.primaryContainer.withAlpha(100),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(diameter * 0.16),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 42 * scale,
-                        height: 42 * scale,
-                        decoration: BoxDecoration(
-                          color: cs.primaryContainer.withAlpha(120),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.hourglass_empty_rounded,
-                          color: cs.primary,
-                          size: 24 * scale,
-                        ),
-                      ),
-                      SizedBox(height: 20 * scale),
-                      Text(
-                        'Remaining time',
-                        style: TextStyle(
-                          color: cs.onSurfaceVariant,
-                          fontSize: 12 * scale,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      SizedBox(height: 18 * scale),
-                      Flexible(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: RichText(
-                            textAlign: TextAlign.center,
-                            text: TextSpan(
-                              style: TextStyle(
-                                color: cs.onSurface,
-                                fontFeatures: [
-                                  FontFeature.tabularFigures(),
-                                ],
-                              ),
-                              children: [
-                                TextSpan(
-                                  text: minutes,
-                                  style: TextStyle(
-                                    fontSize: 48 * scale,
-                                    height: 0.95,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: ':',
-                                  style: TextStyle(
-                                    fontSize: 46 * scale,
-                                    height: 0.95,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: seconds,
-                                  style: TextStyle(
-                                    fontSize: 48 * scale,
-                                    height: 0.95,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                if (millis != null)
-                                  TextSpan(
-                                    text: '.$millis',
-                                    style: TextStyle(
-                                      color: cs.onSurfaceVariant,
-                                      fontSize: 20 * scale,
-                                      height: 0.95,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 14 * scale),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.search_rounded,
-                            color: cs.onSurfaceVariant,
-                            size: 14 * scale,
-                          ),
-                          SizedBox(width: 6 * scale),
-                          Flexible(
-                            child: Text(
-                              _endLabel(context),
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: cs.onSurfaceVariant,
-                                fontSize: 11 * scale,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 32),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [cs.primary, cs.primary.withAlpha(200)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Column(
+          children: [
+            Text(
+              'REMAINING TIME',
+              style: TextStyle(
+                color: cs.onPrimary.withValues(alpha: 0.7),
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.4,
               ),
             ),
-          );
-        },
+            const SizedBox(height: 14),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    timerParts.$1,
+                    style: TextStyle(
+                      color: cs.onPrimary,
+                      fontSize: 48,
+                      height: 1,
+                      fontWeight: FontWeight.w900,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  Text(
+                    ':',
+                    style: TextStyle(
+                      color: cs.onPrimary,
+                      fontSize: 46,
+                      height: 1,
+                      fontWeight: FontWeight.w900,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  Text(
+                    timerParts.$2,
+                    style: TextStyle(
+                      color: cs.onPrimary,
+                      fontSize: 48,
+                      height: 1,
+                      fontWeight: FontWeight.w900,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  if (timerParts.$3 != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        '.${timerParts.$3}',
+                        style: TextStyle(
+                          color: cs.onPrimary.withValues(alpha: 0.7),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              _endLabel(context),
+              style: TextStyle(
+                color: cs.onPrimary.withValues(alpha: 0.82),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -388,13 +345,13 @@ class TimerPanel extends StatelessWidget {
         SizedBox(
           width: double.infinity,
           height: 44,
-          child: FilledButton.icon(
+          child: OutlinedButton.icon(
             onPressed: isRunning ? stopTimer : startTimer,
             icon: Icon(primaryIcon, size: 18),
             label: Text(primaryLabel),
-            style: FilledButton.styleFrom(
-              backgroundColor: cs.primary,
-              foregroundColor: cs.onPrimary,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: cs.primary,
+              side: BorderSide(color: cs.primary, width: 1.5),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -839,8 +796,8 @@ class TimerPanel extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        _timerCircle(context),
-                        const SizedBox(height: 14),
+                        _timeCard(context),
+                        const SizedBox(height: 22),
                         _actions(context),
                         const SizedBox(height: 16),
                         _quickPresets(context),
@@ -861,93 +818,3 @@ class TimerPanel extends StatelessWidget {
   }
 }
 
-class _TimerRingPainter extends CustomPainter {
-  final double progress;
-  final Color primary;
-  final Color trackColor;
-
-  const _TimerRingPainter({
-    required this.progress,
-    required this.primary,
-    required this.trackColor,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final strokeWidth = math.max(size.width * 0.028, 7.0);
-    final halfStroke = strokeWidth / 2;
-    final rect = Rect.fromLTWH(
-      halfStroke,
-      halfStroke,
-      size.width - strokeWidth,
-      size.height - strokeWidth,
-    );
-
-    // Outer shadow ring
-    final shadowPaint = Paint()
-      ..color = primary.withAlpha(25)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth + 4;
-    canvas.drawArc(rect, 0, math.pi * 2, false, shadowPaint);
-
-    // Track ring
-    final trackPaint = Paint()
-      ..color = trackColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(rect, 0, math.pi * 2, false, trackPaint);
-
-    if (progress > 0) {
-      // Progress arc with gradient effect
-      final sweep = math.pi * 2 * progress;
-      final progressPaint = Paint()
-        ..shader = SweepGradient(
-          center: Alignment.center,
-          startAngle: -math.pi / 2,
-          endAngle: -math.pi / 2 + sweep,
-          colors: [
-            primary.withAlpha(180),
-            primary,
-            primary.withAlpha(230),
-          ],
-        ).createShader(rect)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round;
-      canvas.drawArc(rect, -math.pi / 2, sweep, false, progressPaint);
-
-      // Knob glow
-      final angle = -math.pi / 2 + sweep;
-      final radius = rect.width / 2;
-      final center = rect.center;
-      final knobPos = Offset(
-        center.dx + math.cos(angle) * radius,
-        center.dy + math.sin(angle) * radius,
-      );
-      final glowPaint = Paint()
-        ..color = primary.withAlpha(40)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
-      canvas.drawCircle(knobPos, strokeWidth * 1.5, glowPaint);
-
-      // Knob
-      canvas.drawCircle(knobPos, strokeWidth * 0.9, Paint()..color = primary);
-
-      // Knob highlight
-      final highlightPaint = Paint()
-        ..color = Colors.white.withAlpha(100);
-      canvas.drawCircle(
-        Offset(knobPos.dx - strokeWidth * 0.2, knobPos.dy - strokeWidth * 0.2),
-        strokeWidth * 0.3,
-        highlightPaint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _TimerRingPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.primary != primary;
-  }
-}

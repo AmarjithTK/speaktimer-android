@@ -3,8 +3,8 @@ class PrefKeys {
   static const soundChosen = 'SoundChosen';
   static const noiseVolume = 'NoiseVolume';
   static const speakVolume = 'SpeakVolume';
-  static const ttsMaxVolumeLockEnabled = 'TtsMaxVolumeLockEnabled';
-  static const ttsVolumeBoostEnabled = 'TtsVolumeBoostEnabled';
+  static const maximumSpeechVolume = 'MaximumSpeechVolume';
+  static const speechMasterOn = 'SpeechMasterOn';
   static const clockOn = 'ClockOn';
   static const clockIntervalMins = 'ClockIntervalMins';
   static const clockShowMilliseconds = 'ClockShowMilliseconds';

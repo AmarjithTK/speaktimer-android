@@ -31,8 +31,7 @@ void main() {
         soundChosen: 'audio/stream.mp3',
         noiseVolume: 0.2,
         speakVolume: 0.9,
-        ttsMaxVolumeLockEnabled: false,
-        ttsVolumeBoostEnabled: false,
+        maximumSpeechVolume: false,
         clockOn: true,
         clockSpeakTime: true,
         clockSpeakRepeatCount: 2,
@@ -66,6 +65,7 @@ void main() {
         speechEngineMode: 'auto',
         favoriteVoiceName: 'Voice 1',
         favoriteVoiceLocale: 'en-US',
+        speechMasterOn: true,
       );
 
       await service.save(input);
