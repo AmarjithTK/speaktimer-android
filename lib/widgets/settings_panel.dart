@@ -406,29 +406,32 @@ class SettingsPanel extends StatelessWidget {
   // ── Reusable section card ────────────────────────────────────
   Widget _sectionCard(BuildContext context, IconData icon, String title, List<Widget> children) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: context.tintedSurface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-            child: Row(
-              children: [
-                Icon(icon, size: 18, color: cs.primary),
-                const SizedBox(width: 8),
-                Text(title,
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
-              ],
+    return Material(
+      color: context.tintedSurface,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+              child: Row(
+                children: [
+                  Icon(icon, size: 18, color: cs.primary),
+                  const SizedBox(width: 8),
+                  Text(title,
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
+                ],
+              ),
             ),
-          ),
-          ...children,
-          const SizedBox(height: 4),
-        ],
+            ...children,
+            const SizedBox(height: 4),
+          ],
+        ),
       ),
     );
   }
