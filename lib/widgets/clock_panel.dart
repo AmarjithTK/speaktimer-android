@@ -101,7 +101,7 @@ class ClockPanel extends StatelessWidget {
               runSpacing: 4,
               children: [
                 if (clockSpeakTime)
-                  _statusChip(cs, Icons.record_voice_over_rounded, 'Speech',
+                  _statusChip(cs, Icons.volume_up_rounded, 'Sound On',
                       cs.secondaryContainer, cs.onSecondaryContainer),
                 if (clockNoiseOn)
                   _statusChip(cs, Icons.music_note_rounded, 'Noise',
@@ -210,8 +210,8 @@ class ClockPanel extends StatelessWidget {
               children: [
                 _quickToggle(
                   context,
-                  icon: Icons.record_voice_over_rounded,
-                  label: 'Speech',
+                  icon: Icons.volume_up_rounded,
+                  label: 'Sound On',
                   active: clockSpeakTime,
                   activeColor: cs.secondaryContainer,
                   onToggle: () => onClockSpeakTimeChanged(!clockSpeakTime),
