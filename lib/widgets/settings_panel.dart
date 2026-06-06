@@ -241,8 +241,8 @@ class SettingsPanel extends StatelessWidget {
             _settingsSwitch(
               context,
               icon: Icons.volume_up_rounded,
-              title: 'Maximum Speech Volume',
-              subtitle: 'Boost & lock device volume',
+              title: 'Boost TTS Volume',
+              subtitle: 'Maximum volume for speech announcements only',
               value: maximumSpeechVolume,
               onChanged: onMaximumSpeechVolumeChanged,
             ),
