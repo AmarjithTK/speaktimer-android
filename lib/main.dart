@@ -94,6 +94,7 @@ import 'widgets/stopwatch_panel.dart';
 import 'widgets/settings_panel.dart';
 import 'widgets/help_panel.dart';
 import 'services/voice_session_manager.dart';
+import 'services/speech_language_service.dart';
 
 final ValueNotifier<ThemeMode> appThemeModeNotifier = ValueNotifier(
   ThemeMode.light,
@@ -451,6 +452,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   /// Singleton voice session manager for consistent language selection
   final VoiceSessionManager _voiceSessionManager = VoiceSessionManager();
+  final SpeechLanguageService _speechLanguageService = SpeechLanguageService();
 
   /// Manages timer countdown logic: starts, pauses, resumes, calculates display
   /// Handles announcement timings based on user preferences
@@ -496,9 +498,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   /// Current voice index in the voices list
   int voiceIndex = 0;
-
-  /// Voice language mode: auto / english / malayalam
-  String voiceListMode = 'auto';
 
   /// Speech engine mode: auto / system_only / sherpa_only
   String speechEngineMode = 'auto';
@@ -1115,7 +1114,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           volumeLists: volumeLists,
           isSpeechActive: isSpeechActive,
           speechQueueLength: speechQueue.length,
-          voiceListMode: voiceListMode,
+          voiceListMode: _speechLanguageService.language,
           speechEngineMode: speechEngineMode,
           speechEngineRuntime: _speechService.lastEngineUsed,
           speechEngineRuntimeDetail: _speechService.lastEngineDetail,
@@ -1216,7 +1215,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             speechQueue.clear();
             unawaited(flutterTts.stop());
             setState(() {
-              voiceListMode = _speechService.normalizeVoiceLanguageMode(val);
+              _speechLanguageService.setLanguage(
+                _speechService.normalizeVoiceLanguageMode(val),
+              );
               final available = _availableVoicesForSettings();
               final hasFavorite = available.any(
                 (voice) =>
@@ -1490,8 +1491,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       fullscreenDarkTheme = settings.fullscreenDarkTheme;
       fullscreenDimBrightness = settings.fullscreenDimBrightness;
       fullscreenStartLandscape = settings.fullscreenStartLandscape;
-      voiceListMode = _speechService.normalizeVoiceLanguageMode(
-        settings.voiceListMode,
+      _speechLanguageService.setLanguage(
+        _speechService.normalizeVoiceLanguageMode(settings.voiceListMode),
       );
       speechEngineMode = _speechService.normalizeSpeechEngineMode(
         settings.speechEngineMode,
@@ -1592,7 +1593,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       fullscreenDarkTheme: fullscreenDarkTheme,
       fullscreenDimBrightness: fullscreenDimBrightness,
       fullscreenStartLandscape: fullscreenStartLandscape,
-      voiceListMode: voiceListMode,
+      voiceListMode: _speechLanguageService.language,
       speechEngineMode: speechEngineMode,
       favoriteVoiceName: favoriteVoiceName,
       favoriteVoiceLocale: favoriteVoiceLocale,
@@ -2005,9 +2006,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             if (mounted) {
               setState(() {
                 voices = loadedVoices;
+                _speechLanguageService.allVoices = loadedVoices;
               });
             } else {
               voices = loadedVoices;
+              _speechLanguageService.allVoices = loadedVoices;
             }
             _ttsReady = true;
             break;
@@ -2037,21 +2040,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   List<Map<dynamic, dynamic>> _availableVoicesForSettings() {
-    return _speechService.availableVoicesForSettings(
-      voices: voices,
-      voiceListMode: voiceListMode,
-    );
+    _speechLanguageService.allVoices = voices;
+    return _speechLanguageService.voicesForLanguage();
   }
 
   Map<dynamic, dynamic>? getPreferredVoice() {
     return _voiceSessionManager.getPreferredVoice(
       voiceResolver: () => _speechService.preferredVoice(
         voices: voices,
-        voiceListMode: voiceListMode,
+        voiceListMode: _speechLanguageService.language,
         favoriteVoiceName: favoriteVoiceName,
         favoriteVoiceLocale: favoriteVoiceLocale,
       ),
-      voiceListMode: voiceListMode,
+      voiceListMode: _speechLanguageService.language,
       favoriteVoiceName: favoriteVoiceName,
       favoriteVoiceLocale: favoriteVoiceLocale,
     );
@@ -2060,7 +2061,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   bool _isMalayalamActive(Map<dynamic, dynamic>? preferredVoice) {
     return _voiceSessionManager.isMalayalamActive(
       isMalayalamResolver: (voice) => _malayalamTtsService.isMalayalamMode(
-        voiceListMode: voiceListMode,
+        voiceListMode: _speechLanguageService.language,
         preferredVoice: voice,
       ),
       preferredVoice: preferredVoice,
