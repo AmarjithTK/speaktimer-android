@@ -124,40 +124,19 @@ class SettingsPanel extends StatelessWidget {
     return 'Standard';
   }
 
-  String _voiceReason(String name, String locale) {
-    final lower = name.toLowerCase();
-    if (lower.contains('neural') ||
-        lower.contains('network') ||
-        lower.contains('wavenet')) {
-      return 'Natural neural quality';
-    }
-    if (lower.contains('google') || lower.contains('samsung')) {
-      return 'High clarity device voice';
-    }
-    if (locale.startsWith('ml')) return 'Best fit for Malayalam pronunciation';
-    if (locale.startsWith('en-in')) return 'Best fit for Indian English accent';
-    return 'Stable default voice';
-  }
-
   String _speechEngineLabel(String value) {
     switch (value) {
-      case 'system_only':
-        return 'System TTS only';
-      case 'sherpa_only':
-        return 'Sherpa-ONNX only';
-      default:
-        return 'Auto';
+      case 'system_only': return 'System TTS only';
+      case 'sherpa_only': return 'Sherpa-ONNX only';
+      default: return 'Auto';
     }
   }
 
   String _voiceListLabel(String value) {
     switch (value) {
-      case 'english':
-        return 'English';
-      case 'malayalam':
-        return 'Malayalam';
-      default:
-        return 'Auto';
+      case 'english': return 'English';
+      case 'malayalam': return 'Malayalam';
+      default: return 'Auto';
     }
   }
 
@@ -169,262 +148,10 @@ class SettingsPanel extends StatelessWidget {
   }
 
   String _favoriteVoiceKey() {
-    if (favoriteVoiceName == null || favoriteVoiceLocale == null) {
-      return '__auto__';
-    }
+    if (favoriteVoiceName == null || favoriteVoiceLocale == null) return '__auto__';
     final key = '$favoriteVoiceName|$favoriteVoiceLocale';
-    final exists = voices.any(
-      (voice) => '${voice['name']}|${voice['locale']}' == key,
-    );
+    final exists = voices.any((v) => '${v['name']}|${v['locale']}' == key);
     return exists ? key : '__auto__';
-  }
-
-  Future<void> _showStringPicker(
-    BuildContext context, {
-    required String title,
-    required String currentValue,
-    required List<(String, String, String?)> options,
-    required ValueChanged<String?> onChanged,
-  }) async {
-    final cs = Theme.of(context).colorScheme;
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: cs.surfaceContainerLow,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _sheetTitle(context, title),
-              const SizedBox(height: 8),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.sizeOf(context).height * 0.58,
-                ),
-                child: ListView(
-                  shrinkWrap: true,
-                  children: options.map((option) {
-                    final selected = option.$1 == currentValue;
-                    return _pickerTile(
-                      context,
-                      selected: selected,
-                      title: option.$2,
-                      subtitle: option.$3,
-                      onTap: () {
-                        onChanged(option.$1);
-                        Navigator.of(context).pop();
-                      },
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showDoublePicker(
-    BuildContext context, {
-    required String title,
-    required double currentValue,
-    required ValueChanged<double?> onChanged,
-  }) async {
-    final cs = Theme.of(context).colorScheme;
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: cs.surfaceContainerLow,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _sheetTitle(context, title),
-              const SizedBox(height: 8),
-              ...volumeLists.map((volume) {
-                final selected = volume == currentValue;
-                return _pickerTile(
-                  context,
-                  selected: selected,
-                  title: _getVolTitle(volume),
-                  subtitle: '${(volume * 100).round()}%',
-                  onTap: () {
-                    onChanged(volume);
-                    Navigator.of(context).pop();
-                  },
-                );
-              }),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _sheetTitle(BuildContext context, String title) {
-    final cs = Theme.of(context).colorScheme;
-    return Text(
-      title,
-      style: TextStyle(
-        color: cs.onSurface,
-        fontSize: 18,
-        fontWeight: FontWeight.w900,
-      ),
-    );
-  }
-
-  Widget _pickerTile(
-    BuildContext context, {
-    required bool selected,
-    required String title,
-    String? subtitle,
-    required VoidCallback onTap,
-  }) {
-    final cs = Theme.of(context).colorScheme;
-    return ListTile(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-      ),
-      selected: selected,
-      selectedTileColor: cs.primaryContainer.withAlpha(80),
-      leading: Icon(
-        selected
-            ? Icons.radio_button_checked_rounded
-            : Icons.radio_button_unchecked_rounded,
-        color: selected ? cs.primary : cs.onSurfaceVariant,
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-      ),
-      subtitle: subtitle == null
-          ? null
-          : Text(
-              subtitle,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12),
-            ),
-      onTap: onTap,
-    );
-  }
-
-  Widget _sectionTitle(BuildContext context, String title) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
-      child: Text(
-        title,
-        style: TextStyle(
-          color: cs.onSurface,
-          fontSize: 13,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-
-  Widget _card(BuildContext context, List<Widget> children) {
-    final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: cs.outlineVariant),
-      ),
-      child: Column(children: children),
-    );
-  }
-
-  Widget _selectRow(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String value,
-    required VoidCallback onTap,
-  }) {
-    final cs = Theme.of(context).colorScheme;
-    return ListTile(
-      dense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-      leading: Icon(icon, color: cs.primary, size: 20),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: cs.onSurface,
-          fontSize: 13,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 150),
-            child: Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.end,
-              style: TextStyle(
-                color: cs.onSurfaceVariant,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant),
-        ],
-      ),
-      onTap: onTap,
-    );
-  }
-
-  Widget _switchRow(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required bool value,
-    required ValueChanged<bool?> onChanged,
-    String? subtitle,
-  }) {
-    final cs = Theme.of(context).colorScheme;
-    return SwitchListTile(
-      dense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-      secondary: Icon(icon, color: cs.primary, size: 20),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: cs.onSurface,
-          fontSize: 13,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-      subtitle: subtitle == null
-          ? null
-          : Text(
-              subtitle,
-              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-            ),
-      value: value,
-      activeThumbColor: cs.onPrimary,
-      activeTrackColor: cs.primary,
-      onChanged: (value) => onChanged(value),
-    );
-  }
-
-  Widget _divider(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Divider(height: 1, indent: 52, color: cs.outlineVariant);
   }
 
   @override
@@ -434,7 +161,7 @@ class SettingsPanel extends StatelessWidget {
       ('auto', 'Auto', 'System TTS with Sherpa fallback'),
       ('system_only', 'System TTS only', 'Use the device speech engine'),
       if (!kIsWeb)
-        ('sherpa_only', 'Sherpa-ONNX only', 'Linux and Windows fallback voice'),
+        ('sherpa_only', 'Sherpa-ONNX only', 'Linux/Windows fallback voice'),
     ];
     final voiceModeOptions = <(String, String, String?)>[
       ('english', 'English', null),
@@ -450,393 +177,391 @@ class SettingsPanel extends StatelessWidget {
         final name = voice['name']?.toString() ?? 'Unknown';
         final locale = voice['locale']?.toString() ?? 'en';
         final key = '$name|$locale';
-        return (
-          key,
-          '${_voiceCharacterName(name, locale)} - $locale',
-          '$name - ${_voiceReason(name, locale)}',
-        );
+        return (key, '${_voiceCharacterName(name, locale)} - $locale', name);
       }),
     ];
 
-    return OrientationBuilder(
-      builder: (context, orientation) {
-        final isLandscape = orientation == Orientation.landscape;
-        return ColoredBox(
-          color: cs.surface,
-          child: Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: isLandscape ? double.infinity : 430,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Settings',
-                      style: TextStyle(
-                        color: cs.onSurface,
-                        fontSize: 18,
-                        height: 1,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    Expanded(
-                      child: ListView(
-                        padding: EdgeInsets.zero,
-                        children: [
-                          // ── Audio & Speech ──────────────────────────────
-                          _sectionTitle(context, 'Audio & Speech'),
-                          _card(context, [
-                            _switchRow(
-                              context,
-                              icon: speechMasterOn
-                                  ? Icons.volume_up_rounded
-                                  : Icons.volume_off_rounded,
-                              title: 'Speech',
-                              subtitle: speechMasterOn
-                                  ? 'All speech on'
-                                  : 'All speech off',
-                              value: speechMasterOn,
-                              onChanged: onSpeechMasterOnChanged,
-                            ),
-                            _divider(context),
-                            _selectRow(
-                              context,
-                              icon: Icons.music_note_rounded,
-                              title: 'Background sound',
-                              value: _soundTitle(soundChosen),
-                              onTap: () => _showStringPicker(
-                                context,
-                                title: 'Background sound',
-                                currentValue: soundChosen,
-                                options: soundList
-                                    .map(
-                                      (sound) =>
-                                          (sound.link, sound.title, null),
-                                    )
-                                    .toList(),
-                                onChanged: onSoundChanged,
-                              ),
-                            ),
-                            _divider(context),
-                            _selectRow(
-                              context,
-                              icon: Icons.volume_up_rounded,
-                              title: 'Noise volume',
-                              value: _getVolTitle(noiseVolume),
-                              onTap: () => _showDoublePicker(
-                                context,
-                                title: 'Noise volume',
-                                currentValue: noiseVolume,
-                                onChanged: onNoiseVolumeChanged,
-                              ),
-                            ),
-                            _divider(context),
-                            _selectRow(
-                              context,
-                              icon: Icons.record_voice_over_rounded,
-                              title: 'Speech volume',
-                              value: _getVolTitle(speakVolume),
-                              onTap: () => _showDoublePicker(
-                                context,
-                                title: 'Speech volume',
-                                currentValue: speakVolume,
-                                onChanged: onSpeakVolumeChanged,
-                              ),
-                            ),
-                            _divider(context),
-                            _switchRow(
-                              context,
-                              icon: Icons.volume_up_rounded,
-                              title: 'Maximum Speech Volume',
-                              subtitle: 'Boost volume and lock device volume',
-                              value: maximumSpeechVolume,
-                              onChanged: onMaximumSpeechVolumeChanged,
-                            ),
-                          ]),
-                          // ── Voice ────────────────────────────────────────
-                          _sectionTitle(context, 'Voice'),
-                          _card(context, [
-                            _selectRow(
-                              context,
-                              icon: Icons.spatial_audio_off_rounded,
-                              title: 'Speech engine',
-                              value: _speechEngineLabel(speechEngineMode),
-                              onTap: () => _showStringPicker(
-                                context,
-                                title: 'Speech engine',
-                                currentValue: speechEngineMode,
-                                options: speechEngineOptions,
-                                onChanged: onSpeechEngineModeChanged,
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(52, 0, 14, 10),
-                              child: Text(
-                                '$speechEngineRuntime - $speechEngineRuntimeDetail',
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: cs.onSurfaceVariant,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            _divider(context),
-                            _selectRow(
-                              context,
-                              icon: Icons.language_rounded,
-                              title: 'Language list',
-                              value: _voiceListLabel(voiceListMode),
-                              onTap: () => _showStringPicker(
-                                context,
-                                title: 'Language list',
-                                currentValue: voiceListMode,
-                                options: voiceModeOptions,
-                                onChanged: onVoiceListModeChanged,
-                              ),
-                            ),
-                            _divider(context),
-                            _selectRow(
-                              context,
-                              icon: Icons.person_search_rounded,
-                              title: 'Voice',
-                              value: _favoriteVoiceLabel(),
-                              onTap: () => _showStringPicker(
-                                context,
-                                title: 'Voice',
-                                currentValue: _favoriteVoiceKey(),
-                                options: voiceOptions,
-                                onChanged: onFavoriteVoiceChanged,
-                              ),
-                            ),
-                          ]),
-                          // ── Focus & Fullscreen ───────────────────────────
-                          _sectionTitle(context, 'Focus & Fullscreen'),
-                          _card(context, [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.text_fields_rounded,
-                                    color: cs.primary,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 18),
-                                  Text(
-                                    'App font size',
-                                    style: TextStyle(
-                                      color: cs.onSurface,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    '${appFontSizeMultiplier.toStringAsFixed(1)}x',
-                                    style: TextStyle(
-                                      color: cs.primary,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Slider(
-                              value: appFontSizeMultiplier,
-                              min: 0.8,
-                              max: 1.5,
-                              divisions: 7,
-                              label:
-                                  '${appFontSizeMultiplier.toStringAsFixed(1)}x',
-                              onChanged: onAppFontSizeMultiplierChanged,
-                            ),
-                            _divider(context),
-                            _switchRow(
-                              context,
-                              icon: Icons.dark_mode_rounded,
-                              title: 'Dark fullscreen',
-                              value: fullscreenDarkTheme,
-                              onChanged: onFullscreenDarkThemeChanged,
-                            ),
-                            _divider(context),
-                            _switchRow(
-                              context,
-                              icon: Icons.brightness_4_rounded,
-                              title: 'Dim fullscreen brightness',
-                              value: fullscreenDimBrightness,
-                              onChanged: onFullscreenDimBrightnessChanged,
-                            ),
-                            _divider(context),
-                            _switchRow(
-                              context,
-                              icon: Icons.screen_rotation_rounded,
-                              title: 'Start fullscreen landscape',
-                              value: fullscreenStartLandscape,
-                              onChanged: onFullscreenStartLandscapeChanged,
-                            ),
-                          ]),
-                          // ── Sleep Mode ──────────────────────────────────
-                          _sectionTitle(context, 'Sleep Mode'),
-                          _card(context, [
-                            _switchRow(
-                              context,
-                              icon: Icons.nightlight_round,
-                              title: 'Enable sleep mode',
-                              subtitle: 'Custom quiet range',
-                              value: muteSpeechAfterMidnight,
-                              onChanged: onMuteSpeechAfterMidnightChanged,
-                            ),
-                            if (muteSpeechAfterMidnight) ...[
-                              _divider(context),
-                              _selectRow(
-                                context,
-                                icon: Icons.bedtime_rounded,
-                                title: 'Mode',
-                                value: nightMuteMode == 'automatic'
-                                    ? 'Automatic'
-                                    : 'Manual',
-                                onTap: () => _showStringPicker(
-                                  context,
-                                  title: 'Sleep mode',
-                                  currentValue: nightMuteMode,
-                                  options: nightModeOptions,
-                                  onChanged: onNightMuteModeChanged,
-                                ),
-                              ),
-                              _divider(context),
-                              _selectRow(
-                                context,
-                                icon: Icons.schedule_rounded,
-                                title: 'Starts',
-                                value: sleepStartLabel,
-                                onTap: onPickSleepStart,
-                              ),
-                              _divider(context),
-                              _selectRow(
-                                context,
-                                icon: Icons.alarm_rounded,
-                                title: 'Ends',
-                                value: sleepEndLabel,
-                                onTap: onPickSleepEnd,
-                              ),
-                            ],
-                          ]),
-                          // ── System ───────────────────────────────────────
-                          _sectionTitle(context, 'System'),
-                          _card(context, [
-                            SwitchListTile(
-                              value: accessibilityEnabled,
-                              onChanged: (val) {
-                                onOpenAccessibility?.call();
-                              },
-                              activeThumbColor: cs.onPrimary,
-                              activeTrackColor: cs.primary,
-                              secondary: Icon(
-                                Icons.power_settings_new_rounded,
-                                color: cs.primary,
-                                size: 20,
-                              ),
-                              title: Text(
-                                'Auto-start after reboot',
-                                style: TextStyle(
-                                  color: cs.onSurface,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              subtitle: Text(
-                                accessibilityEnabled
-                                    ? 'Accessibility service is ON'
-                                    : 'Tap to enable in system settings',
-                                style: TextStyle(
-                                  color: cs.onSurfaceVariant,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            _divider(context),
-                            ListTile(
-                              dense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 2,
-                              ),
-                              leading: Icon(
-                                Icons.help_outline_rounded,
-                                color: cs.primary,
-                                size: 20,
-                              ),
-                              title: Text(
-                                'Help / Working',
-                                style: TextStyle(
-                                  color: cs.onSurface,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              trailing: Icon(
-                                Icons.chevron_right_rounded,
-                                color: cs.onSurfaceVariant,
-                              ),
-                              onTap: onOpenHelp,
-                            ),
-                            _divider(context),
-                            ListTile(
-                              dense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 4,
-                              ),
-                              leading: Icon(
-                                Icons.info_outline_rounded,
-                                color: cs.primary,
-                                size: 20,
-                              ),
-                              title: const Text(
-                                'Built by Amarjith TK',
-                                style: TextStyle(
-                                  color: Color(0xFF1C1B1F),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              subtitle: const Text(
-                                'Atherpulse Technologies',
-                                style: TextStyle(
-                                  color: Color(0xFF49454F),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              trailing: const Icon(
-                                Icons.open_in_new_rounded,
-                                size: 18,
-                              ),
-                              onTap: () async {
-                                final url = Uri.parse('https://atherpulse.in');
-                                await launchUrl(
-                                  url,
-                                  mode: LaunchMode.externalApplication,
-                                );
-                              },
-                            ),
-                          ]),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Settings'),
+        centerTitle: true,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        children: [
+          // ── Audio & Speech ──────────────────────────────────
+          _sectionCard(context, Icons.volume_up_rounded, 'Audio & Speech', [
+            _settingsSwitch(
+              context,
+              icon: speechMasterOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+              title: 'Speech',
+              subtitle: speechMasterOn ? 'All speech on' : 'All speech off',
+              value: speechMasterOn,
+              onChanged: onSpeechMasterOnChanged,
+            ),
+            _settingsDivider(context),
+            _settingsOption(
+              context,
+              icon: Icons.music_note_rounded,
+              title: 'Background sound',
+              value: _soundTitle(soundChosen),
+              onTap: () => _showStringPicker(
+                context, title: 'Background sound',
+                currentValue: soundChosen,
+                options: soundList.map((s) => (s.link, s.title, null)).toList(),
+                onChanged: onSoundChanged,
               ),
             ),
+            _settingsDivider(context),
+            _settingsOption(
+              context,
+              icon: Icons.volume_up_rounded,
+              title: 'Noise volume',
+              value: _getVolTitle(noiseVolume),
+              onTap: () => _showDoublePicker(
+                context, title: 'Noise volume',
+                currentValue: noiseVolume,
+                onChanged: onNoiseVolumeChanged,
+              ),
+            ),
+            _settingsDivider(context),
+            _settingsOption(
+              context,
+              icon: Icons.record_voice_over_rounded,
+              title: 'Speech volume',
+              value: _getVolTitle(speakVolume),
+              onTap: () => _showDoublePicker(
+                context, title: 'Speech volume',
+                currentValue: speakVolume,
+                onChanged: onSpeakVolumeChanged,
+              ),
+            ),
+            _settingsDivider(context),
+            _settingsSwitch(
+              context,
+              icon: Icons.volume_up_rounded,
+              title: 'Maximum Speech Volume',
+              subtitle: 'Boost & lock device volume',
+              value: maximumSpeechVolume,
+              onChanged: onMaximumSpeechVolumeChanged,
+            ),
+          ]),
+          const SizedBox(height: 12),
+
+          // ── Voice ────────────────────────────────────────────
+          _sectionCard(context, Icons.record_voice_over_rounded, 'Voice', [
+            _settingsOption(
+              context,
+              icon: Icons.spatial_audio_off_rounded,
+              title: 'Speech engine',
+              value: _speechEngineLabel(speechEngineMode),
+              onTap: () => _showStringPicker(
+                context, title: 'Speech engine',
+                currentValue: speechEngineMode,
+                options: speechEngineOptions,
+                onChanged: onSpeechEngineModeChanged,
+              ),
+            ),
+            if (speechEngineRuntime.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(52, 0, 14, 8),
+                child: Text(
+                  '$speechEngineRuntime — $speechEngineRuntimeDetail',
+                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
+                  maxLines: 2,
+                ),
+              ),
+            _settingsDivider(context),
+            _settingsOption(
+              context,
+              icon: Icons.language_rounded,
+              title: 'Language list',
+              value: _voiceListLabel(voiceListMode),
+              onTap: () => _showStringPicker(
+                context, title: 'Language list',
+                currentValue: voiceListMode,
+                options: voiceModeOptions,
+                onChanged: onVoiceListModeChanged,
+              ),
+            ),
+            _settingsDivider(context),
+            _settingsOption(
+              context,
+              icon: Icons.person_search_rounded,
+              title: 'Preferred voice',
+              value: _favoriteVoiceLabel(),
+              onTap: () => _showStringPicker(
+                context, title: 'Voice',
+                currentValue: _favoriteVoiceKey(),
+                options: voiceOptions,
+                onChanged: onFavoriteVoiceChanged,
+              ),
+            ),
+          ]),
+          const SizedBox(height: 12),
+
+          // ── Focus & Fullscreen ────────────────────────────────
+          _sectionCard(context, Icons.fullscreen_rounded, 'Focus & Fullscreen', [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(52, 8, 14, 0),
+              child: Row(
+                children: [
+                  Text('Font size',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
+                  const Spacer(),
+                  Text('${appFontSizeMultiplier.toStringAsFixed(1)}x',
+                    style: TextStyle(color: cs.primary, fontWeight: FontWeight.w900, fontSize: 13)),
+                ],
+              ),
+            ),
+            Slider(
+              value: appFontSizeMultiplier, min: 0.8, max: 1.5, divisions: 7,
+              label: '${appFontSizeMultiplier.toStringAsFixed(1)}x',
+              onChanged: onAppFontSizeMultiplierChanged,
+            ),
+            _settingsDivider(context),
+            _settingsSwitch(context,
+              icon: Icons.dark_mode_rounded, title: 'Dark fullscreen',
+              value: fullscreenDarkTheme, onChanged: onFullscreenDarkThemeChanged),
+            _settingsDivider(context),
+            _settingsSwitch(context,
+              icon: Icons.brightness_4_rounded, title: 'Dim brightness',
+              value: fullscreenDimBrightness, onChanged: onFullscreenDimBrightnessChanged),
+            _settingsDivider(context),
+            _settingsSwitch(context,
+              icon: Icons.screen_rotation_rounded, title: 'Start landscape',
+              value: fullscreenStartLandscape, onChanged: onFullscreenStartLandscapeChanged),
+          ]),
+          const SizedBox(height: 12),
+
+          // ── Sleep Mode ────────────────────────────────────────
+          _sectionCard(context, Icons.nightlight_round, 'Sleep Mode', [
+            _settingsSwitch(context,
+              icon: Icons.nightlight_round, title: 'Enable sleep mode',
+              subtitle: 'Quiet hours for speech',
+              value: muteSpeechAfterMidnight,
+              onChanged: onMuteSpeechAfterMidnightChanged),
+            if (muteSpeechAfterMidnight) ...[
+              _settingsDivider(context),
+              _settingsOption(context,
+                icon: Icons.bedtime_rounded, title: 'Mode',
+                value: nightMuteMode == 'automatic' ? 'Automatic' : 'Manual',
+                onTap: () => _showStringPicker(
+                  context, title: 'Sleep mode',
+                  currentValue: nightMuteMode, options: nightModeOptions,
+                  onChanged: onNightMuteModeChanged)),
+              _settingsDivider(context),
+              _settingsOption(context,
+                icon: Icons.schedule_rounded, title: 'Starts at',
+                value: sleepStartLabel, onTap: onPickSleepStart),
+              _settingsDivider(context),
+              _settingsOption(context,
+                icon: Icons.alarm_rounded, title: 'Ends at',
+                value: sleepEndLabel, onTap: onPickSleepEnd),
+            ],
+          ]),
+          const SizedBox(height: 12),
+
+          // ── System ────────────────────────────────────────────
+          _sectionCard(context, Icons.settings_rounded, 'System', [
+            SwitchListTile(
+              value: accessibilityEnabled,
+              onChanged: (_) => onOpenAccessibility?.call(),
+              activeThumbColor: cs.onPrimary, activeTrackColor: cs.primary,
+              secondary: Icon(Icons.power_settings_new_rounded, color: cs.primary, size: 22),
+              title: Text('Auto-start on reboot',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
+              subtitle: Text(
+                accessibilityEnabled ? 'Accessibility service is ON' : 'Tap to enable',
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+            ),
+            _settingsDivider(context),
+            ListTile(
+              leading: Icon(Icons.help_outline_rounded, color: cs.primary, size: 22),
+              title: Text('Help / Working',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
+              trailing: Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant),
+              onTap: onOpenHelp,
+            ),
+            _settingsDivider(context),
+            ListTile(
+              leading: Icon(Icons.info_outline_rounded, color: cs.primary, size: 22),
+              title: Text('Built by Amarjith TK',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
+              subtitle: Text('Atherpulse Technologies',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: cs.onSurfaceVariant)),
+              trailing: Icon(Icons.open_in_new_rounded, color: cs.onSurfaceVariant, size: 20),
+              onTap: () async {
+                final url = Uri.parse('https://atherpulse.in');
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              },
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  // ── Reusable section card ────────────────────────────────────
+  Widget _sectionCard(BuildContext context, IconData icon, String title, List<Widget> children) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+            child: Row(
+              children: [
+                Icon(icon, size: 18, color: cs.primary),
+                const SizedBox(width: 8),
+                Text(title,
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
+              ],
+            ),
           ),
-        );
-      },
+          ...children,
+          const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+
+  Widget _settingsSwitch(BuildContext context, {
+    required IconData icon, required String title,
+    String? subtitle, required bool value,
+    required ValueChanged<bool?> onChanged,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return SwitchListTile(
+      value: value, onChanged: onChanged,
+      activeThumbColor: cs.onPrimary, activeTrackColor: cs.primary,
+      secondary: Icon(icon, color: cs.primary, size: 22),
+      title: Text(title,
+        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
+      subtitle: subtitle != null
+          ? Text(subtitle, style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12))
+          : null,
+    );
+  }
+
+  Widget _settingsOption(BuildContext context, {
+    required IconData icon, required String title,
+    required String value, required VoidCallback onTap,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return ListTile(
+      leading: Icon(icon, color: cs.primary, size: 22),
+      title: Text(title,
+        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 150),
+            child: Text(value,
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13, fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(width: 4),
+          Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant, size: 20),
+        ],
+      ),
+      onTap: onTap,
+    );
+  }
+
+  Widget _settingsDivider(BuildContext context) {
+    return Divider(height: 1, indent: 52, endIndent: 16,
+      color: Theme.of(context).colorScheme.outlineVariant);
+  }
+
+  // ── Bottom sheet pickers ────────────────────────────────────
+  Future<void> _showStringPicker(BuildContext context, {
+    required String title, required String currentValue,
+    required List<(String, String, String?)> options,
+    required ValueChanged<String?> onChanged,
+  }) async {
+    final cs = Theme.of(context).colorScheme;
+    await showModalBottomSheet<void>(
+      context: context, showDragHandle: true,
+      backgroundColor: cs.surfaceContainerLow,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title,
+                style: TextStyle(color: cs.onSurface, fontSize: 18, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 8),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.58),
+                child: ListView(shrinkWrap: true, children: options.map((o) {
+                  final selected = o.$1 == currentValue;
+                  return ListTile(
+                    selected: selected, selectedTileColor: cs.primaryContainer.withAlpha(80),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    leading: Icon(
+                      selected ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
+                      color: selected ? cs.primary : cs.onSurfaceVariant),
+                    title: Text(o.$2, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                    subtitle: o.$3 != null
+                        ? Text(o.$3!, style: const TextStyle(fontSize: 12), maxLines: 2)
+                        : null,
+                    onTap: () { onChanged(o.$1); Navigator.of(context).pop(); },
+                  );
+                }).toList()),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDoublePicker(BuildContext context, {
+    required String title, required double currentValue,
+    required ValueChanged<double?> onChanged,
+  }) async {
+    final cs = Theme.of(context).colorScheme;
+    await showModalBottomSheet<void>(
+      context: context, showDragHandle: true,
+      backgroundColor: cs.surfaceContainerLow,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title,
+                style: TextStyle(color: cs.onSurface, fontSize: 18, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 8),
+              ...volumeLists.map((volume) {
+                final selected = volume == currentValue;
+                return ListTile(
+                  selected: selected, selectedTileColor: cs.primaryContainer.withAlpha(80),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  leading: Icon(
+                    selected ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
+                    color: selected ? cs.primary : cs.onSurfaceVariant),
+                  title: Text(_getVolTitle(volume),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                  subtitle: Text('${(volume * 100).round()}%',
+                    style: const TextStyle(fontSize: 12)),
+                  onTap: () { onChanged(volume); Navigator.of(context).pop(); },
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
