@@ -177,26 +177,22 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
     });
   }
 
-  (String, String?) _splitClockDisplay(String value) {
-    if (value.contains('.')) {
-      final parts = value.split('.');
-      return (parts.first, parts.length > 1 ? parts[1] : null);
-    }
-    return (value, null);
+  /// Strips AM/PM suffix from clock display
+  String _stripClockSuffix(String value) {
+    return value.replaceAll(RegExp(r'\s(AM|PM)$'), '');
   }
 
-  (String, String, String?) _splitTimer(String value) {
-    final dotParts = value.split('.');
-    final base = dotParts.first;
-    final millis = dotParts.length > 1 ? dotParts[1] : null;
+
+  (String, String) _splitTimer(String value) {
+    final base = value.split('.').first;
     final parts = base.split(':');
     if (parts.length == 2) {
-      return (parts[0], parts[1], millis);
+      return (parts[0], parts[1]);
     }
     if (parts.length == 3) {
-      return ('${parts[0]}:${parts[1]}', parts[2], millis);
+      return ('${parts[0]}:${parts[1]}', parts[2]);
     }
-    return ('00', '00', null);
+    return ('00', '00');
   }
 
   Widget _buildTimerLikeDisplay(
@@ -206,10 +202,8 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
     final timerParts = _splitTimer(value);
     final mins = timerParts.$1;
     final secs = timerParts.$2;
-    final millis = timerParts.$3;
     const valueSize = 200.0;
     const separatorSize = 160.0;
-    const millisSize = 52.0;
 
     return Center(
       child: FittedBox(
@@ -250,16 +244,6 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                     height: 1,
                   ),
                 ),
-                if (millis != null)
-                  TextSpan(
-                    text: '.$millis',
-                    style: TextStyle(
-                      fontSize: millisSize,
-                      fontWeight: FontWeight.w800,
-                      color: fg.withAlpha(190),
-                      height: 1,
-                    ),
-                  ),
               ],
             ),
           ),
@@ -269,11 +253,8 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   }
 
   Widget _buildClockDisplay(Color fg) {
-    final clockParts = _splitClockDisplay(_clockText);
-    final mainTime = clockParts.$1;
-    final millis = clockParts.$2;
+    final mainTime = _stripClockSuffix(_clockText).split('.').first;
     const valueSize = 168.0;
-    const millisSize = 52.0;
 
     return Center(
       child: FittedBox(
@@ -281,35 +262,16 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
         alignment: Alignment.center,
         child: SizedBox(
           width: valueSize * 5.5,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                mainTime,
-                style: TextStyle(
-                  color: fg,
-                  fontSize: valueSize,
-                  fontWeight: FontWeight.w900,
-                  height: 1,
-                  letterSpacing: 0,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-              if (millis != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Text(
-                    '.$millis',
-                    style: TextStyle(
-                      color: fg.withAlpha(190),
-                      fontSize: millisSize,
-                      fontWeight: FontWeight.w800,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ),
-            ],
+          child: Text(
+            mainTime,
+            style: TextStyle(
+              color: fg,
+              fontSize: valueSize,
+              fontWeight: FontWeight.w900,
+              height: 1,
+              letterSpacing: 0,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ),
       ),

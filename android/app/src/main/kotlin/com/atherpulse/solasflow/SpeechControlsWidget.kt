@@ -1,7 +1,6 @@
 package com.atherpulse.solasflow
 
 import android.app.PendingIntent
-import com.atherpulse.solasflow.R
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
@@ -10,11 +9,14 @@ import android.content.Intent
 import android.widget.RemoteViews
 
 /**
- * Widget 2: Speech Controls
+ * Widget: Speech Controls
  *
- * Shows 4 toggle buttons (Clock Speech, Timer Speech, Stopwatch Speech, Goals Speech)
- * and an Open App button. Toggle state is read from FlutterSharedPreferences.
- * Tapping a toggle launches MainActivity with widget_action = "toggle_xxx_speech".
+ * Minimal widget with actionable buttons:
+ * - Master Audio Toggle (global ON/OFF)
+ * - Fullscreen Clock
+ *
+ * Two-tap confirmation is managed on the Flutter side via SharedPreferences
+ * armed state. The widget reads the armed state and shows a distinct visual.
  */
 class SpeechControlsWidget : AppWidgetProvider() {
 
@@ -24,115 +26,72 @@ class SpeechControlsWidget : AppWidgetProvider() {
         appWidgetIds: IntArray
     ) {
         for (appWidgetId in appWidgetIds) {
-            updateSpeechControlsWidget(context, appWidgetManager, appWidgetId)
+            updateWidget(context, appWidgetManager, appWidgetId)
         }
     }
 
     companion object {
         private const val PREFS_NAME = "FlutterSharedPreferences"
-        private const val KEY_CLOCK_ON = "flutter.widget_clock_on"
-        private const val KEY_TIMER_SPEAK = "flutter.widget_timer_speak"
-        private const val KEY_STOPWATCH_SPEAK = "flutter.widget_stopwatch_speak"
-        private const val KEY_GOALS_ON = "flutter.widget_goals_on"
+        private const val KEY_SPEECH_MASTER = "flutter.widget_speech_master"
+        private const val KEY_ARMED_ACTION = "widget_armed_action"
 
         fun updateAllWidgets(context: Context) {
             val mgr = AppWidgetManager.getInstance(context)
             val ids = mgr.getAppWidgetIds(
                 ComponentName(context, SpeechControlsWidget::class.java)
             )
-            for (id in ids) updateSpeechControlsWidget(context, mgr, id)
+            for (id in ids) updateWidget(context, mgr, id)
         }
 
-        fun updateSpeechControlsWidget(
+        fun updateWidget(
             context: Context,
             appWidgetManager: AppWidgetManager,
             appWidgetId: Int
         ) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val clockOn = prefs.getBoolean(KEY_CLOCK_ON, false)
-            val timerSpeak = prefs.getBoolean(KEY_TIMER_SPEAK, true)
-            val stopwatchSpeak = prefs.getBoolean(KEY_STOPWATCH_SPEAK, true)
-            val goalsOn = prefs.getBoolean(KEY_GOALS_ON, false)
+
+            val speechMasterOn = prefs.getBoolean(KEY_SPEECH_MASTER, true)
+            val armedAction = prefs.getString(KEY_ARMED_ACTION, "") ?: ""
+
+            val audioArmed = armedAction == "audio_master"
+            val clockArmed = armedAction == "fullscreen_clock"
 
             val views = RemoteViews(context.packageName, R.layout.widget_speech_controls)
 
-            // Set button labels reflecting current state
+            // ── Master Audio Button ──────────────────────────────────────
             views.setTextViewText(
-                R.id.btn_clock_speech,
-                "🕐 Clock: ${if (clockOn) "ON" else "OFF"}"
-            )
-            views.setTextViewText(
-                R.id.btn_timer_speech,
-                "⏱ Timer: ${if (timerSpeak) "ON" else "OFF"}"
-            )
-            views.setTextViewText(
-                R.id.btn_stopwatch_speech,
-                "⏹ Stopwatch: ${if (stopwatchSpeak) "ON" else "OFF"}"
-            )
-            views.setTextViewText(
-                R.id.btn_goals_speech,
-                "🎯 Goals: ${if (goalsOn) "ON" else "OFF"}"
-            )
-            views.setTextViewText(R.id.btn_fs_clock, "🖥 Clock FS")
-            views.setTextViewText(R.id.btn_fs_timer, "🚀 Timer FS")
-            views.setTextViewText(R.id.btn_fs_stopwatch, "⚡ SW FS")
-
-            // Set backgrounds reflecting state
-            views.setInt(
-                R.id.btn_clock_speech, "setBackgroundResource",
-                if (clockOn) R.drawable.widget_button_active_bg else R.drawable.widget_button_bg
+                R.id.btn_audio_master,
+                if (speechMasterOn) "Audio ON" else "Audio OFF"
             )
             views.setInt(
-                R.id.btn_timer_speech, "setBackgroundResource",
-                if (timerSpeak) R.drawable.widget_button_active_bg else R.drawable.widget_button_bg
+                R.id.btn_audio_master, "setBackgroundResource",
+                when {
+                    audioArmed -> R.drawable.widget_button_armed_bg
+                    speechMasterOn -> R.drawable.widget_button_active_bg
+                    else -> R.drawable.widget_button_bg
+                }
             )
-            views.setInt(
-                R.id.btn_stopwatch_speech, "setBackgroundResource",
-                if (stopwatchSpeak) R.drawable.widget_button_active_bg else R.drawable.widget_button_bg
-            )
-            views.setInt(
-                R.id.btn_goals_speech, "setBackgroundResource",
-                if (goalsOn) R.drawable.widget_button_active_bg else R.drawable.widget_button_bg
+            views.setOnClickPendingIntent(
+                R.id.btn_audio_master,
+                makeIntent(context, "toggle_speech_master", appWidgetId, 1)
             )
 
-            // Click listeners
-            views.setOnClickPendingIntent(
-                R.id.btn_open_app,
-                makeActionIntent(context, "open_app", appWidgetId, 0)
-            )
-            views.setOnClickPendingIntent(
-                R.id.btn_clock_speech,
-                makeActionIntent(context, "toggle_clock_speech", appWidgetId, 1)
-            )
-            views.setOnClickPendingIntent(
-                R.id.btn_timer_speech,
-                makeActionIntent(context, "toggle_timer_speech", appWidgetId, 2)
-            )
-            views.setOnClickPendingIntent(
-                R.id.btn_stopwatch_speech,
-                makeActionIntent(context, "toggle_stopwatch_speech", appWidgetId, 3)
-            )
-            views.setOnClickPendingIntent(
-                R.id.btn_goals_speech,
-                makeActionIntent(context, "toggle_goals_speech", appWidgetId, 4)
+            // ── Fullscreen Clock Button ──────────────────────────────────
+            views.setTextViewText(R.id.btn_fs_clock, "Open Clock")
+            views.setInt(
+                R.id.btn_fs_clock, "setBackgroundResource",
+                if (clockArmed) R.drawable.widget_button_armed_bg
+                else R.drawable.widget_button_bg
             )
             views.setOnClickPendingIntent(
                 R.id.btn_fs_clock,
-                makeActionIntent(context, "open_fullscreen_clock", appWidgetId, 5)
-            )
-            views.setOnClickPendingIntent(
-                R.id.btn_fs_timer,
-                makeActionIntent(context, "start_timer_fullscreen", appWidgetId, 6)
-            )
-            views.setOnClickPendingIntent(
-                R.id.btn_fs_stopwatch,
-                makeActionIntent(context, "start_stopwatch_fullscreen", appWidgetId, 7)
+                makeIntent(context, "open_fullscreen_clock", appWidgetId, 2)
             )
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
 
-        private fun makeActionIntent(
+        private fun makeIntent(
             context: Context,
             action: String,
             widgetId: Int,

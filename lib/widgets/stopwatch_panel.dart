@@ -71,24 +71,7 @@ class StopwatchPanel extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
-            // ── Status chips ─────────────────────────────────────
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: [
-                if (isRunning)
-                  _statusChip(cs, Icons.play_arrow_rounded, 'Running',
-                      cs.primaryContainer, cs.onPrimaryContainer),
-                if (stopwatchSpeakOn)
-                  _statusChip(cs, Icons.record_voice_over_rounded, 'Speech',
-                      cs.secondaryContainer, cs.onSecondaryContainer),
-                if (isRunning)
-                  _statusChip(
-                      cs, Icons.fullscreen_rounded, 'Tap for fullscreen',
-                      cs.surfaceContainerHighest, cs.onSurfaceVariant),
-              ],
-            ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
 
             // ── Hero elapsed display ─────────────────────────────
             GestureDetector(
@@ -412,37 +395,6 @@ class StopwatchPanel extends StatelessWidget {
           fontWeight: FontWeight.w600,
           letterSpacing: 0.2,
         ),
-      ),
-    );
-  }
-
-  Widget _statusChip(
-    ColorScheme cs,
-    IconData icon,
-    String label,
-    Color bg,
-    Color fg,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: fg),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: fg,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
       ),
     );
   }

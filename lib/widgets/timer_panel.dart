@@ -14,6 +14,14 @@ class TimerPanel extends StatelessWidget {
   final ValueChanged<double> onSliderChanged;
   final ValueChanged<int> choosePreset;
 
+  /// The preset value currently awaiting confirmation (two-tap guard).
+  /// When non-null, the matching grid button shows an armed visual state.
+  final int? armedPresetValue;
+
+  /// Called on every preset grid tap (first or second).
+  /// The parent manages the two-tap logic: arm on first tap, execute on second.
+  final ValueChanged<int> onPresetTap;
+
   final bool timerNoiseOn;
   final bool timerSpeakOn;
   final bool timerShowMilliseconds;
@@ -46,6 +54,8 @@ class TimerPanel extends StatelessWidget {
     required this.resetTimer,
     required this.onSliderChanged,
     required this.choosePreset,
+    this.armedPresetValue,
+    required this.onPresetTap,
     required this.timerNoiseOn,
     required this.timerSpeakOn,
     required this.timerShowMilliseconds,
@@ -394,6 +404,7 @@ class TimerPanel extends StatelessWidget {
       runSpacing: 8,
       children: presetValues.map((p) {
         final selected = p == sliderValue;
+        final armed = p == armedPresetValue;
         final label = p >= 60 ? '${p ~/ 60}h' : '${p}m';
         return Semantics(
           button: true,
@@ -401,25 +412,36 @@ class TimerPanel extends StatelessWidget {
           child: SizedBox(
             width: (MediaQuery.of(context).size.width - 16 * 2 - 8 * 4) / 5,
             child: Material(
-              color: selected
-                  ? cs.primaryContainer
-                  : context.tintedSurfaceLow,
+              color: armed
+                  ? cs.tertiaryContainer
+                  : (selected
+                      ? cs.primaryContainer
+                      : context.tintedSurfaceLow),
               borderRadius: BorderRadius.circular(12),
               child: InkWell(
-                onTap: () => choosePreset(p),
+                onTap: () => onPresetTap(p),
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   alignment: Alignment.center,
+                  decoration: armed
+                      ? BoxDecoration(
+                          border: Border.all(
+                            color: cs.primary,
+                            width: 2,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        )
+                      : null,
                   child: Text(
                     label,
                     style: TextStyle(
-                      color: selected
-                          ? cs.onPrimaryContainer
-                          : cs.onSurface,
-                      fontWeight: selected
-                          ? FontWeight.w800
-                          : FontWeight.w600,
+                      color: armed
+                          ? cs.onTertiaryContainer
+                          : (selected
+                              ? cs.onPrimaryContainer
+                              : cs.onSurface),
+                      fontWeight: FontWeight.w800,
                       fontSize: 14,
                     ),
                   ),

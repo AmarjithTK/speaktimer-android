@@ -142,12 +142,7 @@ class _FullscreenStopwatchViewState extends State<FullscreenStopwatchView> {
   Widget build(BuildContext context) {
     final bg = _darkTheme ? Colors.black : Colors.white;
     final fg = _darkTheme ? Colors.white : Colors.black;
-    final cardBg = _darkTheme
-        ? Colors.white.withAlpha(20)
-        : Colors.black.withAlpha(20);
-    final cardBorder = _darkTheme
-        ? Colors.white.withAlpha(45)
-        : Colors.black.withAlpha(45);
+    final displayText = _elapsedText.split('.').first;
 
     return Scaffold(
       backgroundColor: bg,
@@ -168,51 +163,27 @@ class _FullscreenStopwatchViewState extends State<FullscreenStopwatchView> {
                       12,
                       _showControls ? 70 : 12,
                     ),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 16,
-                      ),
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: cardBorder, width: 1.6),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            'ELAPSED',
-                            style: TextStyle(
-                              color: fg.withAlpha(165),
-                              fontSize: _showControls ? 13 : 16,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Expanded(
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: FittedBox(
-                                fit: BoxFit.contain,
-                                alignment: Alignment.center,
-                                child: Text(
-                                  _elapsedText,
-                                  style: TextStyle(
-                                    color: fg,
-                                    fontSize: _showControls ? 110 : 140,
-                                    fontWeight: FontWeight.w800,
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures(),
-                                    ],
-                                  ),
-                                ),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return SizedBox(
+                          width: double.infinity,
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            alignment: Alignment.center,
+                            child: Text(
+                              displayText,
+                              style: TextStyle(
+                                color: fg,
+                                fontSize: 400,
+                                fontWeight: FontWeight.w900,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
                               ),
                             ),
                           ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
                   ),
                 ),

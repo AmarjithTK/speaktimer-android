@@ -18,7 +18,7 @@
 
         <meta-data
             android:name="com.atherpulse.solasflow.service.NOTIFICATION_ICON"
-            android:resource="@drawable/ic_stat_solasflow" />
+            android:resource="@mipmap/ic_launcher_monochrome" />
 
         <!-- flutter_foreground_task Android 14 requirements -->
         <service

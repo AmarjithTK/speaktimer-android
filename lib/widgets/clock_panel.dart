@@ -95,23 +95,7 @@ class ClockPanel extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
-            // ── Status chips ─────────────────────────────────────
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: [
-                if (clockSpeakTime)
-                  _statusChip(cs, Icons.volume_up_rounded, 'Sound On',
-                      cs.secondaryContainer, cs.onSecondaryContainer),
-                if (clockNoiseOn)
-                  _statusChip(cs, Icons.music_note_rounded, 'Noise',
-                      cs.tertiaryContainer, cs.onTertiaryContainer),
-                if (motivationOn)
-                  _statusChip(cs, Icons.auto_awesome_rounded, 'Quotes',
-                      cs.primaryContainer, cs.onPrimaryContainer),
-              ],
-            ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
 
             // ── Hero clock display ───────────────────────────────
             GestureDetector(
@@ -284,37 +268,6 @@ class ClockPanel extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _statusChip(
-    ColorScheme cs,
-    IconData icon,
-    String label,
-    Color bg,
-    Color fg,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: fg),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: fg,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
       ),
     );
   }

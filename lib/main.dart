@@ -525,6 +525,21 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// Active countdown interval timer (null when stopped)
   Timer? timerInterval;
 
+  /// Two-tap confirmation state: the preset value currently awaiting
+  /// a second tap before the timer starts.  Null = no button armed.
+  int? _armedPresetValue;
+
+  /// 3-second auto-clear timer for the armed preset state.
+  Timer? _armedPresetTimer;
+
+  /// Two-tap confirmation for widget home-screen actions.
+  /// Stores which widget action is awaiting confirmation ("toggle_speech_master"
+  /// or "open_fullscreen_clock").  Null = no action armed.
+  String? _widgetArmedAction;
+
+  /// 3-second auto-clear timer for widget armed state.
+  Timer? _widgetArmedTimer;
+
   /// Formatted display string (MM:SS)
   String timerValue = "00:00";
 
@@ -901,7 +916,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       timerValue: timerDisplayValue,
       stopwatchValue: stopwatchElapsedValue,
       currentTimeDisplay: idleTime,
-      clockSpeechOn: clockOn,
       speechMasterOn: speechMasterOn,
     );
   }
@@ -1619,7 +1633,20 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       await prefs.setBool('widget_goals_on', goalReminderOn);
       await prefs.setBool('widget_speech_master', speechMasterOn);
       await prefs.setString('widget_timer_display', timerDisplayValue);
+      // Clear widget armed state on normal state sync
+      await prefs.setString('widget_armed_action', '');
       // Ask native to refresh widget UI
+      await _widgetChannel.invokeMethod('refreshWidgets');
+    } catch (_) {}
+  }
+
+  /// Writes or clears the widget armed-action state so the home screen
+  /// widget can show a visible armed visual (two-tap confirmation).
+  Future<void> _writeWidgetArmedState(String action) async {
+    if (!Platform.isAndroid) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('widget_armed_action', action);
       await _widgetChannel.invokeMethod('refreshWidgets');
     } catch (_) {}
   }
@@ -1635,9 +1662,57 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   /// Handles actions arriving from home screen widget button taps.
+  ///
+  /// Two-tap confirmation is applied to ["toggle_speech_master"] and
+  /// ["open_fullscreen_clock"]. Other actions execute immediately.
   Future<void> _handleWidgetAction(String type) async {
     if (!mounted) return;
-    // Map preset durations
+
+    // ── Two-tap confirmation path: speech master & fullscreen clock ─────
+    if (type == 'toggle_speech_master' || type == 'open_fullscreen_clock') {
+      if (_widgetArmedAction == type) {
+        // Second tap: confirm and execute
+        _widgetArmedTimer?.cancel();
+        _widgetArmedAction = null;
+        unawaited(_writeWidgetArmedState(''));
+
+        if (type == 'toggle_speech_master') {
+          setState(() {
+            speechMasterOn = !speechMasterOn;
+            if (!speechMasterOn) {
+              speechQueue.clear();
+              unawaited(flutterTts.stop());
+              unawaited(_audioService.stopBackground());
+              FlutterRingtonePlayer().stop();
+            }
+            _lsSave();
+          });
+          _syncForegroundNotification(force: true);
+        } else {
+          // open_fullscreen_clock
+          setState(() => currentTabIndex = 0);
+          _openFullscreenFocus(
+            specificMode: FullscreenFocusMode.clock,
+            forceHorizontal: true,
+            startImmersive: true,
+          );
+        }
+        return;
+      }
+
+      // First tap: arm the action, show visual on widget
+      _widgetArmedTimer?.cancel();
+      _widgetArmedAction = type;
+      unawaited(_writeWidgetArmedState(type));
+      _widgetArmedTimer = Timer(const Duration(seconds: 3), () {
+        if (!mounted) return;
+        _widgetArmedAction = null;
+        unawaited(_writeWidgetArmedState(''));
+      });
+      return;
+    }
+
+    // ── Immediate actions (no confirmation needed) ──────────────────────
     const presetMap = {
       'start_5m': 5,
       'start_10m': 10,
@@ -1672,16 +1747,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     switch (type) {
       case 'resume_last':
         await _handleQuickAction('resume_last');
-        break;
-      case 'open_fullscreen_clock':
-        setState(() {
-          currentTabIndex = 0;
-        });
-        _openFullscreenFocus(
-          specificMode: FullscreenFocusMode.clock,
-          forceHorizontal: true,
-          startImmersive: true,
-        );
         break;
       case 'start_timer_fullscreen':
         setState(() {
@@ -1729,17 +1794,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           stopwatchSpeakOn = !stopwatchSpeakOn;
           _lsSave();
         });
-        break;
-      case 'toggle_speech_master':
-        setState(() {
-          speechMasterOn = !speechMasterOn;
-          if (!speechMasterOn) {
-            speechQueue.clear();
-            unawaited(flutterTts.stop());
-          }
-          _lsSave();
-        });
-        _syncForegroundNotification(force: true);
         break;
       case 'toggle_goals_speech':
         setState(() {
@@ -2877,6 +2931,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void startTimer() async {
+    // Clear any pending two-tap armed state when timer starts
+    _armedPresetTimer?.cancel();
+    _armedPresetValue = null;
     _lsSave();
     if (seconds == 0) {
       if (chainModeOn) {
@@ -2936,6 +2993,30 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     });
     resetTimer();
     startTimer();
+  }
+
+  /// Two-tap confirmation for preset grid buttons.
+  /// First tap → arms the button (shows visual), second tap → starts timer.
+  void _onPresetTap(int val) {
+    _armedPresetTimer?.cancel();
+    if (_armedPresetValue == val) {
+      // ── Second tap: confirm, start timer ─────────────────
+      _armedPresetValue = null;
+      choosePreset(val);
+    } else {
+      // ── First tap: arm, update preview, start 3s timeout ─
+      setState(() {
+        _armedPresetValue = val;
+        sliderValue = val;
+        seconds = val * 60;
+        timerValue = '${val.toString().padLeft(2, '0')}:00';
+        timerDisplayValue = _formatTimerDisplayValue(val * 60);
+      });
+      _armedPresetTimer = Timer(const Duration(seconds: 3), () {
+        if (!mounted) return;
+        setState(() => _armedPresetValue = null);
+      });
+    }
   }
 
   Widget _buildSpeakClockTab() {
@@ -3074,6 +3155,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           stopTimer: stopTimer,
           resetTimer: resetTimer,
           choosePreset: choosePreset,
+          armedPresetValue: _armedPresetValue,
+          onPresetTap: _onPresetTap,
           onSliderChanged: (val) {
             setState(() {
               sliderValue = val.toInt();
@@ -3249,6 +3332,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     nightIdleTimer?.cancel();
     nightResumeSpeechTimer?.cancel();
     goalReminderTimer?.cancel();
+    _armedPresetTimer?.cancel();
+    _widgetArmedTimer?.cancel();
     stopClock();
     stopTimer();
     stopStopwatch();
@@ -3352,6 +3437,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         setState(() {
                           currentTabIndex = index;
                         });
+                        // Clear two-tap armed state when leaving timer tab
+                        if (index != 1) {
+                          _armedPresetTimer?.cancel();
+                          _armedPresetValue = null;
+                        }
                       },
                       destinations: [
                         NavigationDestination(

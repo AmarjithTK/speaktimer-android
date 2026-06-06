@@ -1,12 +1,16 @@
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
+/// Minimal foreground notification state.
+///
+/// Shows dynamic status text and only two buttons:
+/// - Master Audio Toggle (Speech ON / OFF)
+/// - Exit (stop foreground service)
 class ForegroundNotificationState {
   final bool isTimerRunning;
   final bool isStopwatchRunning;
   final String timerValue;
   final String stopwatchValue;
   final String currentTimeDisplay;
-  final bool clockSpeechOn;
   final bool speechMasterOn;
 
   const ForegroundNotificationState({
@@ -15,68 +19,32 @@ class ForegroundNotificationState {
     required this.timerValue,
     required this.stopwatchValue,
     required this.currentTimeDisplay,
-    required this.clockSpeechOn,
     required this.speechMasterOn,
   });
 
   String get title {
-    if (isTimerRunning) return 'SolasFlow (Timer Running)';
-    if (isStopwatchRunning) return 'SolasFlow (Stopwatch Running)';
-    return 'SolasFlow (Clock Mode)';
+    if (isTimerRunning) return 'SolasFlow - Timer Running';
+    if (isStopwatchRunning) return 'SolasFlow - Stopwatch Running';
+    return 'SolasFlow';
   }
 
   String get text {
+    final audioStatus = speechMasterOn ? 'Audio ON' : 'Audio OFF';
     if (isTimerRunning) {
-      return 'Time remaining: $timerValue';
+      return '$audioStatus  |  Time remaining: $timerValue';
     }
     if (isStopwatchRunning) {
-      return 'Elapsed: $stopwatchValue';
+      return '$audioStatus  |  Elapsed: $stopwatchValue';
     }
-    return 'Current time: $currentTimeDisplay';
+    final timeStr = currentTimeDisplay.isNotEmpty ? currentTimeDisplay : '';
+    return timeStr.isNotEmpty ? '$audioStatus  |  $timeStr' : audioStatus;
   }
 
   List<NotificationButton> get buttons {
-    if (isTimerRunning) {
-      return [
-        const NotificationButton(id: 'btn_timer_toggle', text: 'Stop Timer'),
-        const NotificationButton(id: 'btn_stopwatch_toggle', text: 'Start SW'),
-        NotificationButton(
-          id: 'btn_clock_speech',
-          text: clockSpeechOn ? 'Clock Speech ON' : 'Clock Speech OFF',
-        ),
-        NotificationButton(
-          id: 'btn_speech_master',
-          text: speechMasterOn ? 'Speech ON' : 'Speech OFF',
-        ),
-        const NotificationButton(id: 'btn_exit', text: 'Exit'),
-      ];
-    }
-
-    if (isStopwatchRunning) {
-      return [
-        const NotificationButton(id: 'btn_stopwatch_toggle', text: 'Stop SW'),
-        const NotificationButton(id: 'btn_timer_toggle', text: 'Start Timer'),
-        NotificationButton(
-          id: 'btn_clock_speech',
-          text: clockSpeechOn ? 'Clock Speech ON' : 'Clock Speech OFF',
-        ),
-        NotificationButton(
-          id: 'btn_speech_master',
-          text: speechMasterOn ? 'Speech ON' : 'Speech OFF',
-        ),
-        const NotificationButton(id: 'btn_exit', text: 'Exit'),
-      ];
-    }
-
     return [
-      const NotificationButton(id: 'btn_stopwatch_toggle', text: 'Start SW'),
-      NotificationButton(
-        id: 'btn_clock_speech',
-        text: clockSpeechOn ? 'Clock Speech ON' : 'Clock Speech OFF',
-      ),
       NotificationButton(
         id: 'btn_speech_master',
-        text: speechMasterOn ? 'Speech ON' : 'Speech OFF',
+        text: speechMasterOn ? 'Audio ON' : 'Audio OFF',
       ),
       const NotificationButton(id: 'btn_exit', text: 'Exit'),
     ];
