@@ -466,8 +466,7 @@ class SettingsPanel extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 150),
+          Flexible(
             child: Text(value,
               maxLines: 1, overflow: TextOverflow.ellipsis,
               style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13, fontWeight: FontWeight.w600)),
@@ -517,7 +516,7 @@ class SettingsPanel extends StatelessWidget {
                       color: selected ? cs.primary : cs.onSurfaceVariant),
                     title: Text(o.$2, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
                     subtitle: o.$3 != null
-                        ? Text(o.$3!, style: const TextStyle(fontSize: 12), maxLines: 2)
+                        ? Text(o.$3!, style: const TextStyle(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis)
                         : null,
                     onTap: () { onChanged(o.$1); Navigator.of(context).pop(); },
                   );

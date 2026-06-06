@@ -42,25 +42,6 @@ class SpeechService {
     return useMalayalamNuance ? 'ml' : 'en';
   }
 
-  Future<double?> _getMediaVolumeRatio() async {
-    try {
-      final value = await _audioChannel.invokeMethod<double>('getMediaVolumeRatio');
-      return value?.clamp(0.0, 1.0);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<void> _setMediaVolumeRatio(double ratio) async {
-    try {
-      await _audioChannel.invokeMethod<void>('setMediaVolumeRatio', {
-        'ratio': ratio.clamp(0.0, 1.0),
-      });
-    } catch (_) {
-      // Best effort only; audio playback should still continue.
-    }
-  }
-
   Future<void> _setMediaVolumeToMax() async {
     try {
       await _audioChannel.invokeMethod<void>('setMediaVolumeToMax');
@@ -826,22 +807,11 @@ class SpeechService {
 
     await flutterTts.setVolume(ttsVolume);
 
-    double? originalVolume;
     if (maximumSpeechVolume && Platform.isAndroid) {
-      try {
-        await flutterTts.awaitSpeakCompletion(true);
-      } catch (_) {
-        // Some engines may not support completion callbacks; continue best-effort.
-      }
-      originalVolume = await _getMediaVolumeRatio();
       await _setMediaVolumeToMax();
     }
 
     await flutterTts.speak(item.text);
-
-    if (originalVolume != null) {
-      await _setMediaVolumeRatio(originalVolume);
-    }
 
     _setEngineStatus('system', 'System TTS (${useMalayalamNuance ? 'ml-IN' : 'en-IN'})');
   }
