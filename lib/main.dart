@@ -1056,6 +1056,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           }
           _lsSave();
         });
+        if (speechMasterOn) _applyAudioSettings();
         _syncForegroundNotification(force: true);
         break;
     }
@@ -1172,6 +1173,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               }
               _lsSave();
             });
+            if (speechMasterOn) _applyAudioSettings();
           },
           onFullscreenDarkThemeChanged: (val) {
             setState(() {
@@ -1384,6 +1386,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             }
             _lsSave();
           });
+          if (speechMasterOn) _applyAudioSettings();
           _syncForegroundNotification(force: true);
           break;
         case 'btn_timer_toggle':
@@ -1687,6 +1690,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             }
             _lsSave();
           });
+          if (speechMasterOn) _applyAudioSettings();
           _syncForegroundNotification(force: true);
         } else {
           // open_fullscreen_clock
