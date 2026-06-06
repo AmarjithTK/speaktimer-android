@@ -195,8 +195,8 @@ class SettingsPanel extends StatelessWidget {
             _settingsSwitch(
               context,
               icon: speechMasterOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-              title: 'Speech',
-              subtitle: speechMasterOn ? 'All speech on' : 'All speech off',
+              title: 'Master Audio',
+              subtitle: speechMasterOn ? 'All audio on' : 'All audio off',
               value: speechMasterOn,
               onChanged: onSpeechMasterOnChanged,
             ),

@@ -969,7 +969,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     setState(() {
       sleepStartMinutes = selected.hour * 60 + selected.minute;
       _lsSave();
-      if (_isSpeechMutedForSleep()) {
+      if (_isAudioMuted()) {
         speechQueue.clear();
       }
     });
@@ -989,7 +989,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     setState(() {
       sleepEndMinutes = selected.hour * 60 + selected.minute;
       _lsSave();
-      if (_isSpeechMutedForSleep()) {
+      if (_isAudioMuted()) {
         speechQueue.clear();
       }
     });
@@ -1036,6 +1036,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           speechMasterOn = !speechMasterOn;
           if (!speechMasterOn) {
             speechQueue.clear();
+            unawaited(flutterTts.stop());
+            unawaited(_audioService.stopBackground());
+            FlutterRingtonePlayer().stop();
             unawaited(flutterTts.stop());
           }
           _lsSave();
@@ -1151,6 +1154,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               if (!speechMasterOn) {
                 speechQueue.clear();
                 unawaited(flutterTts.stop());
+                unawaited(_audioService.stopBackground());
+                FlutterRingtonePlayer().stop();
               }
               _lsSave();
             });
@@ -1183,7 +1188,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               } else if (nightMuteMode == 'automatic') {
                 _startNightIdleTimerIfNeeded();
               }
-              if (_isSpeechMutedForSleep()) speechQueue.clear();
+              if (_isAudioMuted()) speechQueue.clear();
               _lsSave();
             });
           },
@@ -1199,7 +1204,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 autoNightMuteActive = false;
                 _startNightIdleTimerIfNeeded();
               }
-              if (_isSpeechMutedForSleep()) speechQueue.clear();
+              if (_isAudioMuted()) speechQueue.clear();
               _lsSave();
             });
           },
@@ -1359,6 +1364,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             if (!speechMasterOn) {
               speechQueue.clear();
               unawaited(flutterTts.stop());
+              unawaited(_audioService.stopBackground());
+              FlutterRingtonePlayer().stop();
             }
             _lsSave();
           });
@@ -1748,6 +1755,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _applyAudioSettings() {
+    // Master Audio OFF — prevent all ambient audio
+    if (_isAudioMuted()) {
+      unawaited(_audioService.stopBackground());
+      if (mounted) setState(() => audioPlaying = false);
+      return;
+    }
     final bool shouldTimerPlay = timerInterval != null && timerNoiseOn;
     final bool shouldClockPlay = clockOn && clockNoiseOn;
     final bool shouldPlay = shouldTimerPlay || shouldClockPlay;
@@ -1912,7 +1925,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _speakGoalReminderMessage(String text) {
-    if (_isSpeechMutedForSleep()) {
+    if (_isAudioMuted()) {
       speechQueue.clear();
       return;
     }
@@ -2055,7 +2068,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Future<void> drainQueue() async {
-    if (_isSpeechMutedForSleep()) {
+    if (_isAudioMuted()) {
       speechQueue.clear();
       if (isSpeechActive && mounted) {
         setState(() {
@@ -2140,7 +2153,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void speak(String text) {
-    if (_isSpeechMutedForSleep()) {
+    if (_isAudioMuted()) {
       speechQueue.clear();
       return;
     }
@@ -2230,8 +2243,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
   }
 
-  bool _isSpeechMutedForSleep() {
-    // Global speech master toggle — when OFF, suppress everything
+  bool _isAudioMuted() {
+    // Master Audio — when OFF, suppress ALL audio (speech, sounds, ringtones)
     if (!speechMasterOn) return true;
 
     if (!muteSpeechAfterMidnight) return false;
@@ -2303,7 +2316,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void speakClock(String text) {
-    if (_isSpeechMutedForSleep()) {
+    if (_isAudioMuted()) {
       speechQueue.clear();
       return;
     }
@@ -2352,7 +2365,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void speakTimerMessage(String text) {
-    if (_isSpeechMutedForSleep()) {
+    if (_isAudioMuted()) {
       speechQueue.clear();
       return;
     }
@@ -2410,7 +2423,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _speakStopwatchMessage(String text) {
-    if (_isSpeechMutedForSleep()) {
+    if (_isAudioMuted()) {
       speechQueue.clear();
       return;
     }
@@ -2545,7 +2558,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           );
         }
 
-        if (Platform.isAndroid) {
+        if (Platform.isAndroid && !_isAudioMuted()) {
           FlutterRingtonePlayer().playAlarm(looping: true);
           Future.delayed(const Duration(seconds: 5), () {
             FlutterRingtonePlayer().stop();
