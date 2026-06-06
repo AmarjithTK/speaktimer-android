@@ -47,6 +47,21 @@ extension ThemeTypography on BuildContext {
   TextTheme get textTheme => Theme.of(this).textTheme;
 }
 
+/// Tinted surface helpers — replaces grey surface containers with subtle
+/// primary-tinted backgrounds for a cleaner, less grey look.
+extension TintedSurfaces on BuildContext {
+  ColorScheme get cs => Theme.of(this).colorScheme;
+
+  /// Very subtle primary tint (for hero cards, option sections)
+  Color get tintedSurface => cs.primaryContainer.withValues(alpha: 0.15);
+
+  /// Subtle tint (for inactive chips, preset items)
+  Color get tintedSurfaceLow => cs.primaryContainer.withValues(alpha: 0.08);
+
+  /// Moderate tint (for sections needing slightly more presence)
+  Color get tintedSurfaceMedium => cs.primaryContainer.withValues(alpha: 0.12);
+}
+
 /// Deprecated — kept to avoid breaking imports during migration.
 /// Do NOT use in new code. Use [ThemeColors] extension instead.
 @Deprecated('Use BuildContext.colorScheme instead')

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../theme/palette.dart' show TintedSurfaces;
 
 import '../models/sound_option.dart';
 
@@ -407,7 +408,7 @@ class SettingsPanel extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
+        color: context.tintedSurface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),

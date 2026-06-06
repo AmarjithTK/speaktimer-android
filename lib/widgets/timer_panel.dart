@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/palette.dart' show TintedSurfaces;
 
 class TimerPanel extends StatelessWidget {
   final String timerValue;
@@ -112,7 +113,7 @@ class TimerPanel extends StatelessWidget {
                         horizontal: 20,
                       ),
                       decoration: BoxDecoration(
-                        color: cs.surfaceContainerLow,
+                        color: context.tintedSurface,
                         borderRadius: BorderRadius.circular(28),
                         border: Border.all(
                           color: cs.outlineVariant.withValues(alpha: 0.5),
@@ -361,7 +362,7 @@ class TimerPanel extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: active ? activeColor : cs.surfaceContainerHighest,
+            color: active ? activeColor : context.tintedSurfaceLow,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
@@ -402,7 +403,7 @@ class TimerPanel extends StatelessWidget {
             child: Material(
               color: selected
                   ? cs.primaryContainer
-                  : cs.surfaceContainerHighest,
+                  : context.tintedSurfaceLow,
               borderRadius: BorderRadius.circular(12),
               child: InkWell(
                 onTap: () => choosePreset(p),
@@ -449,7 +450,7 @@ class TimerPanel extends StatelessWidget {
   Widget _buildOptionsSection(BuildContext context, ColorScheme cs) {
     return Container(
       decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
+        color: context.tintedSurface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),

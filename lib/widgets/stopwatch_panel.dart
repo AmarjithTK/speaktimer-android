@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../theme/palette.dart' show TintedSurfaces;
 
 class StopwatchPanel extends StatelessWidget {
   final VoidCallback onFullscreenPressed;
@@ -103,7 +104,7 @@ class StopwatchPanel extends StatelessWidget {
                         vertical: 32,
                       ),
                       decoration: BoxDecoration(
-                        color: cs.surfaceContainerLow,
+                        color: context.tintedSurface,
                         borderRadius: BorderRadius.circular(28),
                         border: Border.all(
                           color: cs.outlineVariant.withValues(alpha: 0.5),
@@ -199,7 +200,7 @@ class StopwatchPanel extends StatelessWidget {
                       style: OutlinedButton.styleFrom(
                         foregroundColor:
                             isRunning ? cs.onSurface : cs.onSurfaceVariant,
-                        backgroundColor: cs.surfaceContainerHighest,
+                        backgroundColor: context.tintedSurfaceLow,
                         side: BorderSide(color: cs.outline, width: 1.5),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -223,7 +224,7 @@ class StopwatchPanel extends StatelessWidget {
                     icon: const Icon(Icons.refresh_rounded),
                     style: IconButton.styleFrom(
                       foregroundColor: cs.onSurfaceVariant,
-                      backgroundColor: cs.surfaceContainerHighest,
+                      backgroundColor: context.tintedSurfaceLow,
                       side: BorderSide(color: cs.outline, width: 1.5),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -255,7 +256,7 @@ class StopwatchPanel extends StatelessWidget {
               const SizedBox(height: 8),
               Container(
                 decoration: BoxDecoration(
-                  color: cs.surfaceContainerLow,
+                  color: context.tintedSurface,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
                     color: cs.outlineVariant.withValues(alpha: 0.5),
@@ -277,7 +278,7 @@ class StopwatchPanel extends StatelessWidget {
                         height: 28,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: cs.surfaceContainerHighest,
+                          color: context.tintedSurfaceLow,
                           shape: BoxShape.circle,
                         ),
                         child: Text(
@@ -341,7 +342,7 @@ class StopwatchPanel extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: active ? activeColor : cs.surfaceContainerHighest,
+            color: active ? activeColor : context.tintedSurfaceLow,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
@@ -449,7 +450,7 @@ class StopwatchPanel extends StatelessWidget {
   Widget _buildOptionsSection(BuildContext context, ColorScheme cs) {
     return Container(
       decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
+        color: context.tintedSurface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
