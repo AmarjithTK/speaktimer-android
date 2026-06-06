@@ -2977,13 +2977,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             });
           },
           onClockSpeakTimeChanged: (val) {
+            final nowOn = val ?? true;
+            final needsStart = nowOn && !clockOn;
             setState(() {
-              clockSpeakTime = val ?? true;
+              clockSpeakTime = nowOn;
+              if (needsStart) clockOn = true;
               _lsSave();
             });
-            if (clockOn && clockSpeakTime) {
-              speakClock(timeToWords());
-            }
+            if (needsStart) startClock();
+            if (nowOn) speakClock(timeToWords());
           },
           onClockSpeakRepeatCountChanged: (val) {
             if (val == null) return;
@@ -2993,17 +2995,25 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             });
           },
           onClockNoiseOnChanged: (val) {
+            final nowOn = val ?? false;
+            final needsStart = nowOn && !clockOn;
             setState(() {
-              clockNoiseOn = val ?? false;
+              clockNoiseOn = nowOn;
+              if (needsStart) clockOn = true;
               _lsSave();
             });
+            if (needsStart) startClock();
             _applyAudioSettings();
           },
           onMotivationChanged: (val) {
+            final nowOn = val ?? true;
+            final needsStart = nowOn && !clockOn;
             setState(() {
-              motivationOn = val ?? true;
+              motivationOn = nowOn;
+              if (needsStart) clockOn = true;
               _lsSave();
             });
+            if (needsStart) startClock();
           },
           onMotivationCategoryChanged: (val) {
             if (val == null) return;
