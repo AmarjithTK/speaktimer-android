@@ -466,11 +466,9 @@ class SettingsPanel extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Flexible(
-            child: Text(value,
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13, fontWeight: FontWeight.w600)),
-          ),
+          Text(value,
+            maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13, fontWeight: FontWeight.w600)),
           const SizedBox(width: 4),
           Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant, size: 20),
         ],
@@ -498,12 +496,12 @@ class SettingsPanel extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
           child: Column(
-            mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title,
                 style: TextStyle(color: cs.onSurface, fontSize: 18, fontWeight: FontWeight.w900)),
               const SizedBox(height: 8),
-              Flexible(
+              Expanded(
                 child: ListView(children: options.map((o) {
                   final selected = o.$1 == currentValue;
                   return ListTile(
