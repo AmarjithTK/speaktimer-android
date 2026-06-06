@@ -503,10 +503,8 @@ class SettingsPanel extends StatelessWidget {
               Text(title,
                 style: TextStyle(color: cs.onSurface, fontSize: 18, fontWeight: FontWeight.w900)),
               const SizedBox(height: 8),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.sizeOf(context).height * 0.58),
-                child: ListView(shrinkWrap: true, children: options.map((o) {
+              Flexible(
+                child: ListView(children: options.map((o) {
                   final selected = o.$1 == currentValue;
                   return ListTile(
                     selected: selected, selectedTileColor: cs.primaryContainer.withAlpha(80),
