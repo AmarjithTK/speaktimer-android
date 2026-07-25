@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../theme/app_colors.dart';
+
 class FullscreenStopwatchView extends StatefulWidget {
   final String Function() stopwatchTextBuilder;
   final bool Function() isRunningBuilder;
@@ -140,8 +142,9 @@ class _FullscreenStopwatchViewState extends State<FullscreenStopwatchView> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = _darkTheme ? Colors.black : Colors.white;
-    final fg = _darkTheme ? Colors.white : Colors.black;
+    final c = _darkTheme ? AppColors.dark : AppColors.light;
+    final bg = c.background;
+    final fg = c.textPrimary;
     final displayText = _elapsedText.split('.').first;
 
     return Scaffold(

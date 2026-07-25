@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../theme/app_colors.dart';
+
 enum FullscreenFocusMode { clock, timer, moduleC }
 
 class FullscreenFocusView extends StatefulWidget {
@@ -403,29 +405,15 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    // Use the proper Monet dark scheme when _darkTheme is active
-    final Color bg, fg, variant, surface, outline, selectedBg;
-    if (_darkTheme) {
-      final darkScheme = ColorScheme.fromSeed(
-        seedColor: cs.primary,
-        brightness: Brightness.dark,
-      );
-      bg = darkScheme.surface;
-      fg = darkScheme.onSurface;
-      variant = darkScheme.onSurfaceVariant;
-      surface = darkScheme.surfaceContainerLow;
-      outline = darkScheme.outlineVariant;
-      selectedBg = darkScheme.secondaryContainer;
-    } else {
-      bg = cs.surface;
-      fg = cs.onSurface;
-      variant = cs.onSurfaceVariant;
-      surface = cs.surfaceContainerLow;
-      outline = cs.outlineVariant;
-      selectedBg = cs.secondaryContainer;
-    }
-    final primary = cs.primary;
+    // Use AppColors tokens directly for consistent fullscreen theming
+    final c = _darkTheme ? AppColors.dark : AppColors.light;
+    final bg = c.background;
+    final fg = c.textPrimary;
+    final variant = c.textSecondary;
+    final surface = c.surface;
+    final outline = c.surfaceBorder;
+    final selectedBg = c.accentLight;
+    final primary = c.accent;
 
     final showActionButtons =
         _mode == FullscreenFocusMode.timer ||
