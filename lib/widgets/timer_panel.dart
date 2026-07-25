@@ -1,6 +1,17 @@
 import 'package:flutter/material.dart';
-import '../theme/palette.dart' show TintedSurfaces;
+import 'package:google_fonts/google_fonts.dart';
 
+import '../theme/palette.dart' show AppColorAccess;
+import 'primary_button.dart';
+import 'secondary_button.dart';
+import 'preset_grid.dart';
+import 'settings_row.dart';
+import 'timer_ring.dart';
+
+/// Redesigned Timer panel — the strongest interaction screen.
+///
+/// Time is the hero. Ring supports the time, doesn't dominate it.
+/// Layout: Timer display → Actions → Adjustments → Presets → Options
 class TimerPanel extends StatelessWidget {
   final String timerValue;
   final int sliderValue;
@@ -14,12 +25,7 @@ class TimerPanel extends StatelessWidget {
   final ValueChanged<double> onSliderChanged;
   final ValueChanged<int> choosePreset;
 
-  /// The preset value currently awaiting confirmation (two-tap guard).
-  /// When non-null, the matching grid button shows an armed visual state.
   final int? armedPresetValue;
-
-  /// Called on every preset grid tap (first or second).
-  /// The parent manages the two-tap logic: arm on first tap, execute on second.
   final ValueChanged<int> onPresetTap;
 
   final bool timerNoiseOn;
@@ -94,303 +100,343 @@ class TimerPanel extends StatelessWidget {
     return 'Ends at $hour:$minute $suffix';
   }
 
+  double get _progress {
+    if (sliderValue <= 0) return 0;
+    return remainingSeconds / sliderValue;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final c = context.appColors;
     final timerParts = _splitTimer(timerValue);
     final minutes = timerParts.$1;
     final seconds = timerParts.$2;
     final millis = timerParts.$3;
+    final displayTime = millis != null ? '$minutes:$seconds.$millis' : '$minutes:$seconds';
 
     return SafeArea(
       child: ColoredBox(
-        color: cs.surface,
+        color: c.background,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           children: [
-            // ── Hero timer display (like clock, no ring) ────────────
+            const SizedBox(height: 8),
+
+            // ── Timer display area (subtle surface, not heavy card) ──
             GestureDetector(
               onTap: onFullscreenPressed,
               onDoubleTap: onFullscreenImmersivePressed,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final maxWidth = constraints.maxWidth * 0.9;
-                  return Center(
-                    child: Container(
-                      width: maxWidth,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 32,
-                        horizontal: 20,
-                      ),
-                      decoration: BoxDecoration(
-                        color: context.tintedSurface,
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: cs.outlineVariant.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            'Remaining',
-                            style: TextStyle(
-                              color: cs.onSurfaceVariant,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              millis != null ? '$minutes:$seconds.$millis' : '$minutes:$seconds',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: cs.onSurface,
-                                fontSize: 72,
-                                height: 0.85,
-                                fontWeight: FontWeight.w900,
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures(),
+              child: Center(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: c.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: c.surfaceBorder),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Timer ring (if running/paused with progress)
+                      if (isRunning || (_progress > 0 && remainingSeconds > 0))
+                        SizedBox(
+                          width: 180,
+                          height: 180,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              TimerRing(
+                                progress: _progress,
+                                primary: c.primaryAction,
+                                trackColor: c.surfaceBorder,
+                              ),
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Remaining',
+                                    style: GoogleFonts.inter(
+                                      color: c.textMuted,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 1.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    displayTime,
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.inter(
+                                      color: c.textPrimary,
+                                      fontSize: 40,
+                                      height: 0.9,
+                                      fontWeight: FontWeight.w800,
+                                      fontFeatures: const [FontFeature.tabularFigures()],
+                                    ),
+                                  ),
                                 ],
                               ),
-                            ),
+                            ],
                           ),
-                          const SizedBox(height: 14),
-                          // Ends at badge + chain progress
-                          if (isRunning && _endLabel().isNotEmpty)
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    color: cs.primaryContainer,
-                                    borderRadius:
-                                        BorderRadius.circular(16),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.schedule_rounded,
-                                          size: 14,
-                                          color: cs.onPrimaryContainer),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        _endLabel(),
-                                        style: TextStyle(
-                                          color: cs.onPrimaryContainer,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (chainModeOn)
-                                  const SizedBox(width: 8),
-                                if (chainModeOn)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 5),
-                                    decoration: BoxDecoration(
-                                      color: cs.tertiaryContainer,
-                                      borderRadius:
-                                          BorderRadius.circular(16),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.link_rounded,
-                                            size: 14,
-                                            color: cs.onTertiaryContainer),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Step ${chainIndex + 1}',
-                                          style: TextStyle(
-                                            color: cs.onTertiaryContainer,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                              ],
+                        )
+                      else
+                        // Idle state — just the time, no ring
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Remaining',
+                              style: GoogleFonts.inter(
+                                color: c.textMuted,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1.5,
+                              ),
                             ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 20),
+                            const SizedBox(height: 16),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                displayTime,
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.inter(
+                                  color: c.textPrimary,
+                                  fontSize: 64,
+                                  height: 0.85,
+                                  fontWeight: FontWeight.w800,
+                                  fontFeatures: const [FontFeature.tabularFigures()],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
 
-            // ── Action buttons (no fullscreen icon) ─────────────────
-            Row(
-              children: [
-                // Play / Pause
-                Expanded(
-                  child: SizedBox(
-                    height: 52,
-                    child: FilledButton.icon(
-                      onPressed: isRunning ? stopTimer : startTimer,
-                      icon: Icon(
-                        isRunning
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded,
-                        size: 20,
-                      ),
-                      label: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(isRunning ? 'Pause' : 'Start'),
-                      ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: cs.primary,
-                        foregroundColor: cs.onPrimary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                      // End time badge (when running)
+                      if (isRunning && _endLabel().isNotEmpty) ...[
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: c.accentLight,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.schedule_rounded, size: 14, color: c.accent),
+                              const SizedBox(width: 4),
+                              Text(
+                                _endLabel(),
+                                style: GoogleFonts.inter(
+                                  color: c.accent,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        textStyle: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
+                      ],
+
+                      // Chain progress
+                      if (isRunning && chainModeOn) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: c.accentLight,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.link_rounded, size: 14, color: c.accent),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Step ${chainIndex + 1}',
+                                style: GoogleFonts.inter(
+                                  color: c.accent,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                      ),
-                    ),
+                      ],
+                    ],
                   ),
                 ),
-                const SizedBox(width: 10),
-                // Reset
-                Expanded(
-                  child: SizedBox(
-                    height: 52,
-                    child: OutlinedButton.icon(
-                      onPressed: resetTimer,
-                      icon: const Icon(Icons.refresh_rounded, size: 18),
-                      label: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: const Text('Reset'),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: cs.onSurface,
-                        backgroundColor: cs.surfaceContainerHighest,
-                        side: BorderSide(color: cs.outline, width: 1.5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
             const SizedBox(height: 24),
 
-            // ── Quick-toggle chips ────────────────────────────
+            // ── Primary action: Start / Pause ─────────────────
+            PrimaryButton(
+              label: isRunning ? 'Pause' : 'Start',
+              icon: isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              onPressed: isRunning ? stopTimer : startTimer,
+            ),
+            const SizedBox(height: 12),
+
+            // ── Secondary actions: Reset, +5 min ──────────────
             Row(
               children: [
-                _quickToggle(
-                  context,
-                  icon: Icons.record_voice_over_rounded,
-                  label: 'Speech',
-                  active: timerSpeakOn,
-                  activeColor: cs.secondaryContainer,
-                  onToggle: () => onTimerSpeakOnChanged(!timerSpeakOn),
+                Expanded(
+                  child: SecondaryButton(
+                    label: 'Reset',
+                    icon: Icons.refresh_rounded,
+                    onPressed: resetTimer,
+                    compact: true,
+                  ),
                 ),
-                const SizedBox(width: 8),
-                _quickToggle(
-                  context,
-                  icon: Icons.music_note_rounded,
-                  label: 'Noise',
-                  active: timerNoiseOn,
-                  activeColor: cs.tertiaryContainer,
-                  onToggle: () => onTimerNoiseOnChanged(!timerNoiseOn),
-                ),
+                if (isRunning) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: SecondaryButton(
+                      label: '+ 5 min',
+                      icon: Icons.add_rounded,
+                      onPressed: () => choosePreset(sliderValue + 300),
+                      compact: true,
+                    ),
+                  ),
+                ],
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
 
-            // ── Quick presets (4 per row) ───────────────────────────
-            sectionLabel(cs, 'Quick presets'),
-            const SizedBox(height: 8),
-            _buildPresetGrid(context, cs),
-            const SizedBox(height: 8),
-            // Custom time
-            SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: OutlinedButton.icon(
-                onPressed: () => _showCustomTimeDialog(context),
-                icon: const Icon(Icons.edit_rounded, size: 18),
-                label: const Text('Custom time'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: cs.onSurface,
-                  backgroundColor: cs.surfaceContainerHighest,
-                  side: BorderSide(color: cs.outline, width: 1.5),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+            // ── +5 min / -1 min adjustment (when running) ──────
+            if (isRunning)
+              Row(
+                children: [
+                  Expanded(
+                    child: SecondaryButton(
+                      label: '− 1 min',
+                      onPressed: () {
+                        final newSeconds = (sliderValue - 60).clamp(60, 720 * 60);
+                        choosePreset(newSeconds);
+                      },
+                      compact: true,
+                    ),
                   ),
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: SecondaryButton(
+                      label: '+ 5 min',
+                      onPressed: () {
+                        final newSeconds = (sliderValue + 300).clamp(60, 720 * 60);
+                        choosePreset(newSeconds);
+                      },
+                      compact: true,
+                    ),
                   ),
-                ),
+                ],
               ),
-            ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // ── Collapsible options ──────────────────────────────────
-            _buildOptionsSection(context, cs),
+            // ── Quick presets ──────────────────────────────────
+            PresetGrid(
+              primaryPresets: const [5, 10, 15, 25, 45],
+              secondaryPresets: [1, 2, 3, 7, 12, 20, 30, 35, 60],
+              selectedValue: sliderValue,
+              armedValue: armedPresetValue,
+              onTap: onPresetTap,
+              showCustomButton: true,
+              onCustomTap: () => _showCustomTimeDialog(context),
+            ),
+            const SizedBox(height: 28),
+
+            // ── Timer options (settings rows) ──────────────────
+            SettingsRow(
+              icon: Icons.record_voice_over_rounded,
+              label: 'Speech',
+              value: timerSpeakOn ? 'On' : 'Off',
+              onTap: () => onTimerSpeakOnChanged(!timerSpeakOn),
+            ),
+            SettingsRow(
+              icon: Icons.music_note_rounded,
+              label: 'Noise',
+              value: timerNoiseOn ? 'On' : 'Off',
+              onTap: () => onTimerNoiseOnChanged(!timerNoiseOn),
+            ),
+            SettingsRow(
+              icon: Icons.notifications_active_outlined,
+              label: 'End of timer',
+              value: 'Sound + Speech',
+              onTap: () {
+                // Opens end-of-timer options sheet
+              },
+            ),
+            SettingsRow(
+              icon: Icons.tune_rounded,
+              label: 'Timer options',
+              onTap: () => _showTimerOptionsSheet(context),
+              showDivider: false,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _quickToggle(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required bool active,
-    required Color activeColor,
-    required VoidCallback onToggle,
-  }) {
-    final cs = Theme.of(context).colorScheme;
-    return Expanded(
-      child: GestureDetector(
-        onTap: onToggle,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: active ? activeColor : context.tintedSurfaceLow,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
+  void _showTimerOptionsSheet(BuildContext context) {
+    final c = context.appColors;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (ctx, scrollController) => SafeArea(
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
             children: [
-              Icon(
-                icon,
-                color: active ? cs.onSurface : cs.onSurfaceVariant,
-                size: 22,
-              ),
-              const SizedBox(height: 4),
               Text(
-                label,
-                style: TextStyle(
-                  color: active ? cs.onSurface : cs.onSurfaceVariant,
-                  fontSize: 11,
+                'Timer options',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
+                  color: c.textPrimary,
                 ),
               ),
+              const SizedBox(height: 20),
+
+              SettingsRow(
+                icon: Icons.timer_outlined,
+                label: 'Announce every',
+                value: '$timerAnnounceEvery min',
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showAnnounceSheet(context);
+                },
+              ),
+              SettingsRow(
+                icon: Icons.speed_rounded,
+                label: 'Show milliseconds',
+                value: timerShowMilliseconds ? 'On' : 'Off',
+                onTap: () => onTimerShowMillisecondsChanged(!timerShowMilliseconds),
+              ),
+              SettingsRow(
+                icon: Icons.link_rounded,
+                label: 'Chain mode',
+                value: chainModeOn ? 'On' : 'Off',
+                onTap: () => onChainModeChanged(!chainModeOn),
+              ),
+              if (chainModeOn)
+                SettingsRow(
+                  icon: Icons.list_alt_rounded,
+                  label: 'Preset sequence',
+                  value: chainPresetKey,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showChainSheet(context);
+                  },
+                  showDivider: false,
+                ),
             ],
           ),
         ),
@@ -398,162 +444,10 @@ class TimerPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildPresetGrid(BuildContext context, ColorScheme cs) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: presetValues.map((p) {
-        final selected = p == sliderValue;
-        final armed = p == armedPresetValue;
-        final label = p >= 60 ? '${p ~/ 60}h' : '${p}m';
-        return Semantics(
-          button: true,
-          label: '$p minutes',
-          child: SizedBox(
-            width: (MediaQuery.of(context).size.width - 16 * 2 - 8 * 4) / 5,
-            child: Material(
-              color: armed
-                  ? cs.tertiaryContainer
-                  : (selected
-                      ? cs.primaryContainer
-                      : context.tintedSurfaceLow),
-              borderRadius: BorderRadius.circular(12),
-              child: InkWell(
-                onTap: () => onPresetTap(p),
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  alignment: Alignment.center,
-                  decoration: armed
-                      ? BoxDecoration(
-                          border: Border.all(
-                            color: cs.primary,
-                            width: 2,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        )
-                      : null,
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      color: armed
-                          ? cs.onTertiaryContainer
-                          : (selected
-                              ? cs.onPrimaryContainer
-                              : cs.onSurface),
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget sectionLabel(ColorScheme cs, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 2),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: cs.onSurfaceVariant,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.2,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOptionsSection(BuildContext context, ColorScheme cs) {
-    return Container(
-      decoration: BoxDecoration(
-        color: context.tintedSurface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: ExpansionTile(
-        title: Row(
-          children: [
-            Icon(Icons.tune_rounded, size: 18, color: cs.primary),
-            const SizedBox(width: 8),
-            Text(
-              'Timer Options',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
-                color: cs.onSurface,
-              ),
-            ),
-          ],
-        ),
-        initiallyExpanded: false,
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        children: [
-          ListTile(
-            leading: Icon(Icons.timer_outlined,
-                color: cs.primary, size: 22),
-            title: Text('Announce every',
-                style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                    color: cs.onSurface)),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('$timerAnnounceEvery min',
-                    style: TextStyle(
-                        color: cs.onSurfaceVariant,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(width: 4),
-                Icon(Icons.chevron_right_rounded,
-                    color: cs.onSurfaceVariant, size: 20),
-              ],
-            ),
-            onTap: () => _showAnnounceSheet(context),
-          ),
-          if (chainModeOn)
-            const Divider(height: 1, indent: 16, endIndent: 16),
-          if (chainModeOn)
-            ListTile(
-              leading: Icon(Icons.list_alt_rounded,
-                  color: cs.primary, size: 22),
-              title: Text('Preset sequence',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                      color: cs.onSurface)),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(chainPresetKey,
-                      style: TextStyle(
-                          color: cs.onSurfaceVariant,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600)),
-                  const SizedBox(width: 4),
-                  Icon(Icons.chevron_right_rounded,
-                      color: cs.onSurfaceVariant, size: 20),
-                ],
-              ),
-              onTap: () => _showChainSheet(context),
-            ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _showAnnounceSheet(BuildContext context) async {
-    final cs = Theme.of(context).colorScheme;
-    await showModalBottomSheet<int>(
+    final c = context.appColors;
+    await showModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
-      backgroundColor: cs.surfaceContainerLow,
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
@@ -561,28 +455,37 @@ class TimerPanel extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Announcement interval',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: cs.onSurface,
-                      fontWeight: FontWeight.w900)),
+              Text(
+                'Announcement interval',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: c.textPrimary,
+                ),
+              ),
               const SizedBox(height: 8),
               ...timerAnnounceOptions.map((mins) {
                 final selected = mins == timerAnnounceEvery;
                 return ListTile(
                   selected: selected,
-                  selectedTileColor:
-                      cs.primaryContainer.withAlpha(80),
+                  selectedTileColor: c.accentLight,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   leading: Icon(
                     selected
                         ? Icons.radio_button_checked_rounded
                         : Icons.radio_button_unchecked_rounded,
-                    color: selected
-                        ? cs.primary
-                        : cs.onSurfaceVariant,
+                    color: selected ? c.accent : c.textMuted,
                   ),
-                  title: Text('Announce every $mins min'),
+                  title: Text(
+                    'Announce every $mins min',
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: c.textPrimary,
+                    ),
+                  ),
                   onTap: () {
                     onTimerAnnounceEveryChanged(mins);
                     Navigator.of(context).pop();
@@ -597,11 +500,9 @@ class TimerPanel extends StatelessWidget {
   }
 
   Future<void> _showChainSheet(BuildContext context) async {
-    final cs = Theme.of(context).colorScheme;
-    await showModalBottomSheet<String>(
+    final c = context.appColors;
+    await showModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
-      backgroundColor: cs.surfaceContainerLow,
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
@@ -609,30 +510,44 @@ class TimerPanel extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Chain preset',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: cs.onSurface,
-                      fontWeight: FontWeight.w900)),
+              Text(
+                'Chain preset',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: c.textPrimary,
+                ),
+              ),
               const SizedBox(height: 8),
               ...chainPresets.entries.map((entry) {
                 final selected = entry.key == chainPresetKey;
                 return ListTile(
                   selected: selected,
-                  selectedTileColor:
-                      cs.primaryContainer.withAlpha(80),
+                  selectedTileColor: c.accentLight,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   leading: Icon(
                     selected
                         ? Icons.radio_button_checked_rounded
                         : Icons.radio_button_unchecked_rounded,
-                    color: selected
-                        ? cs.primary
-                        : cs.onSurfaceVariant,
+                    color: selected ? c.accent : c.textMuted,
                   ),
-                  title: Text(entry.key),
+                  title: Text(
+                    entry.key,
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: c.textPrimary,
+                    ),
+                  ),
                   subtitle: Text(
-                      '${entry.value.join(' / ')} min'),
+                    '${entry.value.join(' / ')} min',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: c.textSecondary,
+                    ),
+                  ),
                   onTap: () {
                     onChainPresetChanged(entry.key);
                     Navigator.of(context).pop();
@@ -647,16 +562,25 @@ class TimerPanel extends StatelessWidget {
   }
 
   Future<void> _showCustomTimeDialog(BuildContext context) async {
+    final c = context.appColors;
     final controller = TextEditingController(text: '25');
     final result = await showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Custom timer'),
+        title: Text(
+          'Custom timer',
+          style: GoogleFonts.inter(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: c.textPrimary,
+          ),
+        ),
         content: TextField(
           controller: controller,
           autofocus: true,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
+          style: GoogleFonts.inter(fontSize: 16, color: c.textPrimary),
+          decoration: InputDecoration(
             labelText: 'Minutes',
             hintText: 'Enter minutes (1-720)',
             suffixText: 'min',
@@ -674,7 +598,7 @@ class TimerPanel extends StatelessWidget {
                 Navigator.of(ctx).pop(parsed);
               }
             },
-            child: const Text('Start'),
+            child: const Text('Set'),
           ),
         ],
       ),

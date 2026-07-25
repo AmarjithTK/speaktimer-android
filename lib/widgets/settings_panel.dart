@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../theme/palette.dart' show TintedSurfaces;
+import '../theme/palette.dart' show AppColorAccess;
 
 import '../models/sound_option.dart';
 
@@ -528,8 +528,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
   // ── Reusable section card ────────────────────────────────────
   Widget _sectionCard(BuildContext context, IconData icon, String title, List<Widget> children) {
     final cs = Theme.of(context).colorScheme;
+    final c = context.appColors;
     return Material(
-      color: context.tintedSurface,
+      color: c.surface,
       borderRadius: BorderRadius.circular(18),
       child: Container(
         decoration: BoxDecoration(

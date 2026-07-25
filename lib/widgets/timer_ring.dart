@@ -2,7 +2,11 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// An animated circular progress ring for the timer display.
+/// A clean, minimal circular progress ring for the timer display.
+///
+/// Removed: outer shadow glow, knob highlight/specular, gradient sweep.
+/// Kept: track ring, progress arc, small dot at arc end.
+/// Thinner stroke for a more refined look.
 class TimerRing extends StatelessWidget {
   final double progress;
   final Color primary;
@@ -45,7 +49,8 @@ class _TimerRingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final strokeWidth = math.max(size.width * 0.028, 7.0);
+    // Thinner, more refined stroke
+    final strokeWidth = math.max(size.width * 0.022, 3.0);
     final halfStroke = strokeWidth / 2;
     final rect = Rect.fromLTWH(
       halfStroke,
@@ -54,15 +59,7 @@ class _TimerRingPainter extends CustomPainter {
       size.height - strokeWidth,
     );
 
-    // Outer shadow ring
-    final shadowPaint = Paint()
-      ..color = primary.withAlpha(25)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth + 4;
-    canvas.drawArc(rect, 0, math.pi * 2, false, shadowPaint);
-
-    // Track ring
+    // Track ring (subtle background)
     final trackPaint = Paint()
       ..color = trackColor
       ..style = PaintingStyle.stroke
@@ -71,25 +68,16 @@ class _TimerRingPainter extends CustomPainter {
     canvas.drawArc(rect, 0, math.pi * 2, false, trackPaint);
 
     if (progress > 0) {
-      // Progress arc with gradient effect
+      // Progress arc (solid accent color, no gradient)
       final sweep = math.pi * 2 * progress;
       final progressPaint = Paint()
-        ..shader = SweepGradient(
-          center: Alignment.center,
-          startAngle: -math.pi / 2,
-          endAngle: -math.pi / 2 + sweep,
-          colors: [
-            primary.withAlpha(180),
-            primary,
-            primary.withAlpha(230),
-          ],
-        ).createShader(rect)
+        ..color = primary
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round;
       canvas.drawArc(rect, -math.pi / 2, sweep, false, progressPaint);
 
-      // Knob glow
+      // Small dot at arc end
       final angle = -math.pi / 2 + sweep;
       final radius = rect.width / 2;
       final center = rect.center;
@@ -97,22 +85,7 @@ class _TimerRingPainter extends CustomPainter {
         center.dx + math.cos(angle) * radius,
         center.dy + math.sin(angle) * radius,
       );
-      final glowPaint = Paint()
-        ..color = primary.withAlpha(40)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
-      canvas.drawCircle(knobPos, strokeWidth * 1.5, glowPaint);
-
-      // Knob
-      canvas.drawCircle(knobPos, strokeWidth * 0.9, Paint()..color = primary);
-
-      // Knob highlight
-      final highlightPaint = Paint()
-        ..color = Colors.white.withAlpha(100);
-      canvas.drawCircle(
-        Offset(knobPos.dx - strokeWidth * 0.2, knobPos.dy - strokeWidth * 0.2),
-        strokeWidth * 0.3,
-        highlightPaint,
-      );
+      canvas.drawCircle(knobPos, strokeWidth * 0.8, Paint()..color = primary);
     }
   }
 

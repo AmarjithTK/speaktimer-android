@@ -1,8 +1,15 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import '../theme/palette.dart' show TintedSurfaces;
+import 'package:google_fonts/google_fonts.dart';
 
+import '../theme/palette.dart' show AppColorAccess;
+import 'primary_button.dart';
+import 'secondary_button.dart';
+import 'settings_row.dart';
+import 'section_header.dart';
+
+/// Redesigned Stopwatch panel — clean, minimal, time-first.
 class StopwatchPanel extends StatelessWidget {
   final VoidCallback onFullscreenPressed;
   final VoidCallback onFullscreenImmersivePressed;
@@ -46,309 +53,17 @@ class StopwatchPanel extends StatelessWidget {
     required this.onStopwatchSpeakDelayChanged,
   });
 
-  String _delayLabel(int seconds) {
-    if (seconds < 60) return '$seconds sec';
-    if (seconds % 60 == 0) return '${seconds ~/ 60} min';
-    return '$seconds sec';
-  }
-
   String _formatElapsed(String value) {
-    // Remove trailing milliseconds for a cleaner hero display
     if (value.contains('.') && !stopwatchShowMilliseconds) {
       return value.split('.').first;
     }
     return value;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final display = _formatElapsed(elapsedValue);
-
-    return SafeArea(
-      child: ColoredBox(
-        color: cs.surface,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            const SizedBox(height: 8),
-
-            // ── Hero elapsed display ─────────────────────────────
-            GestureDetector(
-              onTap: onFullscreenPressed,
-              onDoubleTap: onFullscreenImmersivePressed,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final maxWidth = constraints.maxWidth * 0.9;
-                  return Center(
-                    child: Container(
-                      width: maxWidth,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 32,
-                      ),
-                      decoration: BoxDecoration(
-                        color: context.tintedSurface,
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: cs.outlineVariant.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            'ELAPSED',
-                            style: TextStyle(
-                              color: cs.onSurfaceVariant,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              display,
-                              style: TextStyle(
-                                color: cs.onSurface,
-                                fontSize: 72,
-                                height: 0.85,
-                                fontWeight: FontWeight.w900,
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures(),
-                                ],
-                              ),
-                            ),
-                          ),
-                          if (lapCount > 0) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              '$lapCount laps',
-                              style: TextStyle(
-                                color: cs.onSurfaceVariant,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // ── Action buttons ───────────────────────────────────
-            Row(
-              children: [
-                // Start / Pause
-                Expanded(
-                  child: SizedBox(
-                    height: 52,
-                    child: FilledButton.icon(
-                      onPressed:
-                          isRunning ? stopStopwatch : startStopwatch,
-                      icon: Icon(
-                        isRunning
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded,
-                        size: 22,
-                      ),
-                      label: Text(isRunning ? 'Pause' : 'Start'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: cs.primary,
-                        foregroundColor: cs.onPrimary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                // Lap
-                Expanded(
-                  child: SizedBox(
-                    height: 52,
-                    child: OutlinedButton.icon(
-                      onPressed: isRunning ? onLap : null,
-                      icon: const Icon(Icons.flag_rounded, size: 20),
-                      label: const Text('Lap'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor:
-                            isRunning ? cs.onSurface : cs.onSurfaceVariant,
-                        backgroundColor: context.tintedSurfaceLow,
-                        side: BorderSide(color: cs.outline, width: 1.5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                // Reset
-                SizedBox(
-                  height: 52,
-                  width: 52,
-                  child: IconButton(
-                    onPressed: resetStopwatch,
-                    tooltip: 'Reset',
-                    icon: const Icon(Icons.refresh_rounded),
-                    style: IconButton.styleFrom(
-                      foregroundColor: cs.onSurfaceVariant,
-                      backgroundColor: context.tintedSurfaceLow,
-                      side: BorderSide(color: cs.outline, width: 1.5),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            // ── Quick-toggle chips (like clock & timer) ──────────
-            Row(
-              children: [
-                _quickToggle(
-                  context,
-                  icon: Icons.record_voice_over_rounded,
-                  label: 'Speech',
-                  active: stopwatchSpeakOn,
-                  activeColor: cs.secondaryContainer,
-                  onToggle: () => onStopwatchSpeakOnChanged(!stopwatchSpeakOn),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // ── Lap list ─────────────────────────────────────────
-            if (lapTimes.isNotEmpty) ...[
-              sectionLabel(cs, 'Lap times'),
-              const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: context.tintedSurface,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: cs.outlineVariant.withValues(alpha: 0.5),
-                  ),
-                ),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: math.min(lapTimes.length, 20),
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  separatorBuilder: (_, _) =>
-                      Divider(height: 1, indent: 16, endIndent: 16),
-                  itemBuilder: (context, index) {
-                    final i = lapTimes.length - 1 - index;
-                    return ListTile(
-                      dense: true,
-                      leading: Container(
-                        width: 28,
-                        height: 28,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: context.tintedSurfaceLow,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          '${i + 1}',
-                          style: TextStyle(
-                            color: cs.onSurfaceVariant,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      title: Text(
-                        lapTimes[i],
-                        style: TextStyle(
-                          color: cs.onSurface,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                          fontFeatures: const [
-                            FontFeature.tabularFigures(),
-                          ],
-                        ),
-                      ),
-                      trailing: i > 0
-                          ? Text(
-                              _lapDelta(i),
-                              style: TextStyle(
-                                color: cs.onSurfaceVariant,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            )
-                          : null,
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            // ── Collapsible options ──────────────────────────────
-            _buildOptionsSection(context, cs),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _quickToggle(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required bool active,
-    required Color activeColor,
-    required VoidCallback onToggle,
-  }) {
-    final cs = Theme.of(context).colorScheme;
-    return Expanded(
-      child: GestureDetector(
-        onTap: onToggle,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: active ? activeColor : context.tintedSurfaceLow,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            children: [
-              Icon(
-                icon,
-                color: active ? cs.onSurface : cs.onSurfaceVariant,
-                size: 22,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: active ? cs.onSurface : cs.onSurfaceVariant,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  String _delayLabel(int seconds) {
+    if (seconds < 60) return '$seconds sec';
+    if (seconds % 60 == 0) return '${seconds ~/ 60} min';
+    return '$seconds sec';
   }
 
   String _lapDelta(int index) {
@@ -384,97 +99,207 @@ class StopwatchPanel extends StatelessWidget {
     return '$m:$s';
   }
 
-  Widget sectionLabel(ColorScheme cs, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 2),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: cs.onSurfaceVariant,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.2,
-        ),
-      ),
-    );
-  }
+  @override
+  Widget build(BuildContext context) {
+    final c = context.appColors;
+    final display = _formatElapsed(elapsedValue);
 
-  Widget _buildOptionsSection(BuildContext context, ColorScheme cs) {
-    return Container(
-      decoration: BoxDecoration(
-        color: context.tintedSurface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: ExpansionTile(
-        title: Row(
+    return SafeArea(
+      child: ColoredBox(
+        color: c.background,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           children: [
-            Icon(Icons.tune_rounded, size: 18, color: cs.primary),
-            const SizedBox(width: 8),
-            Text(
-              'Stopwatch Options',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
-                color: cs.onSurface,
+            const SizedBox(height: 16),
+
+            // ── Hero elapsed display ─────────────────────────────
+            GestureDetector(
+              onTap: onFullscreenPressed,
+              onDoubleTap: onFullscreenImmersivePressed,
+              child: Center(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: c.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: c.surfaceBorder),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'ELAPSED',
+                        style: GoogleFonts.inter(
+                          color: c.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          display,
+                          style: GoogleFonts.inter(
+                            color: c.textPrimary,
+                            fontSize: 64,
+                            height: 0.85,
+                            fontWeight: FontWeight.w800,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
+                      if (lapCount > 0) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          '$lapCount laps',
+                          style: GoogleFonts.inter(
+                            color: c.textMuted,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
+            ),
+            const SizedBox(height: 24),
+
+            // ── Action buttons ───────────────────────────────────
+            Row(
+              children: [
+                Expanded(
+                  child: PrimaryButton(
+                    label: isRunning ? 'Pause' : 'Start',
+                    icon: isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    onPressed: isRunning ? stopStopwatch : startStopwatch,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SecondaryButton(
+                    label: 'Lap',
+                    icon: Icons.flag_rounded,
+                    onPressed: isRunning ? onLap : null,
+                    compact: true,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  height: 48,
+                  width: 48,
+                  child: OutlinedButton(
+                    onPressed: resetStopwatch,
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Icon(Icons.refresh_rounded, size: 20, color: c.textSecondary),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 28),
+
+            // ── Lap list ─────────────────────────────────────────
+            if (lapTimes.isNotEmpty) ...[
+              const SectionHeader(label: 'Lap times'),
+              const SizedBox(height: 4),
+              ...List.generate(math.min(lapTimes.length, 20), (index) {
+                final i = lapTimes.length - 1 - index;
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: i > 0 ? c.divider : Colors.transparent,
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: c.surfaceSubtle,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${i + 1}',
+                          style: GoogleFonts.inter(
+                            color: c.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          lapTimes[i],
+                          style: GoogleFonts.inter(
+                            color: c.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
+                      if (i > 0)
+                        Text(
+                          _lapDelta(i),
+                          style: GoogleFonts.inter(
+                            color: c.textMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }),
+              const SizedBox(height: 20),
+            ],
+
+            // ── Settings rows ────────────────────────────────────
+            SettingsRow(
+              icon: Icons.record_voice_over_rounded,
+              label: 'Speech',
+              value: stopwatchSpeakOn ? 'On' : 'Off',
+              onTap: () => onStopwatchSpeakOnChanged(!stopwatchSpeakOn),
+            ),
+            SettingsRow(
+              icon: Icons.speed_rounded,
+              label: 'Show milliseconds',
+              value: stopwatchShowMilliseconds ? 'On' : 'Off',
+              onTap: () => onStopwatchShowMillisecondsChanged(!stopwatchShowMilliseconds),
+            ),
+            SettingsRow(
+              icon: Icons.timer_outlined,
+              label: 'Speak delay',
+              value: _delayLabel(stopwatchSpeakDelaySeconds),
+              onTap: () => _showDelaySheet(context),
+              showDivider: false,
             ),
           ],
         ),
-        initiallyExpanded: false,
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        children: [
-          SwitchListTile(
-            value: stopwatchSpeakOn,
-            onChanged: (val) => onStopwatchSpeakOnChanged(val),
-            activeThumbColor: cs.onSecondary,
-            activeTrackColor: cs.secondary,
-            secondary: Icon(Icons.record_voice_over_rounded,
-                color: cs.secondary, size: 22),
-            title: Text('Speech',
-                style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                    color: cs.onSurface)),
-            subtitle: Text('Announce elapsed time',
-                style:
-                    TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
-          ),
-          if (stopwatchSpeakOn)
-            ListTile(
-              leading: Icon(Icons.timer_outlined,
-                  color: cs.primary, size: 22),
-              title: Text('Speak every',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                      color: cs.onSurface)),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(_delayLabel(stopwatchSpeakDelaySeconds),
-                      style: TextStyle(
-                          color: cs.onSurfaceVariant,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600)),
-                  const SizedBox(width: 4),
-                  Icon(Icons.chevron_right_rounded,
-                      color: cs.onSurfaceVariant, size: 20),
-                ],
-              ),
-              onTap: () => _showDelaySheet(context),
-            ),
-        ],
       ),
     );
   }
 
   Future<void> _showDelaySheet(BuildContext context) async {
-    final cs = Theme.of(context).colorScheme;
+    final c = context.appColors;
     await showModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
-      backgroundColor: cs.surfaceContainerLow,
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
@@ -482,26 +307,37 @@ class StopwatchPanel extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Speak elapsed every',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: cs.onSurface,
-                      fontWeight: FontWeight.w900)),
+              Text(
+                'Speak elapsed every',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: c.textPrimary,
+                ),
+              ),
               const SizedBox(height: 8),
               ...stopwatchSpeakDelayOptions.map((value) {
                 final selected = value == stopwatchSpeakDelaySeconds;
                 return ListTile(
                   selected: selected,
-                  selectedTileColor: cs.primaryContainer.withAlpha(80),
+                  selectedTileColor: c.accentLight,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   leading: Icon(
                     selected
                         ? Icons.radio_button_checked_rounded
                         : Icons.radio_button_unchecked_rounded,
-                    color:
-                        selected ? cs.primary : cs.onSurfaceVariant,
+                    color: selected ? c.accent : c.textMuted,
                   ),
-                  title: Text(_delayLabel(value)),
+                  title: Text(
+                    _delayLabel(value),
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: c.textPrimary,
+                    ),
+                  ),
                   onTap: () {
                     onStopwatchSpeakDelayChanged(value);
                     Navigator.of(context).pop();

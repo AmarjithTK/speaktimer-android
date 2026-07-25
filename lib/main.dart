@@ -71,8 +71,7 @@ import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:dynamic_color/dynamic_color.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'theme/app_theme.dart';
 
 import 'l10n/app_localizations.dart';
 import 'models/app_settings.dart';
@@ -93,6 +92,7 @@ import 'widgets/timer_panel.dart';
 import 'widgets/stopwatch_panel.dart';
 import 'widgets/settings_panel.dart';
 import 'widgets/help_panel.dart';
+import 'widgets/bottom_nav_bar.dart';
 import 'services/voice_session_manager.dart';
 import 'services/speech_language_service.dart';
 
@@ -143,50 +143,32 @@ class SolasFlowApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WithForegroundTask(
-      child: DynamicColorBuilder(
-        builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
-          return ValueListenableBuilder<ThemeMode>(
-            valueListenable: appThemeModeNotifier,
-            builder: (context, themeMode, _) {
-              return ValueListenableBuilder<double>(
-                valueListenable: appFontSizeNotifier,
-                builder: (context, fontSizeMultiplier, _) {
-                  final l10n = AppLocalizations.of(context);
-                  return MaterialApp(
-                    title: l10n?.appTitle ?? 'SolasFlow',
-                    debugShowCheckedModeBanner: false,
-                    localizationsDelegates:
-                        AppLocalizations.localizationsDelegates,
-                    supportedLocales: AppLocalizations.supportedLocales,
-                    themeMode: themeMode,
-                    builder: (context, child) {
-                      return MediaQuery(
-                        data: MediaQuery.of(context).copyWith(
-                          textScaler:
-                              TextScaler.linear(fontSizeMultiplier),
-                        ),
-                        child: child!,
-                      );
-                    },
-                    theme: _buildSolasFlowTheme(
-                      _darkenColors(lightDynamic ??
-                          ColorScheme.fromSeed(
-                            seedColor: const Color(0xFF6256D9),
-                            brightness: Brightness.light,
-                          )),
-                      Brightness.light,
+      child: ValueListenableBuilder<ThemeMode>(
+        valueListenable: appThemeModeNotifier,
+        builder: (context, themeMode, _) {
+          return ValueListenableBuilder<double>(
+            valueListenable: appFontSizeNotifier,
+            builder: (context, fontSizeMultiplier, _) {
+              final l10n = AppLocalizations.of(context);
+              return MaterialApp(
+                title: l10n?.appTitle ?? 'SolasFlow',
+                debugShowCheckedModeBanner: false,
+                localizationsDelegates:
+                    AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                themeMode: themeMode,
+                builder: (context, child) {
+                  return MediaQuery(
+                    data: MediaQuery.of(context).copyWith(
+                      textScaler:
+                          TextScaler.linear(fontSizeMultiplier),
                     ),
-                    darkTheme: _buildSolasFlowTheme(
-                      _darkenColors(darkDynamic ??
-                          ColorScheme.fromSeed(
-                            seedColor: const Color(0xFF6256D9),
-                            brightness: Brightness.dark,
-                          )),
-                      Brightness.dark,
-                    ),
-                    home: const MainScreen(),
+                    child: child!,
                   );
                 },
+                theme: AppTheme.light(),
+                darkTheme: AppTheme.dark(),
+                home: const MainScreen(),
               );
             },
           );
@@ -194,190 +176,6 @@ class SolasFlowApp extends StatelessWidget {
       ),
     );
   }
-}
-
-ColorScheme _darkenColors(ColorScheme scheme) {
-  Color darken(Color c) => Color.lerp(c, Colors.black, 0.2) ?? c;
-  return scheme.copyWith(
-    primary: darken(scheme.primary),
-    onPrimary: darken(scheme.onPrimary),
-    primaryContainer: darken(scheme.primaryContainer),
-    secondary: darken(scheme.secondary),
-    secondaryContainer: darken(scheme.secondaryContainer),
-    tertiary: darken(scheme.tertiary),
-    tertiaryContainer: darken(scheme.tertiaryContainer),
-    surface: darken(scheme.surface),
-    surfaceContainer: darken(scheme.surfaceContainer),
-    surfaceContainerHigh: darken(scheme.surfaceContainerHigh),
-    surfaceContainerHighest: darken(scheme.surfaceContainerHighest),
-    surfaceContainerLow: darken(scheme.surfaceContainerLow),
-    surfaceContainerLowest: darken(scheme.surfaceContainerLowest),
-    error: darken(scheme.error),
-    errorContainer: darken(scheme.errorContainer),
-  );
-}
-
-ThemeData _buildSolasFlowTheme(ColorScheme scheme, Brightness brightness) {
-  final base = ThemeData(
-    colorScheme: scheme,
-    useMaterial3: true,
-    brightness: brightness,
-    fontFamily: GoogleFonts.poppins().fontFamily,
-    fontFamilyFallback: const ['Arial'],
-  );
-  final textTheme = GoogleFonts.poppinsTextTheme(base.textTheme).apply(
-    bodyColor: scheme.onSurface,
-    displayColor: scheme.onSurface,
-  );
-
-  return base.copyWith(
-    scaffoldBackgroundColor: scheme.surface,
-    textTheme: textTheme,
-    appBarTheme: AppBarTheme(
-      centerTitle: true,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      backgroundColor: scheme.surface,
-      foregroundColor: scheme.onSurface,
-      titleTextStyle: textTheme.titleLarge?.copyWith(
-        fontWeight: FontWeight.w800,
-      ),
-    ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        shape: const StadiumBorder(),
-        textStyle: textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        elevation: 0,
-        shape: const StadiumBorder(),
-        textStyle: textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    ),
-    chipTheme: base.chipTheme.copyWith(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-      ),
-      labelStyle: textTheme.labelLarge?.copyWith(
-        fontWeight: FontWeight.w700,
-      ),
-      selectedColor: scheme.primaryContainer,
-      secondarySelectedColor: scheme.primaryContainer,
-      showCheckmark: false,
-    ),
-    sliderTheme: base.sliderTheme.copyWith(
-      trackHeight: 8,
-      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 11),
-      overlayShape: const RoundSliderOverlayShape(overlayRadius: 22),
-    ),
-    switchTheme: SwitchThemeData(
-      thumbColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) {
-          return scheme.onPrimary;
-        }
-        return scheme.outline;
-      }),
-      trackColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) {
-          return scheme.primary;
-        }
-        return scheme.surfaceContainerHighest;
-      }),
-    ),
-    navigationBarTheme: NavigationBarThemeData(
-      height: 78,
-      elevation: 3,
-      shadowColor: scheme.shadow,
-      surfaceTintColor: scheme.surfaceTint,
-      backgroundColor: scheme.surface,
-      indicatorColor: scheme.secondaryContainer,
-      labelTextStyle: WidgetStateProperty.resolveWith((states) {
-        final selected = states.contains(WidgetState.selected);
-        return textTheme.labelMedium?.copyWith(
-          color:
-              selected ? scheme.primary : scheme.onSurfaceVariant,
-          fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-        );
-      }),
-      iconTheme: WidgetStateProperty.resolveWith((states) {
-        final selected = states.contains(WidgetState.selected);
-        return IconThemeData(
-          color:
-              selected ? scheme.primary : scheme.onSurfaceVariant,
-          size: selected ? 26 : 24,
-        );
-      }),
-    ),
-    bottomSheetTheme: BottomSheetThemeData(
-      backgroundColor: scheme.surfaceContainerLow,
-      surfaceTintColor: scheme.surfaceTint,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-    ),
-    cardTheme: CardThemeData(
-      color: scheme.surfaceContainerLow,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
-      ),
-    ),
-    dialogTheme: DialogThemeData(
-      backgroundColor: scheme.surface,
-      surfaceTintColor: scheme.surfaceTint,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-      ),
-    ),
-    expansionTileTheme: ExpansionTileThemeData(
-      shape: const RoundedRectangleBorder(side: BorderSide.none),
-      collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
-      tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      iconColor: scheme.primary,
-      collapsedIconColor: scheme.onSurfaceVariant,
-    ),
-    listTileTheme: ListTileThemeData(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      fillColor: scheme.surfaceContainerHighest,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: scheme.outlineVariant),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: scheme.outlineVariant),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: scheme.primary, width: 2),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    ),
-    drawerTheme: DrawerThemeData(
-      backgroundColor: scheme.surface,
-      surfaceTintColor: scheme.surfaceTint,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.horizontal(
-          left: Radius.circular(28),
-          right: Radius.zero,
-        ),
-      ),
-    ),
-  );
 }
 
 class MainScreen extends StatefulWidget {
@@ -3385,9 +3183,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final tabLabels = ['Clock', 'Timer', 'Stopwatch'];
     final appTitle = currentTabIndex == 0
         ? 'Clock'
         : currentTabIndex == 1
@@ -3398,20 +3193,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       builder: (context, orientation) {
         return Scaffold(
           appBar: AppBar(
-            toolbarHeight: 56,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            backgroundColor: scheme.surface,
-            foregroundColor: scheme.onSurface,
-            title: Text(
-              appTitle,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            centerTitle: true,
+            title: Text(appTitle),
             leading: IconButton(
-              icon: Icon(Icons.tune_rounded),
+              icon: const Icon(Icons.menu_rounded),
               tooltip: 'Settings',
               onPressed: _openSettings,
             ),
@@ -3423,11 +3207,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               ),
               IconButton(
                 onPressed: () => unawaited(_exitAppFully()),
-                tooltip: 'Shutdown',
+                tooltip: 'Exit',
                 icon: const Icon(Icons.power_settings_new_rounded),
-                style: IconButton.styleFrom(
-                  foregroundColor: scheme.error,
-                ),
               ),
               const SizedBox(width: 4),
             ],
@@ -3465,40 +3246,33 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             ),
           ),
           bottomNavigationBar: orientation == Orientation.portrait
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    NavigationBar(
-                      selectedIndex: currentTabIndex,
-                      labelBehavior:
-                          NavigationDestinationLabelBehavior.alwaysShow,
-                      onDestinationSelected: (index) {
-                        setState(() {
-                          currentTabIndex = index;
-                        });
-                        // Clear two-tap armed state when leaving timer tab
-                        if (index != 1) {
-                          _armedPresetTimer?.cancel();
-                          _armedPresetValue = null;
-                        }
-                      },
-                      destinations: [
-                        NavigationDestination(
-                          icon: Icon(Icons.access_time_outlined),
-                          selectedIcon: Icon(Icons.access_time_rounded),
-                          label: tabLabels[0],
-                        ),
-                        NavigationDestination(
-                          icon: Icon(Icons.hourglass_empty_rounded),
-                          selectedIcon: Icon(Icons.hourglass_full_rounded),
-                          label: tabLabels[1],
-                        ),
-                        NavigationDestination(
-                          icon: Icon(Icons.av_timer_outlined),
-                          selectedIcon: Icon(Icons.av_timer_rounded),
-                          label: tabLabels[2],
-                        ),
-                      ],
+              ? BottomNavBar(
+                  selectedIndex: currentTabIndex,
+                  onDestinationSelected: (index) {
+                    setState(() {
+                      currentTabIndex = index;
+                    });
+                    // Clear two-tap armed state when leaving timer tab
+                    if (index != 1) {
+                      _armedPresetTimer?.cancel();
+                      _armedPresetValue = null;
+                    }
+                  },
+                  destinations: const [
+                    NavDestination(
+                      icon: Icons.watch_later_outlined,
+                      activeIcon: Icons.watch_later,
+                      label: 'Clock',
+                    ),
+                    NavDestination(
+                      icon: Icons.hourglass_empty_rounded,
+                      activeIcon: Icons.hourglass_top_rounded,
+                      label: 'Timer',
+                    ),
+                    NavDestination(
+                      icon: Icons.timer_outlined,
+                      activeIcon: Icons.timer,
+                      label: 'Stopwatch',
                     ),
                   ],
                 )

@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
-import '../theme/palette.dart' show TintedSurfaces;
+import 'package:google_fonts/google_fonts.dart';
 
+import '../theme/palette.dart' show AppColorAccess;
+import 'display_text.dart';
+import 'settings_row.dart';
+
+/// Redesigned Clock panel — premium minimalist clock experience.
+///
+/// Layout: Hero time display → Announce row → Sound/Noise/Quotes toggles → Options
 class ClockPanel extends StatelessWidget {
   final VoidCallback onFullscreenPressed;
   final VoidCallback onFullscreenImmersivePressed;
@@ -60,380 +67,214 @@ class ClockPanel extends StatelessWidget {
     required this.onMotivationDelayChanged,
   });
 
-  ({String time, String? fraction, String? suffix}) _splitClockDisplay(
-    String value,
-  ) {
+  ({String time, String? suffix}) _splitClockDisplay(String value) {
     final trimmed = value.trim();
     final suffixMatch = RegExp(r'\s(AM|PM)$').firstMatch(trimmed);
     final suffix = suffixMatch?.group(1);
-    final withoutSuffix = suffix == null
+    final time = suffix == null
         ? trimmed
         : trimmed.substring(0, suffixMatch!.start);
-    final dotParts = withoutSuffix.split('.');
-    return (
-      time: dotParts.first,
-      fraction: dotParts.length > 1 ? dotParts[1] : null,
-      suffix: suffix,
-    );
-  }
-
-  /// Strips AM/PM suffix and milliseconds for the main time display
-  String _stripSuffix(String value) {
-    final noSuffix = value.replaceAll(RegExp(r'\s(AM|PM)$'), '');
-    return noSuffix.split('.').first;
+    return (time: time, suffix: suffix);
   }
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final c = context.appColors;
     final display = _splitClockDisplay(currentTimeDisplay);
-    final timeOnly = _stripSuffix(currentTimeDisplay);
 
     return SafeArea(
       child: ColoredBox(
-        color: cs.surface,
+        color: c.background,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           children: [
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
 
             // ── Hero clock display ───────────────────────────────
             GestureDetector(
               onTap: onFullscreenPressed,
               onDoubleTap: onFullscreenImmersivePressed,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final maxWidth = constraints.maxWidth * 0.92;
-                  return Center(
-                    child: Container(
-                      width: maxWidth,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 28,
-                      ),
-                      decoration: BoxDecoration(
-                        color: context.tintedSurface,
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: cs.outlineVariant.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            timeOnly,
-                            maxLines: 1,
-                            softWrap: false,
-                            textAlign: TextAlign.center,
-                            overflow: TextOverflow.clip,
-                            style: TextStyle(
-                              color: cs.onSurface,
-                              fontSize: 56,
-                              height: 0.9,
-                              fontWeight: FontWeight.w900,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          // AM/PM badge + Interval
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (display.suffix != null)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    color: cs.primaryContainer,
-                                    borderRadius:
-                                        BorderRadius.circular(16),
-                                  ),
-                                  child: Text(
-                                    display.suffix!,
-                                    style: TextStyle(
-                                      color: cs.onPrimaryContainer,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                              if (display.suffix != null)
-                                const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: context.tintedSurfaceLow,
-                                  borderRadius:
-                                      BorderRadius.circular(16),
-                                ),
-                                child: Text(
-                                  'Every $clockIntervalMins min',
-                                  style: TextStyle(
-                                    color: cs.onSurfaceVariant,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+              child: DisplayText(
+                time: display.time,
+                suffix: display.suffix,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
-            // ── Quick-toggle row ─────────────────────────────────
+            // ── Announce interval row ────────────────────────────
+            _AnnounceRow(
+              label: 'Announce every $clockIntervalMins min',
+              onTap: () => _showIntSheet(
+                context: context,
+                title: 'Announce interval',
+                values: clockIntervalOptions,
+                selectedValue: clockIntervalMins,
+                labelBuilder: (v) => 'Every $v min',
+                onSelected: onClockIntervalChanged,
+              ),
+            ),
+            const SizedBox(height: 28),
+
+            // ── Sound / Noise / Quotes toggle row ────────────────
             Row(
               children: [
-                _quickToggle(
-                  context,
+                _FeatureToggle(
                   icon: Icons.volume_up_rounded,
-                  label: 'Sound On',
+                  label: 'Sound',
                   active: clockSpeakTime,
-                  activeColor: cs.secondaryContainer,
-                  onToggle: () => onClockSpeakTimeChanged(!clockSpeakTime),
+                  onTap: () => onClockSpeakTimeChanged(!clockSpeakTime),
                 ),
-                const SizedBox(width: 8),
-                _quickToggle(
-                  context,
+                const SizedBox(width: 10),
+                _FeatureToggle(
                   icon: Icons.music_note_rounded,
                   label: 'Noise',
                   active: clockNoiseOn,
-                  activeColor: cs.tertiaryContainer,
-                  onToggle: () => onClockNoiseOnChanged(!clockNoiseOn),
+                  onTap: () => onClockNoiseOnChanged(!clockNoiseOn),
                 ),
-                const SizedBox(width: 8),
-                _quickToggle(
-                  context,
-                  icon: Icons.auto_awesome_rounded,
+                const SizedBox(width: 10),
+                _FeatureToggle(
+                  icon: Icons.format_quote_rounded,
                   label: 'Quotes',
                   active: motivationOn,
-                  activeColor: cs.primaryContainer,
-                  onToggle: () => onMotivationChanged(!motivationOn),
+                  onTap: () => onMotivationChanged(!motivationOn),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 28),
 
-            // ── Collapsible clock options ────────────────────────
-            _buildOptionsSection(context, cs),
+            // ── Clock options ────────────────────────────────────
+            SettingsRow(
+              icon: Icons.tune_rounded,
+              label: 'Clock options',
+              onTap: () => _showClockOptionsSheet(context),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _quickToggle(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required bool active,
-    required Color activeColor,
-    required VoidCallback onToggle,
-  }) {
-    final cs = Theme.of(context).colorScheme;
-    return Expanded(
-      child: GestureDetector(
-        onTap: onToggle,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: active ? activeColor : context.tintedSurfaceLow,
-            borderRadius: BorderRadius.circular(16),
-          ),
+  void _showClockOptionsSheet(BuildContext context) {
+    final c = context.appColors;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (ctx, scrollController) => SafeArea(
           child: Column(
             children: [
-              Icon(
-                icon,
-                color: active ? cs.onSurface : cs.onSurfaceVariant,
-                size: 22,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: active ? cs.onSurface : cs.onSurfaceVariant,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                  children: [
+                    Text(
+                      'Clock options',
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: c.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Announce interval
+                    SettingsRow(
+                      icon: Icons.timer_outlined,
+                      label: 'Announce interval',
+                      value: '$clockIntervalMins min',
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _showIntSheet(
+                          context: context,
+                          title: 'Announce interval',
+                          values: clockIntervalOptions,
+                          selectedValue: clockIntervalMins,
+                          labelBuilder: (v) => 'Every $v min',
+                          onSelected: onClockIntervalChanged,
+                        );
+                      },
+                    ),
+
+                    // Repeat count
+                    SettingsRow(
+                      icon: Icons.repeat_rounded,
+                      label: 'Repeat count',
+                      value: '$clockSpeakRepeatCount time${clockSpeakRepeatCount > 1 ? 's' : ''}',
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _showIntSheet(
+                          context: context,
+                          title: 'Repeat count',
+                          values: clockSpeakRepeatOptions,
+                          selectedValue: clockSpeakRepeatCount,
+                          labelBuilder: (v) => '$v time${v > 1 ? 's' : ''}',
+                          onSelected: onClockSpeakRepeatCountChanged,
+                        );
+                      },
+                    ),
+
+                    // Quote category
+                    SettingsRow(
+                      icon: Icons.format_quote_rounded,
+                      label: 'Quote category',
+                      value: motivationCategory,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _showStringSheet(
+                          context: context,
+                          title: 'Quote category',
+                          values: motivationCategories,
+                          selectedValue: motivationCategory,
+                          onSelected: onMotivationCategoryChanged,
+                        );
+                      },
+                    ),
+
+                    // Quote delay
+                    SettingsRow(
+                      icon: Icons.timer_outlined,
+                      label: 'Quote delay',
+                      value: '$motivationDelaySeconds sec delay',
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _showIntSheet(
+                          context: context,
+                          title: 'Quote delay',
+                          values: motivationDelayOptions,
+                          selectedValue: motivationDelaySeconds,
+                          labelBuilder: (v) => '$v sec delay',
+                          onSelected: onMotivationDelayChanged,
+                        );
+                      },
+                    ),
+
+                    // Show seconds
+                    SettingsToggleRow(
+                      icon: Icons.visibility_rounded,
+                      label: 'Show seconds',
+                      value: clockShowSeconds,
+                      onChanged: (val) => onClockShowSecondsChanged(val),
+                    ),
+
+                    // Show milliseconds
+                    SettingsToggleRow(
+                      icon: Icons.speed_rounded,
+                      label: 'Show milliseconds',
+                      value: clockShowMilliseconds,
+                      onChanged: (val) => onClockShowMillisecondsChanged(val),
+                      showDivider: false,
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildOptionsSection(BuildContext context, ColorScheme cs) {
-    return Container(
-      decoration: BoxDecoration(
-        color: context.tintedSurface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: ExpansionTile(
-        title: Row(
-          children: [
-            Icon(Icons.tune_rounded, size: 18, color: cs.primary),
-            const SizedBox(width: 8),
-            Text(
-              'Clock Options',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
-                color: cs.onSurface,
-              ),
-            ),
-          ],
-        ),
-        initiallyExpanded: false,
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        children: [
-          ListTile(
-            leading:
-                Icon(Icons.timer_outlined, color: cs.primary, size: 22),
-            title: Text('Announce interval',
-                style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                    color: cs.onSurface)),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('$clockIntervalMins min',
-                    style: TextStyle(
-                        color: cs.onSurfaceVariant,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(width: 4),
-                Icon(Icons.chevron_right_rounded,
-                    color: cs.onSurfaceVariant, size: 20),
-              ],
-            ),
-            onTap: () => _showIntSheet(
-              context: context,
-              title: 'Announce interval',
-              values: clockIntervalOptions,
-              selectedValue: clockIntervalMins,
-              labelBuilder: (v) => 'Every $v min',
-              onSelected: onClockIntervalChanged,
-            ),
-          ),
-          ListTile(
-            leading:
-                Icon(Icons.repeat_rounded, color: cs.primary, size: 22),
-            title: Text('Repeat count',
-                style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                    color: cs.onSurface)),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('$clockSpeakRepeatCount time${clockSpeakRepeatCount > 1 ? 's' : ''}',
-                    style: TextStyle(
-                        color: cs.onSurfaceVariant,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(width: 4),
-                Icon(Icons.chevron_right_rounded,
-                    color: cs.onSurfaceVariant, size: 20),
-              ],
-            ),
-            onTap: () => _showIntSheet(
-              context: context,
-              title: 'Repeat count',
-              values: clockSpeakRepeatOptions,
-              selectedValue: clockSpeakRepeatCount,
-              labelBuilder: (v) => '$v time${v > 1 ? 's' : ''}',
-              onSelected: onClockSpeakRepeatCountChanged,
-            ),
-          ),
-          ListTile(
-            leading: Icon(Icons.format_quote_rounded,
-                color: cs.primary, size: 22),
-            title: Text('Quote category',
-                style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                    color: cs.onSurface)),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(motivationCategory,
-                    style: TextStyle(
-                        color: cs.onSurfaceVariant,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(width: 4),
-                Icon(Icons.chevron_right_rounded,
-                    color: cs.onSurfaceVariant, size: 20),
-              ],
-            ),
-            onTap: () => _showStringSheet(
-              context: context,
-              title: 'Quote category',
-              values: motivationCategories,
-              selectedValue: motivationCategory,
-              onSelected: onMotivationCategoryChanged,
-            ),
-          ),
-          ListTile(
-            leading: Icon(Icons.timer_outlined,
-                color: cs.primary, size: 22),
-            title: Text('Quote delay',
-                style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                    color: cs.onSurface)),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('$motivationDelaySeconds sec delay',
-                    style: TextStyle(
-                        color: cs.onSurfaceVariant,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(width: 4),
-                Icon(Icons.chevron_right_rounded,
-                    color: cs.onSurfaceVariant, size: 20),
-              ],
-            ),
-            onTap: () => _showIntSheet(
-              context: context,
-              title: 'Quote delay',
-              values: motivationDelayOptions,
-              selectedValue: motivationDelaySeconds,
-              labelBuilder: (v) => '$v sec delay',
-              onSelected: onMotivationDelayChanged,
-            ),
-          ),
-          const Divider(height: 1, indent: 16, endIndent: 16),
-          SwitchListTile(
-            value: clockShowSeconds,
-            onChanged: (val) => onClockShowSecondsChanged(val),
-            activeThumbColor: cs.onPrimary,
-            activeTrackColor: cs.primary,
-            secondary: Icon(Icons.visibility_rounded,
-                color: cs.primary, size: 22),
-            title: Text('Show seconds',
-                style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                    color: cs.onSurface)),
-            subtitle: Text('Display seconds in clock',
-                style:
-                    TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
-          ),
-        ],
       ),
     );
   }
@@ -446,11 +287,9 @@ class ClockPanel extends StatelessWidget {
     required String Function(int) labelBuilder,
     required ValueChanged<int?> onSelected,
   }) async {
-    final cs = Theme.of(context).colorScheme;
+    final c = context.appColors;
     await showModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
-      backgroundColor: cs.surfaceContainerLow,
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
@@ -461,25 +300,37 @@ class ClockPanel extends StatelessWidget {
             child: ListView(
               shrinkWrap: true,
               children: [
-                Text(title,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: cs.onSurface, fontWeight: FontWeight.w900)),
+                Text(
+                  title,
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: c.textPrimary,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 ...values.map((value) {
                   final selected = value == selectedValue;
                   return ListTile(
                     selected: selected,
-                    selectedTileColor: cs.primaryContainer.withAlpha(80),
+                    selectedTileColor: c.accentLight,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     leading: Icon(
                       selected
                           ? Icons.radio_button_checked_rounded
                           : Icons.radio_button_unchecked_rounded,
-                      color:
-                          selected ? cs.primary : cs.onSurfaceVariant,
+                      color: selected ? c.accent : c.textMuted,
                     ),
-                    title: Text(labelBuilder(value)),
+                    title: Text(
+                      labelBuilder(value),
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: c.textPrimary,
+                      ),
+                    ),
                     onTap: () {
                       onSelected(value);
                       Navigator.of(context).pop();
@@ -501,11 +352,9 @@ class ClockPanel extends StatelessWidget {
     required String selectedValue,
     required ValueChanged<String?> onSelected,
   }) async {
-    final cs = Theme.of(context).colorScheme;
+    final c = context.appColors;
     await showModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
-      backgroundColor: cs.surfaceContainerLow,
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
@@ -513,31 +362,150 @@ class ClockPanel extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: cs.onSurface, fontWeight: FontWeight.w900)),
+              Text(
+                title,
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: c.textPrimary,
+                ),
+              ),
               const SizedBox(height: 8),
               ...values.map((value) {
                 final selected = value == selectedValue;
                 return ListTile(
                   selected: selected,
-                  selectedTileColor: cs.primaryContainer.withAlpha(80),
+                  selectedTileColor: c.accentLight,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   leading: Icon(
                     selected
                         ? Icons.radio_button_checked_rounded
                         : Icons.radio_button_unchecked_rounded,
-                    color:
-                        selected ? cs.primary : cs.onSurfaceVariant,
+                    color: selected ? c.accent : c.textMuted,
                   ),
-                  title: Text(value),
+                  title: Text(
+                    value,
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: c.textPrimary,
+                    ),
+                  ),
                   onTap: () {
                     onSelected(value);
                     Navigator.of(context).pop();
                   },
                 );
               }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact row showing announce interval with chevron.
+class _AnnounceRow extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _AnnounceRow({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.appColors;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: c.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: c.surfaceBorder),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.volume_up_rounded, size: 18, color: c.textSecondary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: c.textPrimary,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 18, color: c.textMuted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Feature toggle card — icon + label + active state.
+///
+/// Three of these sit in a row: Sound, Noise, Quotes.
+class _FeatureToggle extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _FeatureToggle({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.appColors;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: active ? c.accentLight : c.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: active ? c.accentBorder : c.surfaceBorder,
+              width: 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                color: active ? c.accent : c.textSecondary,
+                size: 22,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  color: active ? c.textPrimary : c.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                active ? 'On' : 'Off',
+                style: GoogleFonts.inter(
+                  color: active ? c.accent : c.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ),
