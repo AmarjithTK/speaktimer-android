@@ -675,6 +675,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// Accessibility service enabled for auto-start after reboot
   bool _accessibilityEnabled = false;
 
+  /// Timer that polls accessibility status after the user opens system
+  /// accessibility settings.  Android may not fire `didChangeAppLifecycleState`
+  /// reliably on every ROM, and `Settings.Secure` can lag behind the user's
+  /// toggle by a few hundred ms, so we poll defensively.
+  Timer? _accessibilityPollTimer;
+
   /// Goal reminder interval in minutes
   int goalReminderIntervalMins = 60;
 
@@ -1226,14 +1232,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           onPickSleepStart: () => unawaited(_pickSleepStartTime()),
           onPickSleepEnd: () => unawaited(_pickSleepEndTime()),
           onVoiceListModeChanged: (val) {
+            debugPrint('[SettingsPanel] onVoiceListModeChanged val=$val');
             if (val == null) return;
             _voiceSessionManager.resetSession();
             speechQueue.clear();
             unawaited(flutterTts.stop());
             setState(() {
-              _speechLanguageService.setLanguage(
-                _speechService.normalizeVoiceLanguageMode(val),
-              );
+              final normalized = _speechService.normalizeVoiceLanguageMode(val);
+              debugPrint('[SettingsPanel] normalized language=$normalized');
+              _speechLanguageService.setLanguage(normalized);
               final available = _availableVoicesForSettings();
               final hasFavorite = available.any(
                 (voice) =>
@@ -1246,6 +1253,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               }
               _lsSave();
             });
+            if (speechMasterOn) _applyAudioSettings();
           },
           onSpeechEngineModeChanged: (val) {
             if (val == null) return;
@@ -1255,6 +1263,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             });
           },
           onFavoriteVoiceChanged: (val) {
+            debugPrint('[SettingsPanel] onFavoriteVoiceChanged val=$val');
             setState(() {
               if (val == null || val == '__auto__') {
                 favoriteVoiceName = null;
@@ -1277,6 +1286,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               return;
             }
             await openAccessibilitySettings();
+            _startAccessibilityPoll();
           },
           onOpenHelp: () {
             Navigator.of(context).push(
@@ -1574,6 +1584,30 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (mounted) {
       setState(() => _accessibilityEnabled = enabled);
     }
+  }
+
+  /// Polls accessibility status after the user opens system accessibility
+  /// settings.  Runs every 1 s for up to 30 attempts (≈30 s).  Stops early
+  /// once the service is detected as enabled.
+  void _startAccessibilityPoll() {
+    _accessibilityPollTimer?.cancel();
+    var attempts = 0;
+    const maxAttempts = 30;
+    _accessibilityPollTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      attempts++;
+      debugPrint('[A11y-DEBUG] poll attempt $attempts/$maxAttempts');
+      final enabled = await checkAccessibilityEnabled();
+      debugPrint('[A11y-DEBUG] poll result: $enabled (was: $_accessibilityEnabled)');
+      if (enabled) {
+        timer.cancel();
+        _accessibilityPollTimer = null;
+        if (mounted) setState(() => _accessibilityEnabled = true);
+      } else if (attempts >= maxAttempts) {
+        timer.cancel();
+        _accessibilityPollTimer = null;
+        debugPrint('[A11y-DEBUG] poll gave up after $maxAttempts attempts');
+      }
+    });
   }
 
   AppSettings _currentSettingsSnapshot() {
@@ -3332,6 +3366,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _accessibilityPollTimer?.cancel();
     foregroundHealthTimer?.cancel();
     nightIdleTimer?.cancel();
     nightResumeSpeechTimer?.cancel();

@@ -4,52 +4,19 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/widget_bg"
-    android:padding="16dp">
+    android:padding="12dp">
 
-    <!-- Header: app label + tonal "Open" action -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginBottom="14dp">
-
-        <!-- M3 Label Small — onSurfaceVariant, wide letter-spacing -->
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="SolasFlow · Timer"
-            android:textColor="#FFCAC4D0"
-            android:textSize="11sp"
-            android:fontFamily="sans-serif-medium"
-            android:letterSpacing="0.1" />
-
-        <!-- M3 Tonal Button (SecondaryContainer) -->
-        <Button
-            android:id="@+id/btn_open_app"
-            android:layout_width="wrap_content"
-            android:layout_height="32dp"
-            android:text="Open"
-            android:textAllCaps="false"
-            android:textSize="12sp"
-            android:fontFamily="sans-serif-medium"
-            android:textColor="#FFE8DEF8"
-            android:background="@drawable/widget_button_tonal_bg"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp" />
-    </LinearLayout>
-
-    <!-- Timer value — M3 Display Small, primary color -->
+    <!-- Timer value — large, centered -->
     <TextView
         android:id="@+id/widget_timer_value"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="00:00"
-        android:textColor="#FFD0BCFF"
-        android:textSize="36sp"
+        android:textColor="#FFFFFFFF"
+        android:textSize="42sp"
         android:fontFamily="sans-serif-light"
-        android:layout_marginBottom="16dp" />
+        android:gravity="center"
+        android:layout_marginBottom="8dp" />
 
     <!-- Row 1: 5 m · 10 m · 15 m · 20 m · 25 m -->
     <LinearLayout
@@ -57,18 +24,18 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:orientation="horizontal"
-        android:layout_marginBottom="6dp">
+        android:layout_marginBottom="5dp">
 
         <Button
             android:id="@+id/btn_5m"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:layout_marginEnd="5dp"
+            android:layout_marginEnd="4dp"
             android:text="5m"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:fontFamily="sans-serif-medium"
-            android:textColor="#FFE6E1E5"
+            android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
             android:background="@drawable/widget_button_bg" />
 
@@ -77,11 +44,11 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:layout_marginEnd="5dp"
+            android:layout_marginEnd="4dp"
             android:text="10m"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:fontFamily="sans-serif-medium"
-            android:textColor="#FFE6E1E5"
+            android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
             android:background="@drawable/widget_button_bg" />
 
@@ -90,11 +57,11 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:layout_marginEnd="5dp"
+            android:layout_marginEnd="4dp"
             android:text="15m"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:fontFamily="sans-serif-medium"
-            android:textColor="#FFE6E1E5"
+            android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
             android:background="@drawable/widget_button_bg" />
 
@@ -103,24 +70,23 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:layout_marginEnd="5dp"
+            android:layout_marginEnd="4dp"
             android:text="20m"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:fontFamily="sans-serif-medium"
-            android:textColor="#FFE6E1E5"
+            android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
             android:background="@drawable/widget_button_bg" />
 
-        <!-- Active preset highlighted with PrimaryContainer -->
         <Button
             android:id="@+id/btn_25m"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:text="25m"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:fontFamily="sans-serif-medium"
-            android:textColor="#FFEADDFF"
+            android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
             android:background="@drawable/widget_button_active_bg" />
     </LinearLayout>
@@ -130,59 +96,60 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:layout_marginBottom="2dp">
 
         <Button
             android:id="@+id/btn_30m"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:layout_marginEnd="5dp"
+            android:layout_marginEnd="4dp"
             android:text="30m"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:fontFamily="sans-serif-medium"
-            android:textColor="#FFE6E1E5"
+            android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
-            android:background="@drawable/widget_button_bg" />
+            android:background="@drawable.widget_button_bg" />
 
         <Button
             android:id="@+id/btn_45m"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:layout_marginEnd="5dp"
+            android:layout_marginEnd="4dp"
             android:text="45m"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:fontFamily="sans-serif-medium"
-            android:textColor="#FFE6E1E5"
+            android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
-            android:background="@drawable/widget_button_bg" />
+            android:background="@drawable.widget_button_bg" />
 
         <Button
             android:id="@+id/btn_60m"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:layout_marginEnd="5dp"
+            android:layout_marginEnd="4dp"
             android:text="60m"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:fontFamily="sans-serif-medium"
-            android:textColor="#FFE6E1E5"
+            android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
-            android:background="@drawable/widget_button_bg" />
+            android:background="@drawable.widget_button_bg" />
 
         <Button
             android:id="@+id/btn_90m"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:layout_marginEnd="5dp"
+            android:layout_marginEnd="4dp"
             android:text="90m"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:fontFamily="sans-serif-medium"
-            android:textColor="#FFE6E1E5"
+            android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
-            android:background="@drawable/widget_button_bg" />
+            android:background="@drawable.widget_button_bg" />
 
         <Button
             android:id="@+id/btn_120m"
@@ -190,12 +157,22 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:text="120m"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:fontFamily="sans-serif-medium"
-            android:textColor="#FFE6E1E5"
+            android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
-            android:background="@drawable/widget_button_bg" />
+            android:background="@drawable.widget_button_bg" />
     </LinearLayout>
 
-</LinearLayout>
+    <!-- Minimal branding -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Solas flow"
+        android:textColor="#55FFFFFF"
+        android:textSize="9sp"
+        android:fontFamily="sans-serif"
+        android:gravity="end"
+        android:layout_marginTop="1dp" />
 
+</LinearLayout>

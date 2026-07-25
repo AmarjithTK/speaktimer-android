@@ -165,8 +165,7 @@ class _FullscreenStopwatchViewState extends State<FullscreenStopwatchView> {
                     ),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        return SizedBox(
-                          width: double.infinity,
+                        return Center(
                           child: FittedBox(
                             fit: BoxFit.contain,
                             alignment: Alignment.center,
@@ -174,7 +173,7 @@ class _FullscreenStopwatchViewState extends State<FullscreenStopwatchView> {
                               displayText,
                               style: TextStyle(
                                 color: fg,
-                                fontSize: 400,
+                                fontSize: 600,
                                 fontWeight: FontWeight.w900,
                                 fontFeatures: const [
                                   FontFeature.tabularFigures(),

@@ -202,50 +202,45 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
     final timerParts = _splitTimer(value);
     final mins = timerParts.$1;
     final secs = timerParts.$2;
-    const valueSize = 200.0;
-    const separatorSize = 160.0;
 
     return Center(
       child: FittedBox(
-        fit: BoxFit.scaleDown,
+        fit: BoxFit.contain,
         alignment: Alignment.center,
-        child: SizedBox(
-          width: valueSize * 5.5,
-          child: RichText(
-            textAlign: TextAlign.center,
-            text: TextSpan(
-              style: TextStyle(
-                color: fg,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-              children: [
-                TextSpan(
-                  text: mins,
-                  style: TextStyle(
-                    fontSize: valueSize,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                  ),
-                ),
-                TextSpan(
-                  text: ':',
-                  style: TextStyle(
-                    fontSize: separatorSize,
-                    fontWeight: FontWeight.w800,
-                    color: fg.withAlpha(190),
-                    height: 1,
-                  ),
-                ),
-                TextSpan(
-                  text: secs,
-                  style: TextStyle(
-                    fontSize: valueSize,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                  ),
-                ),
-              ],
+        child: RichText(
+          textAlign: TextAlign.center,
+          text: TextSpan(
+            style: TextStyle(
+              color: fg,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
+            children: [
+              TextSpan(
+                text: mins,
+                style: TextStyle(
+                  fontSize: 600,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
+              TextSpan(
+                text: ':',
+                style: TextStyle(
+                  fontSize: 480,
+                  fontWeight: FontWeight.w800,
+                  color: fg.withAlpha(190),
+                  height: 1,
+                ),
+              ),
+              TextSpan(
+                text: secs,
+                style: TextStyle(
+                  fontSize: 600,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -254,24 +249,20 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
 
   Widget _buildClockDisplay(Color fg) {
     final mainTime = _stripClockSuffix(_clockText).split('.').first;
-    const valueSize = 168.0;
 
     return Center(
       child: FittedBox(
-        fit: BoxFit.scaleDown,
+        fit: BoxFit.contain,
         alignment: Alignment.center,
-        child: SizedBox(
-          width: valueSize * 5.5,
-          child: Text(
-            mainTime,
-            style: TextStyle(
-              color: fg,
-              fontSize: valueSize,
-              fontWeight: FontWeight.w900,
-              height: 1,
-              letterSpacing: 0,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
+        child: Text(
+          mainTime,
+          style: TextStyle(
+            color: fg,
+            fontSize: 600,
+            fontWeight: FontWeight.w900,
+            height: 1,
+            letterSpacing: 0,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
       ),

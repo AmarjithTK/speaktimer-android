@@ -1,38 +1,56 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@drawable/widget_bg"
-    android:padding="16dp">
+    android:padding="12dp">
 
-    <!-- Master Audio Toggle -->
-    <Button
-        android:id="@+id/btn_audio_master"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginBottom="8dp"
-        android:text="Audio ON"
-        android:textAllCaps="false"
-        android:textSize="18sp"
-        android:fontFamily="sans-serif-medium"
-        android:textColor="#FFE6E1E5"
-        android:background="@drawable/widget_button_bg"
-        android:gravity="center" />
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-    <!-- Fullscreen Clock -->
-    <Button
-        android:id="@+id/btn_fs_clock"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:text="Open Clock"
-        android:textAllCaps="false"
-        android:textSize="14sp"
-        android:fontFamily="sans-serif-medium"
-        android:textColor="#FFE6E1E5"
-        android:background="@drawable/widget_button_bg"
-        android:gravity="center" />
+        <!-- Master Audio Toggle -->
+        <Button
+            android:id="@+id/btn_audio_master"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginBottom="6dp"
+            android:text="Audio ON"
+            android:textAllCaps="false"
+            android:textSize="20sp"
+            android:fontFamily="sans-serif-medium"
+            android:textColor="#FFFFFFFF"
+            android:background="@drawable/widget_button_bg"
+            android:gravity="center" />
 
-</LinearLayout>
+        <!-- Fullscreen Clock -->
+        <Button
+            android:id="@+id/btn_fs_clock"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:text="Open Clock"
+            android:textAllCaps="false"
+            android:textSize="18sp"
+            android:fontFamily="sans-serif-medium"
+            android:textColor="#FFFFFFFF"
+            android:background="@drawable/widget_button_bg"
+            android:gravity="center" />
+
+    </LinearLayout>
+
+    <!-- Minimal branding -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:text="Solas flow"
+        android:textColor="#55FFFFFF"
+        android:textSize="9sp"
+        android:fontFamily="sans-serif"
+        android:layout_marginBottom="2dp"
+        android:layout_marginEnd="2dp" />
+
+</FrameLayout>
