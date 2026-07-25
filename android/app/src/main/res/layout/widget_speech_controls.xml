@@ -11,7 +11,7 @@
         android:orientation="vertical">
 
         <!-- Master Audio Toggle -->
-        <Button
+        <TextView
             android:id="@+id/btn_audio_master"
             android:layout_width="match_parent"
             android:layout_height="0dp"
@@ -22,11 +22,11 @@
             android:textSize="20sp"
             android:fontFamily="sans-serif-medium"
             android:textColor="#FFFFFFFF"
-            android:background="@drawable/widget_button_bg"
+            android:background="#FFCC5500"
             android:gravity="center" />
 
         <!-- Fullscreen Clock -->
-        <Button
+        <TextView
             android:id="@+id/btn_fs_clock"
             android:layout_width="match_parent"
             android:layout_height="0dp"
@@ -36,7 +36,7 @@
             android:textSize="18sp"
             android:fontFamily="sans-serif-medium"
             android:textColor="#FFFFFFFF"
-            android:background="@drawable/widget_button_bg"
+            android:background="#FFCC5500"
             android:gravity="center" />
 
     </LinearLayout>

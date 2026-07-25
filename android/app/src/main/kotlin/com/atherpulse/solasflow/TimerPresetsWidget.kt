@@ -51,9 +51,9 @@ class TimerPresetsWidget : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget_timer_presets)
             views.setTextViewText(R.id.widget_timer_value, timerDisplay)
 
-            // Open App button
+            // Open App — tap on timer value to open app
             views.setOnClickPendingIntent(
-                R.id.btn_open_app,
+                R.id.widget_timer_value,
                 makeActionIntent(context, "open_app", appWidgetId)
             )
 
