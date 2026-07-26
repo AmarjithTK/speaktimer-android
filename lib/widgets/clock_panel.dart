@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/palette.dart' show AppColorAccess;
 import 'settings_row.dart';
 
-/// Redesigned Clock panel — premium minimalist clock experience.
+/// Clock panel — all options inline, no bottom sheet.
 ///
 /// Layout: Hero time display → Announce row → Sound/Noise/Quotes toggles → Options
 class ClockPanel extends StatelessWidget {
@@ -156,20 +156,6 @@ class ClockPanel extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // ── Announce interval row ────────────────────────────
-            _AnnounceRow(
-              label: 'Announce every $clockIntervalMins min',
-              onTap: () => _showIntSheet(
-                context: context,
-                title: 'Announce interval',
-                values: clockIntervalOptions,
-                selectedValue: clockIntervalMins,
-                labelBuilder: (v) => 'Every $v min',
-                onSelected: onClockIntervalChanged,
-              ),
-            ),
-            const SizedBox(height: 28),
-
             // ── Sound / Noise / Quotes toggle row ────────────────
             Row(
               children: [
@@ -195,140 +181,74 @@ class ClockPanel extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
 
-            // ── Clock options ────────────────────────────────────
+            // ── Inline options (no bottom sheet) ─────────────────
             SettingsRow(
-              icon: Icons.tune_rounded,
-              label: 'Clock options',
-              onTap: () => _showClockOptionsSheet(context),
+              icon: Icons.timer_outlined,
+              label: 'Announce interval',
+              value: '$clockIntervalMins min',
+              onTap: () => _showIntSheet(
+                context: context,
+                title: 'Announce interval',
+                values: clockIntervalOptions,
+                selectedValue: clockIntervalMins,
+                labelBuilder: (v) => 'Every $v min',
+                onSelected: onClockIntervalChanged,
+              ),
+            ),
+            SettingsRow(
+              icon: Icons.repeat_rounded,
+              label: 'Repeat count',
+              value: '$clockSpeakRepeatCount time${clockSpeakRepeatCount > 1 ? 's' : ''}',
+              onTap: () => _showIntSheet(
+                context: context,
+                title: 'Repeat count',
+                values: clockSpeakRepeatOptions,
+                selectedValue: clockSpeakRepeatCount,
+                labelBuilder: (v) => '$v time${v > 1 ? 's' : ''}',
+                onSelected: onClockSpeakRepeatCountChanged,
+              ),
+            ),
+            SettingsRow(
+              icon: Icons.format_quote_rounded,
+              label: 'Quote category',
+              value: motivationCategory,
+              onTap: () => _showStringSheet(
+                context: context,
+                title: 'Quote category',
+                values: motivationCategories,
+                selectedValue: motivationCategory,
+                onSelected: onMotivationCategoryChanged,
+              ),
+            ),
+            SettingsRow(
+              icon: Icons.timer_outlined,
+              label: 'Quote delay',
+              value: '$motivationDelaySeconds sec delay',
+              onTap: () => _showIntSheet(
+                context: context,
+                title: 'Quote delay',
+                values: motivationDelayOptions,
+                selectedValue: motivationDelaySeconds,
+                labelBuilder: (v) => '$v sec delay',
+                onSelected: onMotivationDelayChanged,
+              ),
+            ),
+            SettingsToggleRow(
+              icon: Icons.visibility_rounded,
+              label: 'Show seconds',
+              value: clockShowSeconds,
+              onChanged: (val) => onClockShowSecondsChanged(val),
+            ),
+            SettingsToggleRow(
+              icon: Icons.speed_rounded,
+              label: 'Show milliseconds',
+              value: clockShowMilliseconds,
+              onChanged: (val) => onClockShowMillisecondsChanged(val),
+              showDivider: false,
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _showClockOptionsSheet(BuildContext context) {
-    final c = context.appColors;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.4,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (ctx, scrollController) => SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                  children: [
-                    Text(
-                      'Clock options',
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: c.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Announce interval
-                    SettingsRow(
-                      icon: Icons.timer_outlined,
-                      label: 'Announce interval',
-                      value: '$clockIntervalMins min',
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        _showIntSheet(
-                          context: context,
-                          title: 'Announce interval',
-                          values: clockIntervalOptions,
-                          selectedValue: clockIntervalMins,
-                          labelBuilder: (v) => 'Every $v min',
-                          onSelected: onClockIntervalChanged,
-                        );
-                      },
-                    ),
-
-                    // Repeat count
-                    SettingsRow(
-                      icon: Icons.repeat_rounded,
-                      label: 'Repeat count',
-                      value: '$clockSpeakRepeatCount time${clockSpeakRepeatCount > 1 ? 's' : ''}',
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        _showIntSheet(
-                          context: context,
-                          title: 'Repeat count',
-                          values: clockSpeakRepeatOptions,
-                          selectedValue: clockSpeakRepeatCount,
-                          labelBuilder: (v) => '$v time${v > 1 ? 's' : ''}',
-                          onSelected: onClockSpeakRepeatCountChanged,
-                        );
-                      },
-                    ),
-
-                    // Quote category
-                    SettingsRow(
-                      icon: Icons.format_quote_rounded,
-                      label: 'Quote category',
-                      value: motivationCategory,
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        _showStringSheet(
-                          context: context,
-                          title: 'Quote category',
-                          values: motivationCategories,
-                          selectedValue: motivationCategory,
-                          onSelected: onMotivationCategoryChanged,
-                        );
-                      },
-                    ),
-
-                    // Quote delay
-                    SettingsRow(
-                      icon: Icons.timer_outlined,
-                      label: 'Quote delay',
-                      value: '$motivationDelaySeconds sec delay',
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        _showIntSheet(
-                          context: context,
-                          title: 'Quote delay',
-                          values: motivationDelayOptions,
-                          selectedValue: motivationDelaySeconds,
-                          labelBuilder: (v) => '$v sec delay',
-                          onSelected: onMotivationDelayChanged,
-                        );
-                      },
-                    ),
-
-                    // Show seconds
-                    SettingsToggleRow(
-                      icon: Icons.visibility_rounded,
-                      label: 'Show seconds',
-                      value: clockShowSeconds,
-                      onChanged: (val) => onClockShowSecondsChanged(val),
-                    ),
-
-                    // Show milliseconds
-                    SettingsToggleRow(
-                      icon: Icons.speed_rounded,
-                      label: 'Show milliseconds',
-                      value: clockShowMilliseconds,
-                      onChanged: (val) => onClockShowMillisecondsChanged(val),
-                      showDivider: false,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -462,50 +382,7 @@ class ClockPanel extends StatelessWidget {
   }
 }
 
-/// Compact row showing announce interval with chevron.
-class _AnnounceRow extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-
-  const _AnnounceRow({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.appColors;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: c.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: c.surfaceBorder),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.volume_up_rounded, size: 18, color: c.textSecondary),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: c.textPrimary,
-                ),
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded, size: 18, color: c.textMuted),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// Feature toggle card — icon + label + active state.
-///
-/// Three of these sit in a row: Sound, Noise, Quotes.
 class _FeatureToggle extends StatelessWidget {
   final IconData icon;
   final String label;
