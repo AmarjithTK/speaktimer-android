@@ -247,7 +247,7 @@ class TimerPanel extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // ── All actions in one row ────────────────────────
+            // ── Row 1: Start/Pause + Reset (always visible, same size) ──
             Row(
               children: [
                 Expanded(
@@ -263,14 +263,19 @@ class TimerPanel extends StatelessWidget {
                     label: 'Reset',
                     icon: Icons.refresh_rounded,
                     onPressed: resetTimer,
-                    compact: true,
                   ),
                 ),
-                if (isRunning) ...[
-                  const SizedBox(width: 10),
+              ],
+            ),
+
+            // ── Row 2: −1m / +5m (only when running, stable height) ──
+            if (isRunning) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
                   Expanded(
                     child: SecondaryButton(
-                      label: '−1m',
+                      label: '−1 min',
                       icon: Icons.remove_rounded,
                       onPressed: () => addTimeToRunningTimer(-60),
                       compact: true,
@@ -279,15 +284,17 @@ class TimerPanel extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: SecondaryButton(
-                      label: '+5m',
+                      label: '+5 min',
                       icon: Icons.add_rounded,
                       onPressed: () => addTimeToRunningTimer(300),
                       compact: true,
                     ),
                   ),
                 ],
-              ],
-            ),
+              ),
+            ] else
+              // Reserve space to prevent resize when running
+              const SizedBox(height: 58),
             const SizedBox(height: 24),
 
             // ── Quick presets ──────────────────────────────────
