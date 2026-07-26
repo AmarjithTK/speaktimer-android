@@ -143,7 +143,7 @@ class TimerPanel extends StatelessWidget {
                     children: [
                       // Timer ring — always rendered (stable layout, no resize)
                       SizedBox(
-                        width: 200,
+                        width: 240,
                         height: 200,
                         child: Stack(
                           alignment: Alignment.center,
@@ -183,6 +183,42 @@ class TimerPanel extends StatelessWidget {
                                 ),
                               ],
                             ),
+                            // −1 button (left, only when running)
+                            if (isRunning)
+                              Positioned(
+                                left: 0,
+                                child: GestureDetector(
+                                  onTap: () => addTimeToRunningTimer(-60),
+                                  child: Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: c.surfaceSubtle,
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(color: c.surfaceBorder),
+                                    ),
+                                    child: Icon(Icons.remove_rounded, size: 18, color: c.textSecondary),
+                                  ),
+                                ),
+                              ),
+                            // +5 button (right, only when running)
+                            if (isRunning)
+                              Positioned(
+                                right: 0,
+                                child: GestureDetector(
+                                  onTap: () => addTimeToRunningTimer(300),
+                                  child: Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: c.surfaceSubtle,
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(color: c.surfaceBorder),
+                                    ),
+                                    child: Icon(Icons.add_rounded, size: 18, color: c.textSecondary),
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -268,33 +304,6 @@ class TimerPanel extends StatelessWidget {
               ],
             ),
 
-            // ── Row 2: −1m / +5m (only when running, stable height) ──
-            if (isRunning) ...[
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: SecondaryButton(
-                      label: '−1 min',
-                      icon: Icons.remove_rounded,
-                      onPressed: () => addTimeToRunningTimer(-60),
-                      compact: true,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: SecondaryButton(
-                      label: '+5 min',
-                      icon: Icons.add_rounded,
-                      onPressed: () => addTimeToRunningTimer(300),
-                      compact: true,
-                    ),
-                  ),
-                ],
-              ),
-            ] else
-              // Reserve space to prevent resize when running
-              const SizedBox(height: 58),
             const SizedBox(height: 24),
 
             // ── Quick presets ──────────────────────────────────
