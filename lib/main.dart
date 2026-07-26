@@ -916,46 +916,29 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
         transitionDuration: const Duration(milliseconds: 350),
         reverseTransitionDuration: const Duration(milliseconds: 300),
         pageBuilder: (context, animation, secondaryAnimation) => SettingsPanel(
-          soundChosen: soundChosen,
-          noiseVolume: noiseVolume,
-          speakVolume: speakVolume,
-          maximumSpeechVolume: maximumSpeechVolume,
-          speechMasterOn: speechMasterOn,
-          appFontSizeMultiplier: appFontSizeNotifier.value,
           onAppFontSizeMultiplierChanged: (val) {
             if (val != null) {
               setState(() {
                 setAppFontSizeMultiplier(val);
                 _lsSave();
               });
-              ref.read(settingsProvider.notifier).updateAppFontSizeMultiplier(val);
             }
           },
-          fullscreenDarkTheme: fullscreenDarkTheme,
-          fullscreenDimBrightness: fullscreenDimBrightness,
-          fullscreenStartLandscape: fullscreenStartLandscape,
-          muteSpeechAfterMidnight: muteSpeechAfterMidnight,
-          nightMuteMode: nightMuteMode,
-          sleepStartLabel: _formatMinutesAs12Hour(sleepStartMinutes),
-          sleepEndLabel: _formatMinutesAs12Hour(sleepEndMinutes),
+          sleepStartLabel: _formatMinutesAs12Hour(ref.read(settingsProvider).sleepStartMinutes),
+          sleepEndLabel: _formatMinutesAs12Hour(ref.read(settingsProvider).sleepEndMinutes),
           soundList: soundList,
           volumeLists: volumeLists,
           isSpeechActive: isSpeechActive,
           speechQueueLength: speechQueue.length,
-          voiceListMode: _speechLanguageService.language,
-          speechEngineMode: speechEngineMode,
           speechEngineRuntime: _speechService.lastEngineUsed,
           speechEngineRuntimeDetail: _speechService.lastEngineDetail,
           voices: settingsVoices,
-          favoriteVoiceName: favoriteVoiceName,
-          favoriteVoiceLocale: favoriteVoiceLocale,
           onSoundChanged: (val) {
             setState(() {
               soundChosen = val!;
               _lsSave();
               _applyAudioSettings();
             });
-            ref.read(settingsProvider.notifier).updateSound(val!);
           },
           onNoiseVolumeChanged: (val) {
             setState(() {
@@ -963,21 +946,18 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
               _lsSave();
               _applyAudioSettings();
             });
-            ref.read(settingsProvider.notifier).updateNoiseVolume(val!);
           },
           onSpeakVolumeChanged: (val) {
             setState(() {
               speakVolume = val!;
               _lsSave();
             });
-            ref.read(settingsProvider.notifier).updateSpeakVolume(val!);
           },
           onMaximumSpeechVolumeChanged: (val) {
             setState(() {
               maximumSpeechVolume = val ?? false;
               _lsSave();
             });
-            ref.read(settingsProvider.notifier).updateMaximumSpeechVolume(val ?? false);
           },
           onSpeechMasterOnChanged: (val) {
             final newVal = val ?? true;
@@ -991,7 +971,6 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
               }
               _lsSave();
             });
-            ref.read(settingsProvider.notifier).updateSpeechMasterOn(newVal);
             if (speechMasterOn) _applyAudioSettings();
           },
           onFullscreenDarkThemeChanged: (val) {
@@ -999,21 +978,18 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
               fullscreenDarkTheme = val ?? true;
               _lsSave();
             });
-            ref.read(settingsProvider.notifier).updateFullscreenDarkTheme(val ?? true);
           },
           onFullscreenDimBrightnessChanged: (val) {
             setState(() {
               fullscreenDimBrightness = val ?? false;
               _lsSave();
             });
-            ref.read(settingsProvider.notifier).updateFullscreenDimBrightness(val ?? false);
           },
           onFullscreenStartLandscapeChanged: (val) {
             setState(() {
               fullscreenStartLandscape = val ?? false;
               _lsSave();
             });
-            ref.read(settingsProvider.notifier).updateFullscreenStartLandscape(val ?? false);
           },
           onMuteSpeechAfterMidnightChanged: (val) {
             setState(() {

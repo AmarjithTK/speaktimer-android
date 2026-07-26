@@ -1,39 +1,29 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../models/sound_option.dart';
 
-class SettingsPanel extends StatefulWidget {
-  final String soundChosen;
-  final double noiseVolume;
-  final double speakVolume;
-  final bool maximumSpeechVolume;
-  final bool speechMasterOn;
-  final double appFontSizeMultiplier;
-  final ValueChanged<double?> onAppFontSizeMultiplierChanged;
-  final bool fullscreenDarkTheme;
-  final bool fullscreenDimBrightness;
-  final bool fullscreenStartLandscape;
-  final bool muteSpeechAfterMidnight;
-  final String nightMuteMode;
-  final String sleepStartLabel;
-  final String sleepEndLabel;
+import '../models/sound_option.dart';
+import '../providers/app_state.dart';
+
+class SettingsPanel extends ConsumerStatefulWidget {
+  // ── Side-effect callbacks only (audio, TTS, foreground service) ──
   final List<SoundOption> soundList;
   final List<double> volumeLists;
   final bool isSpeechActive;
   final int speechQueueLength;
-  final String voiceListMode;
-  final String speechEngineMode;
+  final List<Map<dynamic, dynamic>> voices;
   final String speechEngineRuntime;
   final String speechEngineRuntimeDetail;
-  final List<Map<dynamic, dynamic>> voices;
-  final String? favoriteVoiceName;
-  final String? favoriteVoiceLocale;
+  final String sleepStartLabel;
+  final String sleepEndLabel;
+
   final ValueChanged<String?> onSoundChanged;
   final ValueChanged<double?> onNoiseVolumeChanged;
   final ValueChanged<double?> onSpeakVolumeChanged;
   final ValueChanged<bool?> onMaximumSpeechVolumeChanged;
   final ValueChanged<bool?> onSpeechMasterOnChanged;
+  final ValueChanged<double?> onAppFontSizeMultiplierChanged;
   final ValueChanged<bool?> onFullscreenDarkThemeChanged;
   final ValueChanged<bool?> onFullscreenDimBrightnessChanged;
   final ValueChanged<bool?> onFullscreenStartLandscapeChanged;
@@ -47,43 +37,26 @@ class SettingsPanel extends StatefulWidget {
   final VoidCallback onOpenHelp;
   final VoidCallback? onOpenAccessibility;
   final bool accessibilityEnabled;
-
-  // ── Backup & Restore callbacks ──────────────────────────────
   final VoidCallback? onBackupSettings;
   final VoidCallback? onRestoreSettings;
 
   const SettingsPanel({
     super.key,
-    required this.soundChosen,
-    required this.noiseVolume,
-    required this.speakVolume,
-    required this.maximumSpeechVolume,
-    required this.speechMasterOn,
-    required this.appFontSizeMultiplier,
-    required this.onAppFontSizeMultiplierChanged,
-    required this.fullscreenDarkTheme,
-    required this.fullscreenDimBrightness,
-    required this.fullscreenStartLandscape,
-    required this.muteSpeechAfterMidnight,
-    required this.nightMuteMode,
-    required this.sleepStartLabel,
-    required this.sleepEndLabel,
     required this.soundList,
     required this.volumeLists,
     required this.isSpeechActive,
     required this.speechQueueLength,
-    required this.voiceListMode,
-    required this.speechEngineMode,
+    required this.voices,
     required this.speechEngineRuntime,
     required this.speechEngineRuntimeDetail,
-    required this.voices,
-    required this.favoriteVoiceName,
-    required this.favoriteVoiceLocale,
+    required this.sleepStartLabel,
+    required this.sleepEndLabel,
     required this.onSoundChanged,
     required this.onNoiseVolumeChanged,
     required this.onSpeakVolumeChanged,
     required this.onMaximumSpeechVolumeChanged,
     required this.onSpeechMasterOnChanged,
+    required this.onAppFontSizeMultiplierChanged,
     required this.onFullscreenDarkThemeChanged,
     required this.onFullscreenDimBrightnessChanged,
     required this.onFullscreenStartLandscapeChanged,
@@ -102,68 +75,10 @@ class SettingsPanel extends StatefulWidget {
   });
 
   @override
-  State<SettingsPanel> createState() => _SettingsPanelState();
+  ConsumerState<SettingsPanel> createState() => _SettingsPanelState();
 }
 
-class _SettingsPanelState extends State<SettingsPanel> {
-  // Local mutable copies so the panel updates its own UI after changes.
-  late String _soundChosen;
-  late double _noiseVolume;
-  late double _speakVolume;
-  late bool _maximumSpeechVolume;
-  late bool _speechMasterOn;
-  late double _appFontSizeMultiplier;
-  late bool _fullscreenDarkTheme;
-  late bool _fullscreenDimBrightness;
-  late bool _fullscreenStartLandscape;
-  late bool _muteSpeechAfterMidnight;
-  late String _nightMuteMode;
-  late String _voiceListMode;
-  late String _speechEngineMode;
-  late String? _favoriteVoiceName;
-  late String? _favoriteVoiceLocale;
-
-  @override
-  void initState() {
-    super.initState();
-    _soundChosen = widget.soundChosen;
-    _noiseVolume = widget.noiseVolume;
-    _speakVolume = widget.speakVolume;
-    _maximumSpeechVolume = widget.maximumSpeechVolume;
-    _speechMasterOn = widget.speechMasterOn;
-    _appFontSizeMultiplier = widget.appFontSizeMultiplier;
-    _fullscreenDarkTheme = widget.fullscreenDarkTheme;
-    _fullscreenDimBrightness = widget.fullscreenDimBrightness;
-    _fullscreenStartLandscape = widget.fullscreenStartLandscape;
-    _muteSpeechAfterMidnight = widget.muteSpeechAfterMidnight;
-    _nightMuteMode = widget.nightMuteMode;
-    _voiceListMode = widget.voiceListMode;
-    _speechEngineMode = widget.speechEngineMode;
-    _favoriteVoiceName = widget.favoriteVoiceName;
-    _favoriteVoiceLocale = widget.favoriteVoiceLocale;
-  }
-
-  @override
-  void didUpdateWidget(covariant SettingsPanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Sync local state if parent rebuilds with new values.
-    if (oldWidget.soundChosen != widget.soundChosen) _soundChosen = widget.soundChosen;
-    if (oldWidget.noiseVolume != widget.noiseVolume) _noiseVolume = widget.noiseVolume;
-    if (oldWidget.speakVolume != widget.speakVolume) _speakVolume = widget.speakVolume;
-    if (oldWidget.maximumSpeechVolume != widget.maximumSpeechVolume) _maximumSpeechVolume = widget.maximumSpeechVolume;
-    if (oldWidget.speechMasterOn != widget.speechMasterOn) _speechMasterOn = widget.speechMasterOn;
-    if (oldWidget.appFontSizeMultiplier != widget.appFontSizeMultiplier) _appFontSizeMultiplier = widget.appFontSizeMultiplier;
-    if (oldWidget.fullscreenDarkTheme != widget.fullscreenDarkTheme) _fullscreenDarkTheme = widget.fullscreenDarkTheme;
-    if (oldWidget.fullscreenDimBrightness != widget.fullscreenDimBrightness) _fullscreenDimBrightness = widget.fullscreenDimBrightness;
-    if (oldWidget.fullscreenStartLandscape != widget.fullscreenStartLandscape) _fullscreenStartLandscape = widget.fullscreenStartLandscape;
-    if (oldWidget.muteSpeechAfterMidnight != widget.muteSpeechAfterMidnight) _muteSpeechAfterMidnight = widget.muteSpeechAfterMidnight;
-    if (oldWidget.nightMuteMode != widget.nightMuteMode) _nightMuteMode = widget.nightMuteMode;
-    if (oldWidget.voiceListMode != widget.voiceListMode) _voiceListMode = widget.voiceListMode;
-    if (oldWidget.speechEngineMode != widget.speechEngineMode) _speechEngineMode = widget.speechEngineMode;
-    if (oldWidget.favoriteVoiceName != widget.favoriteVoiceName) _favoriteVoiceName = widget.favoriteVoiceName;
-    if (oldWidget.favoriteVoiceLocale != widget.favoriteVoiceLocale) _favoriteVoiceLocale = widget.favoriteVoiceLocale;
-  }
-
+class _SettingsPanelState extends ConsumerState<SettingsPanel> {
   String _getVolTitle(double v) {
     if (v == 0.1) return 'Very Low';
     if (v == 0.2) return 'Low';
@@ -209,15 +124,17 @@ class _SettingsPanelState extends State<SettingsPanel> {
   }
 
   String _favoriteVoiceLabel() {
-    if (_favoriteVoiceName == null || _favoriteVoiceLocale == null) {
+    final s = ref.read(settingsProvider);
+    if (s.favoriteVoiceName == null || s.favoriteVoiceLocale == null) {
       return 'Best voice for selected language';
     }
-    return '${_voiceCharacterName(_favoriteVoiceName!, _favoriteVoiceLocale!)} - $_favoriteVoiceLocale';
+    return '${_voiceCharacterName(s.favoriteVoiceName!, s.favoriteVoiceLocale!)} - ${s.favoriteVoiceLocale}';
   }
 
   String _favoriteVoiceKey() {
-    if (_favoriteVoiceName == null || _favoriteVoiceLocale == null) return '__auto__';
-    final key = '$_favoriteVoiceName|$_favoriteVoiceLocale';
+    final s = ref.read(settingsProvider);
+    if (s.favoriteVoiceName == null || s.favoriteVoiceLocale == null) return '__auto__';
+    final key = '${s.favoriteVoiceName}|${s.favoriteVoiceLocale}';
     final exists = widget.voices.any((v) => '${v['name']}|${v['locale']}' == key);
     return exists ? key : '__auto__';
   }
@@ -225,6 +142,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final s = ref.watch(settingsProvider);
+    final notifier = ref.read(settingsProvider.notifier);
+
     final speechEngineOptions = <(String, String, String?)>[
       ('auto', 'Auto', 'System TTS with Sherpa fallback'),
       ('system_only', 'System TTS only', 'Use the device speech engine'),
@@ -262,12 +182,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
           _sectionHeader(context, Icons.volume_up_rounded, 'Audio & Speech'),
           _settingsSwitch(
             context,
-            icon: _speechMasterOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+            icon: s.speechMasterOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
             title: 'Master Audio',
-            subtitle: _speechMasterOn ? 'All audio on' : 'All audio off',
-            value: _speechMasterOn,
+            subtitle: s.speechMasterOn ? 'All audio on' : 'All audio off',
+            value: s.speechMasterOn,
             onChanged: (val) {
-              setState(() => _speechMasterOn = val ?? true);
+              final newVal = val ?? true;
+              notifier.updateSpeechMasterOn(newVal);
               widget.onSpeechMasterOnChanged(val);
             },
           ),
@@ -276,13 +197,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
             context,
             icon: Icons.music_note_rounded,
             title: 'Background sound',
-            value: _soundTitle(_soundChosen),
+            value: _soundTitle(s.soundChosen),
             onTap: () => _showStringPicker(
               context, title: 'Background sound',
-              currentValue: _soundChosen,
+              currentValue: s.soundChosen,
               options: widget.soundList.map((s) => (s.link, s.title, null)).toList(),
               onChanged: (val) {
-                setState(() => _soundChosen = val!);
+                notifier.updateSound(val!);
                 widget.onSoundChanged(val);
               },
             ),
@@ -292,12 +213,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
             context,
             icon: Icons.volume_up_rounded,
             title: 'Noise volume',
-            value: _getVolTitle(_noiseVolume),
+            value: _getVolTitle(s.noiseVolume),
             onTap: () => _showDoublePicker(
               context, title: 'Noise volume',
-              currentValue: _noiseVolume,
+              currentValue: s.noiseVolume,
               onChanged: (val) {
-                setState(() => _noiseVolume = val!);
+                notifier.updateNoiseVolume(val!);
                 widget.onNoiseVolumeChanged(val);
               },
             ),
@@ -307,12 +228,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
             context,
             icon: Icons.record_voice_over_rounded,
             title: 'Speech volume',
-            value: _getVolTitle(_speakVolume),
+            value: _getVolTitle(s.speakVolume),
             onTap: () => _showDoublePicker(
               context, title: 'Speech volume',
-              currentValue: _speakVolume,
+              currentValue: s.speakVolume,
               onChanged: (val) {
-                setState(() => _speakVolume = val!);
+                notifier.updateSpeakVolume(val!);
                 widget.onSpeakVolumeChanged(val);
               },
             ),
@@ -323,9 +244,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
             icon: Icons.volume_up_rounded,
             title: 'Boost TTS Volume',
             subtitle: 'Maximum volume for speech announcements only',
-            value: _maximumSpeechVolume,
+            value: s.maximumSpeechVolume,
             onChanged: (val) {
-              setState(() => _maximumSpeechVolume = val ?? false);
+              notifier.updateMaximumSpeechVolume(val ?? false);
               widget.onMaximumSpeechVolumeChanged(val);
             },
           ),
@@ -337,13 +258,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
             context,
             icon: Icons.spatial_audio_off_rounded,
             title: 'Speech engine',
-            value: _speechEngineLabel(_speechEngineMode),
+            value: _speechEngineLabel(s.speechEngineMode),
             onTap: () => _showStringPicker(
               context, title: 'Speech engine',
-              currentValue: _speechEngineMode,
+              currentValue: s.speechEngineMode,
               options: speechEngineOptions,
               onChanged: (val) {
-                setState(() => _speechEngineMode = val!);
+                notifier.updateSpeechEngineMode(val!);
                 widget.onSpeechEngineModeChanged(val);
               },
             ),
@@ -362,13 +283,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
             context,
             icon: Icons.language_rounded,
             title: 'Language list',
-            value: _voiceListLabel(_voiceListMode),
+            value: _voiceListLabel(s.voiceListMode),
             onTap: () => _showStringPicker(
               context, title: 'Language list',
-              currentValue: _voiceListMode,
+              currentValue: s.voiceListMode,
               options: voiceModeOptions,
               onChanged: (val) {
-                setState(() => _voiceListMode = val!);
+                notifier.updateVoiceListMode(val!);
                 widget.onVoiceListModeChanged(val);
               },
             ),
@@ -385,17 +306,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
               options: voiceOptions,
               onChanged: (val) {
                 if (val == null || val == '__auto__') {
-                  setState(() {
-                    _favoriteVoiceName = null;
-                    _favoriteVoiceLocale = null;
-                  });
+                  notifier.updateFavoriteVoice(null, null);
                 } else {
                   final parts = val.split('|');
                   if (parts.length == 2) {
-                    setState(() {
-                      _favoriteVoiceName = parts[0];
-                      _favoriteVoiceLocale = parts[1];
-                    });
+                    notifier.updateFavoriteVoice(parts[0], parts[1]);
                   }
                 }
                 widget.onFavoriteVoiceChanged(val);
@@ -413,41 +328,41 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 Text('Font size',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
                 const Spacer(),
-                Text('${_appFontSizeMultiplier.toStringAsFixed(1)}x',
+                Text('${s.appFontSizeMultiplier.toStringAsFixed(1)}x',
                   style: TextStyle(color: cs.primary, fontWeight: FontWeight.w700, fontSize: 13)),
               ],
             ),
           ),
           Slider(
-            value: _appFontSizeMultiplier, min: 0.8, max: 1.5, divisions: 7,
-            label: '${_appFontSizeMultiplier.toStringAsFixed(1)}x',
+            value: s.appFontSizeMultiplier, min: 0.8, max: 1.5, divisions: 7,
+            label: '${s.appFontSizeMultiplier.toStringAsFixed(1)}x',
             onChanged: (val) {
-              setState(() => _appFontSizeMultiplier = val);
+              notifier.updateAppFontSizeMultiplier(val);
               widget.onAppFontSizeMultiplierChanged(val);
             },
           ),
           _settingsDivider(context),
           _settingsSwitch(context,
             icon: Icons.dark_mode_rounded, title: 'Dark fullscreen',
-            value: _fullscreenDarkTheme,
+            value: s.fullscreenDarkTheme,
             onChanged: (val) {
-              setState(() => _fullscreenDarkTheme = val ?? true);
+              notifier.updateFullscreenDarkTheme(val ?? true);
               widget.onFullscreenDarkThemeChanged(val);
             }),
           _settingsDivider(context),
           _settingsSwitch(context,
             icon: Icons.brightness_4_rounded, title: 'Dim brightness',
-            value: _fullscreenDimBrightness,
+            value: s.fullscreenDimBrightness,
             onChanged: (val) {
-              setState(() => _fullscreenDimBrightness = val ?? false);
+              notifier.updateFullscreenDimBrightness(val ?? false);
               widget.onFullscreenDimBrightnessChanged(val);
             }),
           _settingsDivider(context),
           _settingsSwitch(context,
             icon: Icons.screen_rotation_rounded, title: 'Start landscape',
-            value: _fullscreenStartLandscape,
+            value: s.fullscreenStartLandscape,
             onChanged: (val) {
-              setState(() => _fullscreenStartLandscape = val ?? false);
+              notifier.updateFullscreenStartLandscape(val ?? false);
               widget.onFullscreenStartLandscapeChanged(val);
             }),
           const SizedBox(height: 20),
@@ -457,21 +372,21 @@ class _SettingsPanelState extends State<SettingsPanel> {
           _settingsSwitch(context,
             icon: Icons.nightlight_round, title: 'Enable sleep mode',
             subtitle: 'Quiet hours for speech',
-            value: _muteSpeechAfterMidnight,
+            value: s.muteSpeechAfterMidnight,
             onChanged: (val) {
-              setState(() => _muteSpeechAfterMidnight = val ?? false);
+              notifier.updateMuteSpeechAfterMidnight(val ?? false);
               widget.onMuteSpeechAfterMidnightChanged(val);
             }),
-          if (_muteSpeechAfterMidnight) ...[
+          if (s.muteSpeechAfterMidnight) ...[
             _settingsDivider(context),
             _settingsOption(context,
               icon: Icons.bedtime_rounded, title: 'Mode',
-              value: _nightMuteMode == 'automatic' ? 'Automatic' : 'Manual',
+              value: s.nightMuteMode == 'automatic' ? 'Automatic' : 'Manual',
               onTap: () => _showStringPicker(
                 context, title: 'Sleep mode',
-                currentValue: _nightMuteMode, options: nightModeOptions,
+                currentValue: s.nightMuteMode, options: nightModeOptions,
                 onChanged: (val) {
-                  setState(() => _nightMuteMode = val!);
+                  notifier.updateNightMuteMode(val!);
                   widget.onNightMuteModeChanged(val);
                 })),
             _settingsDivider(context),
