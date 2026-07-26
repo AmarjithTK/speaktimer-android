@@ -343,3 +343,105 @@ class UiNotifier extends Notifier<UiState> {
 final uiProvider = NotifierProvider<UiNotifier, UiState>(
   UiNotifier.new,
 );
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RUNTIME STATE — Timer, Clock, Stopwatch display values
+// ═══════════════════════════════════════════════════════════════════════════
+
+class RuntimeState {
+  final String timerDisplayValue;
+  final int timerSliderValue;
+  final int timerRemainingSeconds;
+  final bool timerIsRunning;
+  final int? timerArmedPresetValue;
+  final bool timerChainModeOn;
+  final String timerChainPresetKey;
+  final int timerChainIndex;
+
+  final String clockDisplayValue;
+  final bool clockIsRunning;
+
+  final String stopwatchDisplayValue;
+  final bool stopwatchIsRunning;
+  final int stopwatchLapCount;
+  final List<String> stopwatchLapTimes;
+
+  const RuntimeState({
+    this.timerDisplayValue = '00:00',
+    this.timerSliderValue = 25,
+    this.timerRemainingSeconds = 0,
+    this.timerIsRunning = false,
+    this.timerArmedPresetValue,
+    this.timerChainModeOn = false,
+    this.timerChainPresetKey = 'Pomodoro',
+    this.timerChainIndex = 0,
+    this.clockDisplayValue = '',
+    this.clockIsRunning = false,
+    this.stopwatchDisplayValue = '00:00',
+    this.stopwatchIsRunning = false,
+    this.stopwatchLapCount = 0,
+    this.stopwatchLapTimes = const [],
+  });
+
+  RuntimeState copyWith({
+    String? timerDisplayValue,
+    int? timerSliderValue,
+    int? timerRemainingSeconds,
+    bool? timerIsRunning,
+    int? Function()? timerArmedPresetValue,
+    bool? timerChainModeOn,
+    String? timerChainPresetKey,
+    int? timerChainIndex,
+    String? clockDisplayValue,
+    bool? clockIsRunning,
+    String? stopwatchDisplayValue,
+    bool? stopwatchIsRunning,
+    int? stopwatchLapCount,
+    List<String>? stopwatchLapTimes,
+  }) {
+    return RuntimeState(
+      timerDisplayValue: timerDisplayValue ?? this.timerDisplayValue,
+      timerSliderValue: timerSliderValue ?? this.timerSliderValue,
+      timerRemainingSeconds: timerRemainingSeconds ?? this.timerRemainingSeconds,
+      timerIsRunning: timerIsRunning ?? this.timerIsRunning,
+      timerArmedPresetValue: timerArmedPresetValue != null ? timerArmedPresetValue() : this.timerArmedPresetValue,
+      timerChainModeOn: timerChainModeOn ?? this.timerChainModeOn,
+      timerChainPresetKey: timerChainPresetKey ?? this.timerChainPresetKey,
+      timerChainIndex: timerChainIndex ?? this.timerChainIndex,
+      clockDisplayValue: clockDisplayValue ?? this.clockDisplayValue,
+      clockIsRunning: clockIsRunning ?? this.clockIsRunning,
+      stopwatchDisplayValue: stopwatchDisplayValue ?? this.stopwatchDisplayValue,
+      stopwatchIsRunning: stopwatchIsRunning ?? this.stopwatchIsRunning,
+      stopwatchLapCount: stopwatchLapCount ?? this.stopwatchLapCount,
+      stopwatchLapTimes: stopwatchLapTimes ?? this.stopwatchLapTimes,
+    );
+  }
+}
+
+class RuntimeNotifier extends Notifier<RuntimeState> {
+  @override
+  RuntimeState build() => const RuntimeState();
+
+  // Timer
+  void updateTimerDisplay(String value) => state = state.copyWith(timerDisplayValue: value);
+  void updateTimerSlider(int value) => state = state.copyWith(timerSliderValue: value);
+  void updateTimerRemaining(int value) => state = state.copyWith(timerRemainingSeconds: value);
+  void updateTimerRunning(bool value) => state = state.copyWith(timerIsRunning: value);
+  void updateTimerArmedPreset(int? value) => state = state.copyWith(timerArmedPresetValue: () => value);
+  void updateTimerChainMode(bool value) => state = state.copyWith(timerChainModeOn: value);
+  void updateTimerChainPresetKey(String value) => state = state.copyWith(timerChainPresetKey: value);
+  void updateTimerChainIndex(int value) => state = state.copyWith(timerChainIndex: value);
+
+  // Clock
+  void updateClockDisplay(String value) => state = state.copyWith(clockDisplayValue: value);
+  void updateClockRunning(bool value) => state = state.copyWith(clockIsRunning: value);
+
+  // Stopwatch
+  void updateStopwatchDisplay(String value) => state = state.copyWith(stopwatchDisplayValue: value);
+  void updateStopwatchRunning(bool value) => state = state.copyWith(stopwatchIsRunning: value);
+  void updateStopwatchLaps(int count, List<String> times) => state = state.copyWith(stopwatchLapCount: count, stopwatchLapTimes: times);
+}
+
+final runtimeProvider = NotifierProvider<RuntimeNotifier, RuntimeState>(
+  RuntimeNotifier.new,
+);
