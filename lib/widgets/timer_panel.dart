@@ -330,100 +330,57 @@ class TimerPanel extends StatelessWidget {
               showCustomButton: true,
               onCustomTap: () => _showCustomTimeDialog(context),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
 
-            // ── Timer options (settings rows) ──────────────────
+            // ── Sound / Speech toggle row (like clock panel) ───
+            Row(
+              children: [
+                _FeatureToggle(
+                  icon: Icons.record_voice_over_rounded,
+                  label: 'Speech',
+                  active: timerSpeakOn,
+                  onTap: () => onTimerSpeakOnChanged(!timerSpeakOn),
+                ),
+                const SizedBox(width: 10),
+                _FeatureToggle(
+                  icon: Icons.music_note_rounded,
+                  label: 'Noise',
+                  active: timerNoiseOn,
+                  onTap: () => onTimerNoiseOnChanged(!timerNoiseOn),
+                ),
+                const SizedBox(width: 10),
+                _FeatureToggle(
+                  icon: Icons.speed_rounded,
+                  label: 'MS',
+                  active: timerShowMilliseconds,
+                  onTap: () => onTimerShowMillisecondsChanged(!timerShowMilliseconds),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // ── Inline timer options (no bottom sheet) ──────────
             SettingsRow(
-              icon: Icons.record_voice_over_rounded,
-              label: 'Speech',
-              value: timerSpeakOn ? 'On' : 'Off',
-              onTap: () => onTimerSpeakOnChanged(!timerSpeakOn),
+              icon: Icons.timer_outlined,
+              label: 'Announce every',
+              value: '$timerAnnounceEvery min',
+              onTap: () => _showAnnounceSheet(context),
             ),
             SettingsRow(
-              icon: Icons.music_note_rounded,
-              label: 'Noise',
-              value: timerNoiseOn ? 'On' : 'Off',
-              onTap: () => onTimerNoiseOnChanged(!timerNoiseOn),
+              icon: Icons.link_rounded,
+              label: 'Chain mode',
+              value: chainModeOn ? 'On' : 'Off',
+              onTap: () => onChainModeChanged(!chainModeOn),
             ),
-            SettingsRow(
-              icon: Icons.notifications_active_outlined,
-              label: 'End of timer',
-              value: 'Sound + Speech',
-              onTap: () {
-                // Opens end-of-timer options sheet
-              },
-            ),
-            SettingsRow(
-              icon: Icons.tune_rounded,
-              label: 'Timer options',
-              onTap: () => _showTimerOptionsSheet(context),
-              showDivider: false,
-            ),
+            if (chainModeOn)
+              SettingsRow(
+                icon: Icons.list_alt_rounded,
+                label: 'Preset sequence',
+                value: chainPresetKey,
+                onTap: () => _showChainSheet(context),
+                showDivider: false,
+              ),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _showTimerOptionsSheet(BuildContext context) {
-    final c = context.appColors;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.4,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (ctx, scrollController) => SafeArea(
-          child: ListView(
-            controller: scrollController,
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-            children: [
-              Text(
-                'Timer options',
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: c.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              SettingsRow(
-                icon: Icons.timer_outlined,
-                label: 'Announce every',
-                value: '$timerAnnounceEvery min',
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _showAnnounceSheet(context);
-                },
-              ),
-              SettingsRow(
-                icon: Icons.speed_rounded,
-                label: 'Show milliseconds',
-                value: timerShowMilliseconds ? 'On' : 'Off',
-                onTap: () => onTimerShowMillisecondsChanged(!timerShowMilliseconds),
-              ),
-              SettingsRow(
-                icon: Icons.link_rounded,
-                label: 'Chain mode',
-                value: chainModeOn ? 'On' : 'Off',
-                onTap: () => onChainModeChanged(!chainModeOn),
-              ),
-              if (chainModeOn)
-                SettingsRow(
-                  icon: Icons.list_alt_rounded,
-                  label: 'Preset sequence',
-                  value: chainPresetKey,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _showChainSheet(context);
-                  },
-                  showDivider: false,
-                ),
-            ],
-          ),
         ),
       ),
     );
@@ -592,5 +549,69 @@ class TimerPanel extends StatelessWidget {
     if (result != null) {
       choosePreset(result);
     }
+  }
+}
+
+/// Feature toggle card — icon + label + active state (same as clock panel).
+class _FeatureToggle extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _FeatureToggle({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.appColors;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: active ? c.accentLight : c.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: active ? c.accentBorder : c.surfaceBorder,
+              width: 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                color: active ? c.accent : c.textSecondary,
+                size: 22,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  color: active ? c.textPrimary : c.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                active ? 'On' : 'Off',
+                style: GoogleFonts.inter(
+                  color: active ? c.accent : c.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

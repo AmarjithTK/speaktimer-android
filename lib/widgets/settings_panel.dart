@@ -179,8 +179,6 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
-          // ── Audio & Speech ──────────────────────────────────
-          _sectionHeader(context, Icons.volume_up_rounded, 'Audio & Speech'),
           _settingsSwitch(
             context,
             icon: s.speechMasterOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
@@ -253,8 +251,6 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
           ),
           const SizedBox(height: 20),
 
-          // ── Voice ────────────────────────────────────────────
-          _sectionHeader(context, Icons.record_voice_over_rounded, 'Voice'),
           _settingsOption(
             context,
             icon: Icons.spatial_audio_off_rounded,
@@ -320,8 +316,6 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
           ),
           const SizedBox(height: 20),
 
-          // ── Focus & Fullscreen ────────────────────────────────
-          _sectionHeader(context, Icons.fullscreen_rounded, 'Focus & Fullscreen'),
           Padding(
             padding: const EdgeInsets.fromLTRB(52, 8, 14, 0),
             child: Row(
@@ -368,8 +362,6 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
             }),
           const SizedBox(height: 20),
 
-          // ── Sleep Mode ────────────────────────────────────────
-          _sectionHeader(context, Icons.nightlight_round, 'Sleep Mode'),
           _settingsSwitch(context,
             icon: Icons.nightlight_round, title: 'Enable sleep mode',
             subtitle: 'Quiet hours for speech',
@@ -401,8 +393,6 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
           ],
           const SizedBox(height: 20),
 
-          // ── System ────────────────────────────────────────────
-          _sectionHeader(context, Icons.settings_rounded, 'System'),
           SwitchListTile(
             value: widget.accessibilityEnabled,
             onChanged: (_) => widget.onOpenAccessibility?.call(),
@@ -460,21 +450,6 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
     );
   }
 
-  // ── Section header (flat, no card) ──────────────────────────
-  Widget _sectionHeader(BuildContext context, IconData icon, String title) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: cs.primary),
-          const SizedBox(width: 8),
-          Text(title,
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: cs.onSurfaceVariant)),
-        ],
-      ),
-    );
-  }
 
   Widget _settingsSwitch(BuildContext context, {
     required IconData icon, required String title,
