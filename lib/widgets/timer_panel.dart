@@ -141,82 +141,51 @@ class TimerPanel extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Timer ring (if running/paused with progress)
-                      if (isRunning || (_progress > 0 && remainingSeconds > 0))
-                        SizedBox(
-                          width: 200,
-                          height: 200,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
+                      // Timer ring — always rendered (stable layout, no resize)
+                      SizedBox(
+                        width: 200,
+                        height: 200,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            if (_progress > 0)
                               TimerRing(
                                 progress: _progress,
                                 primary: c.primaryAction,
                                 trackColor: c.surfaceBorder,
                               ),
-                              Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'Remaining',
-                                    style: GoogleFonts.inter(
-                                      color: c.textMuted,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: 1.5,
-                                    ),
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Remaining',
+                                  style: GoogleFonts.inter(
+                                    color: c.textMuted,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 1.5,
                                   ),
-                                  const SizedBox(height: 4),
-                                  FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      displayTime,
-                                      textAlign: TextAlign.center,
-                                      style: GoogleFonts.inter(
-                                        color: c.textPrimary,
-                                        fontSize: 56,
-                                        height: 0.9,
-                                        fontWeight: FontWeight.w800,
-                                        fontFeatures: const [FontFeature.tabularFigures()],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        )
-                      else
-                        // Idle state — just the time, no ring
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Remaining',
-                              style: GoogleFonts.inter(
-                                color: c.textMuted,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 1.5,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                displayTime,
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.inter(
-                                  color: c.textPrimary,
-                                  fontSize: 64,
-                                  height: 0.85,
-                                  fontWeight: FontWeight.w800,
-                                  fontFeatures: const [FontFeature.tabularFigures()],
                                 ),
-                              ),
+                                const SizedBox(height: 4),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    displayTime,
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.inter(
+                                      color: c.textPrimary,
+                                      fontSize: 56,
+                                      height: 0.9,
+                                      fontWeight: FontWeight.w800,
+                                      fontFeatures: const [FontFeature.tabularFigures()],
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
+                      ),
 
                       // End time badge (when running)
                       if (isRunning && _endLabel().isNotEmpty) ...[
