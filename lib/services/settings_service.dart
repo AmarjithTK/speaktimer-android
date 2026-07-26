@@ -123,6 +123,8 @@ class SettingsService {
           prefs.getBool(PrefKeys.fullscreenDimBrightness) ?? false,
       fullscreenStartLandscape:
           prefs.getBool(PrefKeys.fullscreenStartLandscape) ?? false,
+      fullscreenShowClock:
+          prefs.getBool(PrefKeys.fullscreenShowClock) ?? false,
       voiceListMode: _normalizeVoiceLanguageMode(
         prefs.getString(PrefKeys.voiceListMode),
       ),
@@ -208,6 +210,10 @@ class SettingsService {
     await prefs.setBool(
       PrefKeys.fullscreenStartLandscape,
       settings.fullscreenStartLandscape,
+    );
+    await prefs.setBool(
+      PrefKeys.fullscreenShowClock,
+      settings.fullscreenShowClock,
     );
     await prefs.setString(PrefKeys.voiceListMode, settings.voiceListMode);
     await prefs.setString(PrefKeys.speechEngineMode, settings.speechEngineMode);

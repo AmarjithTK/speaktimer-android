@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Slightly lighter orange for widget buttons -->
+<!-- Dark orange for widget preset buttons -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="#FFCC5500" />
-    <corners android:radius="12dp" />
+    <solid android:color="#FF4D1200" />
+    <corners android:radius="10dp" />
 </shape>

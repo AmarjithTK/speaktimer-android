@@ -39,6 +39,7 @@ class SettingsState {
   final bool fullscreenDarkTheme;
   final bool fullscreenDimBrightness;
   final bool fullscreenStartLandscape;
+  final bool fullscreenShowClock;
   final String voiceListMode;
   final String speechEngineMode;
   final String? favoriteVoiceName;
@@ -79,6 +80,7 @@ class SettingsState {
     required this.fullscreenDarkTheme,
     required this.fullscreenDimBrightness,
     required this.fullscreenStartLandscape,
+    required this.fullscreenShowClock,
     required this.voiceListMode,
     required this.speechEngineMode,
     this.favoriteVoiceName,
@@ -120,6 +122,7 @@ class SettingsState {
     fullscreenDarkTheme: true,
     fullscreenDimBrightness: false,
     fullscreenStartLandscape: false,
+    fullscreenShowClock: false,
     voiceListMode: 'auto',
     speechEngineMode: 'auto',
     speechMasterOn: true,
@@ -159,6 +162,7 @@ class SettingsState {
     fullscreenDarkTheme: s.fullscreenDarkTheme,
     fullscreenDimBrightness: s.fullscreenDimBrightness,
     fullscreenStartLandscape: s.fullscreenStartLandscape,
+    fullscreenShowClock: s.fullscreenShowClock,
     voiceListMode: s.voiceListMode,
     speechEngineMode: s.speechEngineMode,
     favoriteVoiceName: s.favoriteVoiceName,
@@ -200,6 +204,7 @@ class SettingsState {
     bool? fullscreenDarkTheme,
     bool? fullscreenDimBrightness,
     bool? fullscreenStartLandscape,
+    bool? fullscreenShowClock,
     String? voiceListMode,
     String? speechEngineMode,
     String? Function()? favoriteVoiceName,
@@ -240,6 +245,7 @@ class SettingsState {
       fullscreenDarkTheme: fullscreenDarkTheme ?? this.fullscreenDarkTheme,
       fullscreenDimBrightness: fullscreenDimBrightness ?? this.fullscreenDimBrightness,
       fullscreenStartLandscape: fullscreenStartLandscape ?? this.fullscreenStartLandscape,
+      fullscreenShowClock: fullscreenShowClock ?? this.fullscreenShowClock,
       voiceListMode: voiceListMode ?? this.voiceListMode,
       speechEngineMode: speechEngineMode ?? this.speechEngineMode,
       favoriteVoiceName: favoriteVoiceName != null ? favoriteVoiceName() : this.favoriteVoiceName,
@@ -289,6 +295,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
   void updateFullscreenDarkTheme(bool value) => state = state.copyWith(fullscreenDarkTheme: value);
   void updateFullscreenDimBrightness(bool value) => state = state.copyWith(fullscreenDimBrightness: value);
   void updateFullscreenStartLandscape(bool value) => state = state.copyWith(fullscreenStartLandscape: value);
+  void updateFullscreenShowClock(bool value) => state = state.copyWith(fullscreenShowClock: value);
   void updateVoiceListMode(String value) => state = state.copyWith(voiceListMode: value);
   void updateSpeechEngineMode(String value) => state = state.copyWith(speechEngineMode: value);
   void updateFavoriteVoice(String? name, String? locale) {

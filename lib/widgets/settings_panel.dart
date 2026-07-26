@@ -356,6 +356,7 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
               notifier.updateFullscreenStartLandscape(val ?? false);
               widget.onFullscreenStartLandscapeChanged(val);
             }),
+          _settingsDivider(context),
           _settingsSwitch(context,
             icon: Icons.nightlight_round, title: 'Enable sleep mode',
             subtitle: 'Quiet hours for speech',

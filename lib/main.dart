@@ -523,6 +523,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
 
   /// Start fullscreen focus mode in landscape orientation
   bool fullscreenStartLandscape = false;
+  bool fullscreenShowClock = false;
 
   /// Enable/disable timer completion announcements
   bool timerSpeakOn = true;
@@ -1255,6 +1256,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
       fullscreenDarkTheme = settings.fullscreenDarkTheme;
       fullscreenDimBrightness = settings.fullscreenDimBrightness;
       fullscreenStartLandscape = settings.fullscreenStartLandscape;
+      fullscreenShowClock = settings.fullscreenShowClock;
       _speechLanguageService.setLanguage(
         _speechService.normalizeVoiceLanguageMode(settings.voiceListMode),
       );
@@ -1292,6 +1294,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
               initialForceLandscape: forceHorizontal
                   ? true
                   : fullscreenStartLandscape,
+              initialShowClock: fullscreenShowClock,
               startImmersive: startImmersive,
               onThemeChanged: (isDark) {
                 if (!mounted) return;
@@ -1506,6 +1509,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
       fullscreenDarkTheme = settings.fullscreenDarkTheme;
       fullscreenDimBrightness = settings.fullscreenDimBrightness;
       fullscreenStartLandscape = settings.fullscreenStartLandscape;
+      fullscreenShowClock = settings.fullscreenShowClock;
       _speechLanguageService.setLanguage(
         _speechService.normalizeVoiceLanguageMode(settings.voiceListMode),
       );
@@ -1632,6 +1636,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
       fullscreenDarkTheme: fullscreenDarkTheme,
       fullscreenDimBrightness: fullscreenDimBrightness,
       fullscreenStartLandscape: fullscreenStartLandscape,
+      fullscreenShowClock: fullscreenShowClock,
       voiceListMode: _speechLanguageService.language,
       speechEngineMode: speechEngineMode,
       favoriteVoiceName: favoriteVoiceName,
@@ -1740,16 +1745,21 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
 
     // ── Immediate actions (no confirmation needed) ──────────────────────
     const presetMap = {
+      'start_1m': 1,
+      'start_2m': 2,
+      'start_3m': 3,
       'start_5m': 5,
+      'start_7m': 7,
       'start_10m': 10,
+      'start_12m': 12,
       'start_15m': 15,
       'start_20m': 20,
       'start_25m': 25,
       'start_30m': 30,
+      'start_35m': 35,
       'start_45m': 45,
       'start_60m': 60,
       'start_90m': 90,
-      'start_120m': 120,
     };
 
     if (presetMap.containsKey(type)) {
@@ -2725,7 +2735,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
       barrierDismissible: true,
       builder: (dialogContext) {
         return ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
+          constraints: const BoxConstraints(maxWidth: 700),
           child: AlertDialog(
             insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             title: const Text('Timer finished'),
@@ -2754,17 +2764,40 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _timerFinishedPresetMinutes.map((mins) {
-                        return ActionChip(
-                          label: Text('$mins min'),
-                          onPressed: () {
-                            Navigator.of(dialogContext).pop(mins);
-                          },
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        const double minChipWidth = 72;
+                        const double spacing = 8;
+                        int columns = ((constraints.maxWidth + spacing) / (minChipWidth + spacing)).floor();
+                        if (columns < 2) columns = 2;
+                        final rows = (_timerFinishedPresetMinutes.length / columns).ceil();
+                        return Column(
+                          children: List.generate(rows, (rowIndex) {
+                            final start = rowIndex * columns;
+                            final end = (start + columns).clamp(0, _timerFinishedPresetMinutes.length);
+                            return Padding(
+                              padding: EdgeInsets.only(bottom: rowIndex < rows - 1 ? spacing : 0),
+                              child: Row(
+                                children: [
+                                  for (int i = start; i < end; i++)
+                                    Expanded(
+                                      child: Padding(
+                                        padding: EdgeInsets.only(right: i < end - 1 ? spacing : 0),
+                                        child: ActionChip(
+                                          label: Center(child: Text('${_timerFinishedPresetMinutes[i]} min')),
+                                          onPressed: () => Navigator.of(dialogContext).pop(_timerFinishedPresetMinutes[i]),
+                                        ),
+                                      ),
+                                    ),
+                                  // Pad incomplete rows
+                                  for (int i = end; i < start + columns; i++)
+                                    const Expanded(child: SizedBox()),
+                                ],
+                              ),
+                            );
+                          }),
                         );
-                      }).toList(),
+                      },
                     ),
                     const SizedBox(height: 14),
                     TextField(
@@ -2939,8 +2972,8 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
                       itemCount: _timerFinishedPresetMinutes.length,
                       gridDelegate:
                           const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 150,
-                            mainAxisExtent: 64,
+                            maxCrossAxisExtent: 180,
+                            mainAxisExtent: 52,
                             mainAxisSpacing: 10,
                             crossAxisSpacing: 10,
                           ),
@@ -3236,6 +3269,13 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
           chainPresets: chainPresets,
           chainIndex: chainIndex,
           timerAnnounceOptions: timerAnnounceOptions,
+          fullscreenShowClock: fullscreenShowClock,
+          onFullscreenShowClockChanged: (val) {
+            setState(() {
+              fullscreenShowClock = val ?? false;
+              _lsSave();
+            });
+          },
           onTimerNoiseOnChanged: (val) {
             setState(() {
               timerNoiseOn = val ?? true;

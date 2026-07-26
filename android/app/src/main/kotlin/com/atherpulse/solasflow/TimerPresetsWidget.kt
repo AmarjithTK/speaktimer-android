@@ -12,9 +12,8 @@ import android.widget.RemoteViews
 /**
  * Widget 1: Timer Presets Quick Start
  *
- * Displays the last known timer value and 10 preset buttons (5, 10, 15, 20, 25, 30, 45, 60, 90, 120 min).
- * Also has an "Open App" button.
- * State is read from FlutterSharedPreferences (written by Flutter on every settings save).
+ * Minimal preset-button grid with "SolasFlow" branding title.
+ * Tapping the title opens the app; tapping a button starts that timer preset.
  */
 class TimerPresetsWidget : AppWidgetProvider() {
 
@@ -29,9 +28,6 @@ class TimerPresetsWidget : AppWidgetProvider() {
     }
 
     companion object {
-        private const val PREFS_NAME = "FlutterSharedPreferences"
-        private const val KEY_TIMER_VALUE = "flutter.widget_timer_display"
-
         fun updateAllWidgets(context: Context) {
             val mgr = AppWidgetManager.getInstance(context)
             val ids = mgr.getAppWidgetIds(
@@ -45,30 +41,31 @@ class TimerPresetsWidget : AppWidgetProvider() {
             appWidgetManager: AppWidgetManager,
             appWidgetId: Int
         ) {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val timerDisplay = prefs.getString(KEY_TIMER_VALUE, "00:00") ?: "00:00"
-
             val views = RemoteViews(context.packageName, R.layout.widget_timer_presets)
-            views.setTextViewText(R.id.widget_timer_value, timerDisplay)
 
-            // Open App — tap on timer value to open app
+            // Open App — tap on title to open app
             views.setOnClickPendingIntent(
-                R.id.widget_timer_value,
+                R.id.widget_title,
                 makeActionIntent(context, "open_app", appWidgetId)
             )
 
-            // Preset buttons
+            // Preset buttons — 3 rows × 5 columns
             val presets = listOf(
+                R.id.btn_1m to "start_1m",
+                R.id.btn_2m to "start_2m",
+                R.id.btn_3m to "start_3m",
                 R.id.btn_5m to "start_5m",
+                R.id.btn_7m to "start_7m",
                 R.id.btn_10m to "start_10m",
+                R.id.btn_12m to "start_12m",
                 R.id.btn_15m to "start_15m",
                 R.id.btn_20m to "start_20m",
                 R.id.btn_25m to "start_25m",
                 R.id.btn_30m to "start_30m",
+                R.id.btn_35m to "start_35m",
                 R.id.btn_45m to "start_45m",
                 R.id.btn_60m to "start_60m",
-                R.id.btn_90m to "start_90m",
-                R.id.btn_120m to "start_120m"
+                R.id.btn_90m to "start_90m"
             )
 
             for ((viewId, action) in presets) {

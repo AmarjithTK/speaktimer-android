@@ -19,6 +19,7 @@ class FullscreenFocusView extends StatefulWidget {
   final bool initialDarkTheme;
   final bool initialDimBrightness;
   final bool initialForceLandscape;
+  final bool initialShowClock;
   final bool startImmersive;
   final ValueChanged<bool>? onThemeChanged;
   final ValueChanged<bool>? onDimBrightnessChanged;
@@ -45,6 +46,7 @@ class FullscreenFocusView extends StatefulWidget {
     required this.initialDarkTheme,
     required this.initialDimBrightness,
     required this.initialForceLandscape,
+    this.initialShowClock = false,
     this.startImmersive = false,
     this.onThemeChanged,
     this.onDimBrightnessChanged,
@@ -68,6 +70,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   bool _darkTheme = true;
   bool _forceLandscape = false;
   bool _dimBrightness = false;
+  bool _showClock = false;
   bool _showEntryHint = true;
   bool _showExitHint = true;
   FullscreenFocusMode _mode = FullscreenFocusMode.clock;
@@ -85,6 +88,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
     _darkTheme = widget.initialDarkTheme;
     _dimBrightness = widget.initialDimBrightness;
     _forceLandscape = widget.initialForceLandscape;
+    _showClock = widget.initialShowClock;
     _showControls = !widget.startImmersive;
     _showEntryHint = !widget.startImmersive;
     _showExitHint = !widget.startImmersive;
@@ -471,8 +475,43 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                   ),
                 ),
               ),
-              IgnorePointer(
-                ignoring: !_showControls,
+            // ── Small clock overlay (bottom-center, always visible) ────
+            if (_showClock && _mode != FullscreenFocusMode.clock && !_showControls)
+              Positioned(
+                bottom: 16,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: AnimatedOpacity(
+                    opacity: _showControls ? 0.3 : 0.85,
+                    duration: const Duration(milliseconds: 300),
+                    child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: surface,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: outline, width: 1),
+                      ),
+                      child: Text(
+                        _stripClockSuffix(_clockText),
+                        style: TextStyle(
+                          color: fg,
+                          fontSize: 42,
+                          fontWeight: FontWeight.w900,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                    ),
+                  ),
+                ),
+              ),
+            IgnorePointer(
+              ignoring: !_showControls,
                 child: AnimatedOpacity(
                   opacity: _showControls ? 1 : 0,
                   duration: const Duration(milliseconds: 300),

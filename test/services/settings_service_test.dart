@@ -61,6 +61,7 @@ void main() {
         fullscreenDarkTheme: true,
         fullscreenDimBrightness: true,
         fullscreenStartLandscape: false,
+        fullscreenShowClock: false,
         voiceListMode: 'english',
         speechEngineMode: 'auto',
         favoriteVoiceName: 'Voice 1',

@@ -33,6 +33,7 @@ class PrefKeys {
   static const fullscreenDarkTheme = 'FullscreenDarkTheme';
   static const fullscreenDimBrightness = 'FullscreenDimBrightness';
   static const fullscreenStartLandscape = 'FullscreenStartLandscape';
+  static const fullscreenShowClock = 'FullscreenShowClock';
   static const voiceListMode = 'VoiceListMode';
   static const speechEngineMode = 'SpeechEngineMode';
   static const favoriteVoiceName = 'FavoriteVoiceName';

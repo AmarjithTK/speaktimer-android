@@ -44,6 +44,8 @@ class TimerPanel extends StatelessWidget {
   final ValueChanged<int?> onTimerAnnounceEveryChanged;
   final ValueChanged<bool?> onChainModeChanged;
   final ValueChanged<String?> onChainPresetChanged;
+  final bool fullscreenShowClock;
+  final ValueChanged<bool?> onFullscreenShowClockChanged;
   final VoidCallback onFullscreenPressed;
   final VoidCallback onFullscreenImmersivePressed;
   final VoidCallback onExitApp;
@@ -79,6 +81,8 @@ class TimerPanel extends StatelessWidget {
     required this.onTimerAnnounceEveryChanged,
     required this.onChainModeChanged,
     required this.onChainPresetChanged,
+    required this.fullscreenShowClock,
+    required this.onFullscreenShowClockChanged,
     required this.onFullscreenPressed,
     required this.onFullscreenImmersivePressed,
     required this.onExitApp,
@@ -347,6 +351,13 @@ class TimerPanel extends StatelessWidget {
                   label: 'Chain',
                   active: chainModeOn,
                   onTap: () => onChainModeChanged(!chainModeOn),
+                ),
+                const SizedBox(width: 10),
+                _FeatureToggle(
+                  icon: Icons.access_time_rounded,
+                  label: 'Clock',
+                  active: fullscreenShowClock,
+                  onTap: () => onFullscreenShowClockChanged(!fullscreenShowClock),
                 ),
               ],
             ),
