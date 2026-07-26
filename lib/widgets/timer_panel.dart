@@ -351,7 +351,7 @@ class TimerPanel extends StatelessWidget {
                 const SizedBox(width: 10),
                 _FeatureToggle(
                   icon: Icons.speed_rounded,
-                  label: 'MS',
+                  label: 'Milli-sec',
                   active: timerShowMilliseconds,
                   onTap: () => onTimerShowMillisecondsChanged(!timerShowMilliseconds),
                 ),
