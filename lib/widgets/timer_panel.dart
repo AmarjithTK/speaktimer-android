@@ -143,7 +143,7 @@ class TimerPanel extends StatelessWidget {
                     children: [
                       // Timer ring — always rendered (stable layout, no resize)
                       SizedBox(
-                        width: 240,
+                        width: 280,
                         height: 200,
                         child: Stack(
                           alignment: Alignment.center,
@@ -183,39 +183,47 @@ class TimerPanel extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            // −1 button (left, only when running)
+                            // −1 button (left, vertically centered)
                             if (isRunning)
                               Positioned(
                                 left: 0,
+                                top: 0,
+                                bottom: 0,
                                 child: GestureDetector(
                                   onTap: () => addTimeToRunningTimer(-60),
-                                  child: Container(
-                                    width: 36,
-                                    height: 36,
-                                    decoration: BoxDecoration(
-                                      color: c.surfaceSubtle,
-                                      borderRadius: BorderRadius.circular(18),
-                                      border: Border.all(color: c.surfaceBorder),
+                                  child: Center(
+                                    child: Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        color: c.surfaceSubtle,
+                                        borderRadius: BorderRadius.circular(18),
+                                        border: Border.all(color: c.surfaceBorder),
+                                      ),
+                                      child: Icon(Icons.remove_rounded, size: 18, color: c.textSecondary),
                                     ),
-                                    child: Icon(Icons.remove_rounded, size: 18, color: c.textSecondary),
                                   ),
                                 ),
                               ),
-                            // +5 button (right, only when running)
+                            // +5 button (right, vertically centered)
                             if (isRunning)
                               Positioned(
                                 right: 0,
+                                top: 0,
+                                bottom: 0,
                                 child: GestureDetector(
                                   onTap: () => addTimeToRunningTimer(300),
-                                  child: Container(
-                                    width: 36,
-                                    height: 36,
-                                    decoration: BoxDecoration(
-                                      color: c.surfaceSubtle,
-                                      borderRadius: BorderRadius.circular(18),
-                                      border: Border.all(color: c.surfaceBorder),
+                                  child: Center(
+                                    child: Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        color: c.surfaceSubtle,
+                                        borderRadius: BorderRadius.circular(18),
+                                        border: Border.all(color: c.surfaceBorder),
+                                      ),
+                                      child: Icon(Icons.add_rounded, size: 18, color: c.textSecondary),
                                     ),
-                                    child: Icon(Icons.add_rounded, size: 18, color: c.textSecondary),
                                   ),
                                 ),
                               ),
