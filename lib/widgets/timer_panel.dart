@@ -323,8 +323,7 @@ class TimerPanel extends StatelessWidget {
 
             // ── Quick presets ──────────────────────────────────
             PresetGrid(
-              primaryPresets: const [5, 10, 15, 25, 45],
-              secondaryPresets: [1, 2, 3, 7, 12, 20, 30, 35, 60],
+              presets: const [1, 2, 3, 5, 7, 10, 12, 15, 20, 25, 30, 35, 45, 60],
               selectedValue: sliderValue,
               armedValue: armedPresetValue,
               onTap: onPresetTap,

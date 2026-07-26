@@ -4,13 +4,11 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import 'section_header.dart';
 
-/// Hierarchical preset duration grid.
+/// Unified preset duration grid — single flat list, no primary/secondary split.
 ///
-/// Primary presets are prominent; secondary presets are visually muted.
 /// Uses a Wrap layout for responsive behavior.
 class PresetGrid extends StatelessWidget {
-  final List<int> primaryPresets; // e.g. [5, 10, 15, 25, 45]
-  final List<int> secondaryPresets; // e.g. [1, 2, 3, 7, 12, 20, 30, 35, 60]
+  final List<int> presets;
   final int? selectedValue;
   final int? armedValue;
   final ValueChanged<int> onTap;
@@ -19,8 +17,7 @@ class PresetGrid extends StatelessWidget {
 
   const PresetGrid({
     super.key,
-    required this.primaryPresets,
-    required this.secondaryPresets,
+    required this.presets,
     this.selectedValue,
     this.armedValue,
     required this.onTap,
@@ -39,56 +36,32 @@ class PresetGrid extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Primary presets
         const SectionHeader(label: 'Quick presets'),
         const SizedBox(height: 4),
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: primaryPresets.map((p) {
-            return _PresetChip(
-              label: _formatLabel(p),
-              selected: p == selectedValue,
-              armed: p == armedValue,
-              primary: true,
-              colors: colors,
-              onTap: () => onTap(p),
-            );
-          }).toList(),
+          children: [
+            ...presets.map((p) {
+              return _PresetChip(
+                label: _formatLabel(p),
+                selected: p == selectedValue,
+                armed: p == armedValue,
+                colors: colors,
+                onTap: () => onTap(p),
+              );
+            }),
+            if (showCustomButton)
+              _PresetChip(
+                label: 'Custom',
+                selected: false,
+                armed: false,
+                colors: colors,
+                onTap: onCustomTap ?? () {},
+                icon: Icons.edit_rounded,
+              ),
+          ],
         ),
-
-        // Secondary presets
-        if (secondaryPresets.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          const SectionHeader(label: 'More durations'),
-          const SizedBox(height: 4),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ...secondaryPresets.map((p) {
-                return _PresetChip(
-                  label: _formatLabel(p),
-                  selected: p == selectedValue,
-                  armed: p == armedValue,
-                  primary: false,
-                  colors: colors,
-                  onTap: () => onTap(p),
-                );
-              }),
-              if (showCustomButton)
-                _PresetChip(
-                  label: 'Custom',
-                  selected: false,
-                  armed: false,
-                  primary: false,
-                  colors: colors,
-                  onTap: onCustomTap ?? () {},
-                  icon: Icons.edit_rounded,
-                ),
-            ],
-          ),
-        ],
       ],
     );
   }
@@ -103,7 +76,6 @@ class _PresetChip extends StatelessWidget {
   final String label;
   final bool selected;
   final bool armed;
-  final bool primary;
   final ColorTokens colors;
   final VoidCallback onTap;
   final IconData? icon;
@@ -112,7 +84,6 @@ class _PresetChip extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.armed,
-    required this.primary,
     required this.colors,
     required this.onTap,
     this.icon,
@@ -134,8 +105,8 @@ class _PresetChip extends StatelessWidget {
       textColor = Colors.white;
     } else {
       bgColor = Colors.transparent;
-      borderColor = primary ? colors.chipBorder : colors.surfaceBorder;
-      textColor = primary ? colors.textPrimary : colors.textSecondary;
+      borderColor = colors.chipBorder;
+      textColor = colors.textPrimary;
     }
 
     return GestureDetector(
