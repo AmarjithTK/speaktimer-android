@@ -66,11 +66,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'providers/app_state.dart';
 import 'theme/app_theme.dart';
 
 import 'l10n/app_localizations.dart';
@@ -134,43 +136,41 @@ class MyTaskHandler extends TaskHandler {
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   FlutterForegroundTask.initCommunicationPort();
-  runApp(const SolasFlowApp());
+  runApp(const ProviderScope(child: SolasFlowApp()));
 }
 
-class SolasFlowApp extends StatelessWidget {
+class SolasFlowApp extends ConsumerWidget {
   const SolasFlowApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+    final themeMode = settings.appDarkTheme ? ThemeMode.dark : ThemeMode.light;
+    final fontSizeMultiplier = settings.appFontSizeMultiplier;
+
     return WithForegroundTask(
-      child: ValueListenableBuilder<ThemeMode>(
-        valueListenable: appThemeModeNotifier,
-        builder: (context, themeMode, _) {
-          return ValueListenableBuilder<double>(
-            valueListenable: appFontSizeNotifier,
-            builder: (context, fontSizeMultiplier, _) {
-              final l10n = AppLocalizations.of(context);
-              return MaterialApp(
-                title: l10n?.appTitle ?? 'SolasFlow',
-                debugShowCheckedModeBanner: false,
-                localizationsDelegates:
-                    AppLocalizations.localizationsDelegates,
-                supportedLocales: AppLocalizations.supportedLocales,
-                themeMode: themeMode,
-                builder: (context, child) {
-                  return MediaQuery(
-                    data: MediaQuery.of(context).copyWith(
-                      textScaler:
-                          TextScaler.linear(fontSizeMultiplier),
-                    ),
-                    child: child!,
-                  );
-                },
-                theme: AppTheme.light(),
-                darkTheme: AppTheme.dark(),
-                home: const MainScreen(),
+      child: Builder(
+        builder: (context) {
+          final l10n = AppLocalizations.of(context);
+          return MaterialApp(
+            title: l10n?.appTitle ?? 'SolasFlow',
+            debugShowCheckedModeBanner: false,
+            localizationsDelegates:
+                AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            themeMode: themeMode,
+            builder: (context, child) {
+              return MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler:
+                      TextScaler.linear(fontSizeMultiplier),
+                ),
+                child: child!,
               );
             },
+            theme: AppTheme.light(),
+            darkTheme: AppTheme.dark(),
+            home: const MainScreen(),
           );
         },
       ),
@@ -178,14 +178,14 @@ class SolasFlowApp extends StatelessWidget {
   }
 }
 
-class MainScreen extends StatefulWidget {
+class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
+class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObserver {
   bool get _supportsForegroundTask {
     if (kIsWeb) return false;
     return defaultTargetPlatform == TargetPlatform.android ||
@@ -928,6 +928,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 setAppFontSizeMultiplier(val);
                 _lsSave();
               });
+              ref.read(settingsProvider.notifier).updateAppFontSizeMultiplier(val);
             }
           },
           fullscreenDarkTheme: fullscreenDarkTheme,
@@ -954,6 +955,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               _lsSave();
               _applyAudioSettings();
             });
+            ref.read(settingsProvider.notifier).updateSound(val!);
           },
           onNoiseVolumeChanged: (val) {
             setState(() {
@@ -961,22 +963,26 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               _lsSave();
               _applyAudioSettings();
             });
+            ref.read(settingsProvider.notifier).updateNoiseVolume(val!);
           },
           onSpeakVolumeChanged: (val) {
             setState(() {
               speakVolume = val!;
               _lsSave();
             });
+            ref.read(settingsProvider.notifier).updateSpeakVolume(val!);
           },
           onMaximumSpeechVolumeChanged: (val) {
             setState(() {
               maximumSpeechVolume = val ?? false;
               _lsSave();
             });
+            ref.read(settingsProvider.notifier).updateMaximumSpeechVolume(val ?? false);
           },
           onSpeechMasterOnChanged: (val) {
+            final newVal = val ?? true;
             setState(() {
-              speechMasterOn = val ?? true;
+              speechMasterOn = newVal;
               if (!speechMasterOn) {
                 speechQueue.clear();
                 unawaited(flutterTts.stop());
@@ -985,6 +991,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               }
               _lsSave();
             });
+            ref.read(settingsProvider.notifier).updateSpeechMasterOn(newVal);
             if (speechMasterOn) _applyAudioSettings();
           },
           onFullscreenDarkThemeChanged: (val) {
@@ -992,18 +999,21 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               fullscreenDarkTheme = val ?? true;
               _lsSave();
             });
+            ref.read(settingsProvider.notifier).updateFullscreenDarkTheme(val ?? true);
           },
           onFullscreenDimBrightnessChanged: (val) {
             setState(() {
               fullscreenDimBrightness = val ?? false;
               _lsSave();
             });
+            ref.read(settingsProvider.notifier).updateFullscreenDimBrightness(val ?? false);
           },
           onFullscreenStartLandscapeChanged: (val) {
             setState(() {
               fullscreenStartLandscape = val ?? false;
               _lsSave();
             });
+            ref.read(settingsProvider.notifier).updateFullscreenStartLandscape(val ?? false);
           },
           onMuteSpeechAfterMidnightChanged: (val) {
             setState(() {
@@ -1490,6 +1500,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final settings = await _settingsService.load(
       defaultSound: soundList.first.link,
     );
+    // Sync loaded settings into Riverpod provider
+    ref.read(settingsProvider.notifier).loadFromSettings(settings);
     setState(() {
       soundChosen = settings.soundChosen;
       noiseVolume = settings.noiseVolume;
