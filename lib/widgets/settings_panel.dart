@@ -171,6 +171,7 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
     ];
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Settings'),
         centerTitle: true,
