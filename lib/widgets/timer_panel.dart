@@ -276,19 +276,19 @@ class TimerPanel extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // ── Primary action: Start / Pause ─────────────────
-            PrimaryButton(
-              label: isRunning ? 'Pause' : 'Start',
-              icon: isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
-              onPressed: isRunning ? stopTimer : startTimer,
-            ),
-            const SizedBox(height: 12),
-
-            // ── Secondary actions: Reset, +5 min ──────────────
+            // ── All actions in one row ────────────────────────
             Row(
               children: [
+                Expanded(
+                  child: PrimaryButton(
+                    label: isRunning ? 'Pause' : 'Start',
+                    icon: isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    onPressed: isRunning ? stopTimer : startTimer,
+                  ),
+                ),
+                const SizedBox(width: 10),
                 Expanded(
                   child: SecondaryButton(
                     label: 'Reset',
@@ -301,7 +301,7 @@ class TimerPanel extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: SecondaryButton(
-                      label: '− 1 min',
+                      label: '−1m',
                       icon: Icons.remove_rounded,
                       onPressed: () => addTimeToRunningTimer(-60),
                       compact: true,
@@ -310,7 +310,7 @@ class TimerPanel extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: SecondaryButton(
-                      label: '+ 5 min',
+                      label: '+5m',
                       icon: Icons.add_rounded,
                       onPressed: () => addTimeToRunningTimer(300),
                       compact: true,

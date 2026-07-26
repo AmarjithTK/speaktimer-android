@@ -39,7 +39,7 @@
             android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
             android:gravity="center"
-            android:background="#FFCC5500" />
+            android:background="#FF8B3A00" />
 
         <TextView
             android:id="@+id/btn_10m"
@@ -53,7 +53,7 @@
             android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
             android:gravity="center"
-            android:background="#FFCC5500" />
+            android:background="#FF8B3A00" />
 
         <TextView
             android:id="@+id/btn_15m"
@@ -67,7 +67,7 @@
             android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
             android:gravity="center"
-            android:background="#FFCC5500" />
+            android:background="#FF8B3A00" />
 
         <TextView
             android:id="@+id/btn_20m"
@@ -81,7 +81,7 @@
             android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
             android:gravity="center"
-            android:background="#FFCC5500" />
+            android:background="#FF8B3A00" />
 
         <TextView
             android:id="@+id/btn_25m"
@@ -94,7 +94,7 @@
             android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
             android:gravity="center"
-            android:background="#FFDD6600" />
+            android:background="#FF6B2A00" />
     </LinearLayout>
 
     <!-- Row 2: 30 m · 45 m · 60 m · 90 m · 120 m -->
@@ -117,7 +117,7 @@
             android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
             android:gravity="center"
-            android:background="#FFCC5500" />
+            android:background="#FF8B3A00" />
 
         <TextView
             android:id="@+id/btn_45m"
@@ -131,7 +131,7 @@
             android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
             android:gravity="center"
-            android:background="#FFCC5500" />
+            android:background="#FF8B3A00" />
 
         <TextView
             android:id="@+id/btn_60m"
@@ -145,7 +145,7 @@
             android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
             android:gravity="center"
-            android:background="#FFCC5500" />
+            android:background="#FF8B3A00" />
 
         <TextView
             android:id="@+id/btn_90m"
@@ -159,7 +159,7 @@
             android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
             android:gravity="center"
-            android:background="#FFCC5500" />
+            android:background="#FF8B3A00" />
 
         <TextView
             android:id="@+id/btn_120m"
@@ -172,7 +172,7 @@
             android:textColor="#FFFFFFFF"
             android:textAllCaps="false"
             android:gravity="center"
-            android:background="#FFCC5500" />
+            android:background="#FF8B3A00" />
     </LinearLayout>
 
     <!-- Minimal branding -->
