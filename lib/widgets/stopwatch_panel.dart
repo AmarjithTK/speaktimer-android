@@ -170,7 +170,7 @@ class StopwatchPanel extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // ── Action buttons ───────────────────────────────────
+            // ── Action buttons (all equal size) ─────────────────
             Row(
               children: [
                 Expanded(
@@ -186,22 +186,14 @@ class StopwatchPanel extends StatelessWidget {
                     label: 'Lap',
                     icon: Icons.flag_rounded,
                     onPressed: isRunning ? onLap : null,
-                    compact: true,
                   ),
                 ),
                 const SizedBox(width: 10),
-                SizedBox(
-                  height: 48,
-                  width: 48,
-                  child: OutlinedButton(
+                Expanded(
+                  child: SecondaryButton(
+                    label: 'Reset',
+                    icon: Icons.refresh_rounded,
                     onPressed: resetStopwatch,
-                    style: OutlinedButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Icon(Icons.refresh_rounded, size: 20, color: c.textSecondary),
                   ),
                 ),
               ],

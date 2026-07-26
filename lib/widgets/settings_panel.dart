@@ -249,8 +249,6 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
               widget.onMaximumSpeechVolumeChanged(val);
             },
           ),
-          const SizedBox(height: 20),
-
           _settingsOption(
             context,
             icon: Icons.spatial_audio_off_rounded,
@@ -314,8 +312,6 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
               },
             ),
           ),
-          const SizedBox(height: 20),
-
           Padding(
             padding: const EdgeInsets.fromLTRB(52, 8, 14, 0),
             child: Row(
@@ -360,8 +356,6 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
               notifier.updateFullscreenStartLandscape(val ?? false);
               widget.onFullscreenStartLandscapeChanged(val);
             }),
-          const SizedBox(height: 20),
-
           _settingsSwitch(context,
             icon: Icons.nightlight_round, title: 'Enable sleep mode',
             subtitle: 'Quiet hours for speech',
@@ -391,8 +385,6 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
               icon: Icons.alarm_rounded, title: 'Ends at',
               value: widget.sleepEndLabel, onTap: widget.onPickSleepEnd),
           ],
-          const SizedBox(height: 20),
-
           SwitchListTile(
             value: widget.accessibilityEnabled,
             onChanged: (_) => widget.onOpenAccessibility?.call(),
