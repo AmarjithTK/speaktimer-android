@@ -913,8 +913,8 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     final settingsVoices = _availableVoicesForSettings();
     Navigator.of(context).push(
       PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 350),
-        reverseTransitionDuration: const Duration(milliseconds: 300),
+        transitionDuration: const Duration(milliseconds: 250),
+        reverseTransitionDuration: const Duration(milliseconds: 200),
         pageBuilder: (context, animation, secondaryAnimation) => SettingsPanel(
           onAppFontSizeMultiplierChanged: (val) {
             if (val != null) {
@@ -1089,20 +1089,15 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
             onRestoreSettings: () => unawaited(_handleRestoreSettings()),
           ),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            final curvedAnim = CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutQuart,
-              reverseCurve: Curves.easeInQuart,
-            );
             return SlideTransition(
               position: Tween<Offset>(
-                begin: const Offset(0, 0.08),
+                begin: const Offset(1.0, 0.0),
                 end: Offset.zero,
-              ).animate(curvedAnim),
-              child: FadeTransition(
-                opacity: curvedAnim,
-                child: child,
-              ),
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              )),
+              child: child,
             );
           },
         ),
