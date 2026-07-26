@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/palette.dart' show AppColorAccess;
-import 'display_text.dart';
 import 'settings_row.dart';
 
 /// Redesigned Clock panel — premium minimalist clock experience.
@@ -94,12 +93,68 @@ class ClockPanel extends StatelessWidget {
             GestureDetector(
               onTap: onFullscreenPressed,
               onDoubleTap: onFullscreenImmersivePressed,
-              child: DisplayText(
-                time: display.time,
-                suffix: display.suffix,
+              child: Center(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: c.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: c.surfaceBorder),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'CURRENT TIME',
+                        style: GoogleFonts.inter(
+                          color: c.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              display.time,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(
+                                color: c.textPrimary,
+                                fontSize: 64,
+                                height: 0.85,
+                                fontWeight: FontWeight.w800,
+                                fontFeatures: const [FontFeature.tabularFigures()],
+                              ),
+                            ),
+                            if (display.suffix != null) ...[
+                              const SizedBox(width: 8),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Text(
+                                  display.suffix!,
+                                  style: GoogleFonts.inter(
+                                    color: c.accent,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
 
             // ── Announce interval row ────────────────────────────
             _AnnounceRow(

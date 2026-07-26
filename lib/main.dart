@@ -3448,32 +3448,16 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
             ],
           ),
           body: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 350),
-            switchInCurve: Curves.easeOutQuart,
-            switchOutCurve: Curves.easeInQuart,
+            duration: const Duration(milliseconds: 280),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
             transitionBuilder: (child, animation) {
-              final curvedAnim = CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutQuart,
-              );
-              final offsetAnim =
-                  Tween<Offset>(
-                    begin: const Offset(0, 0.02),
-                    end: Offset.zero,
-                  ).animate(curvedAnim);
-              final scaleAnim = Tween<double>(
-                begin: 0.98,
-                end: 1.0,
-              ).animate(curvedAnim);
               return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: offsetAnim,
-                  child: ScaleTransition(
-                    scale: scaleAnim,
-                    child: child,
-                  ),
+                opacity: CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutCubic,
                 ),
+                child: child,
               );
             },
             child: KeyedSubtree(
