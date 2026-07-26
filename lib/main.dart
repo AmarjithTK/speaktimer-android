@@ -667,11 +667,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (!_supportsForegroundTask) return;
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
-        channelId: 'solasflow_fg',
-        channelName: 'SolasFlow',
-        channelDescription: 'Keeps timer alive in background',
-        channelImportance: NotificationChannelImportance.MIN,
-        priority: NotificationPriority.MIN,
+        channelId: 'com.atherpulse.solasflow.timer_fg',
+        channelName: 'SolasFlow Timer',
+        channelDescription: 'Persistent timer & stopwatch service',
+        channelImportance: NotificationChannelImportance.LOW,
+        priority: NotificationPriority.LOW,
       ),
       iosNotificationOptions: const IOSNotificationOptions(
         showNotification: true,
@@ -912,8 +912,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   void _openSettings() {
     final settingsVoices = _availableVoicesForSettings();
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SettingsPanel(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 350),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, animation, secondaryAnimation) => SettingsPanel(
           soundChosen: soundChosen,
           noiseVolume: noiseVolume,
           speakVolume: speakVolume,
@@ -1100,6 +1102,23 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             onBackupSettings: () => unawaited(_handleBackupSettings()),
             onRestoreSettings: () => unawaited(_handleRestoreSettings()),
           ),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            final curvedAnim = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutQuart,
+              reverseCurve: Curves.easeInQuart,
+            );
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.08),
+                end: Offset.zero,
+              ).animate(curvedAnim),
+              child: FadeTransition(
+                opacity: curvedAnim,
+                child: child,
+              ),
+            );
+          },
         ),
       );
     }
@@ -1107,46 +1126,40 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     Future<void> _handleBackupSettings() async {
       if (!mounted) return;
       try {
+        final filePath = await _settingsService.exportToUserFolder(
+          defaultSound: soundList.first.link,
+        );
+        if (!mounted) return;
+        if (filePath == null) return; // User cancelled directory picker
+
         final jsonStr = await _settingsService.exportToJson(
           defaultSound: soundList.first.link,
         );
         if (!mounted) return;
-        final filePath = await _settingsService.exportToTempFile(
-          defaultSound: soundList.first.link,
-        );
-        if (!mounted) return;
-  
+
         await showDialog<void>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Backup Complete'),
+            title: const Text('Backup Saved'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Your settings have been exported.'),
+                const Text('Settings exported successfully.'),
                 const SizedBox(height: 12),
-                if (filePath != null)
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Theme.of(ctx).colorScheme.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: SelectableText(
-                      filePath,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(ctx).colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                const SizedBox(height: 12),
-                Text(
-                  'You can also copy the JSON below and save it manually.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                  child: SelectableText(
+                    filePath,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ],
@@ -1154,12 +1167,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             actions: [
               TextButton(
                 onPressed: () {
-                  // Copy JSON to clipboard
                   Clipboard.setData(ClipboardData(text: jsonStr));
                   Navigator.of(ctx).pop();
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Settings copied to clipboard')),
+                      const SnackBar(content: Text('JSON copied to clipboard')),
                     );
                   }
                 },
@@ -3050,6 +3062,20 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     startTimer();
   }
 
+  /// Add or subtract seconds to a running timer without resetting.
+  /// This preserves the exact remaining time (e.g., 9:58 + 5min = 14:58, not 15:00).
+  void addTimeToRunningTimer(int additionalSeconds) {
+    if (timerInterval == null) return; // Only works while running
+    setState(() {
+      seconds = (seconds + additionalSeconds).clamp(1, 720 * 60);
+      sliderValue = (seconds / 60).ceil().clamp(1, 720);
+      _activeTimerDurationSeconds = (_activeTimerDurationSeconds + additionalSeconds).clamp(1, 720 * 60);
+      timerValue = _formatTimerDisplayValue(seconds).split('.').first;
+      timerDisplayValue = _formatTimerDisplayValue(seconds);
+    });
+    _syncForegroundNotification(force: true);
+  }
+
   /// Two-tap confirmation for preset grid buttons.
   /// First tap → arms the button (shows visual), second tap → starts timer.
   void _onPresetTap(int val) {
@@ -3210,6 +3236,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           stopTimer: stopTimer,
           resetTimer: resetTimer,
           choosePreset: choosePreset,
+          addTimeToRunningTimer: addTimeToRunningTimer,
           armedPresetValue: _armedPresetValue,
           onPresetTap: _onPresetTap,
           onSliderChanged: (val) {
@@ -3433,25 +3460,31 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             ],
           ),
           body: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 220),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
+            duration: const Duration(milliseconds: 350),
+            switchInCurve: Curves.easeOutQuart,
+            switchOutCurve: Curves.easeInQuart,
             transitionBuilder: (child, animation) {
+              final curvedAnim = CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutQuart,
+              );
               final offsetAnim =
                   Tween<Offset>(
-                    begin: const Offset(0, 0.03),
+                    begin: const Offset(0, 0.02),
                     end: Offset.zero,
-                  ).animate(
-                    CurvedAnimation(
-                      parent: animation,
-                      curve: Curves.easeOutCubic,
-                    ),
-                  );
+                  ).animate(curvedAnim);
+              final scaleAnim = Tween<double>(
+                begin: 0.98,
+                end: 1.0,
+              ).animate(curvedAnim);
               return FadeTransition(
                 opacity: animation,
                 child: SlideTransition(
                   position: offsetAnim,
-                  child: child,
+                  child: ScaleTransition(
+                    scale: scaleAnim,
+                    child: child,
+                  ),
                 ),
               );
             },

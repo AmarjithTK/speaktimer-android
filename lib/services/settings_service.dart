@@ -24,7 +24,6 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/pref_keys.dart';
@@ -333,18 +332,27 @@ class SettingsService {
     }
   }
 
-  /// Export settings to a file in the app's temporary directory.
-  /// Returns the file path, or `null` on failure.
-  Future<String?> exportToTempFile({required String defaultSound}) async {
+  /// Export settings to a user-chosen directory with a descriptive filename.
+  /// Returns the file path, or `null` if the user cancels or on failure.
+  Future<String?> exportToUserFolder({required String defaultSound}) async {
     try {
+      final dirPath = await FilePicker.platform.getDirectoryPath(
+        dialogTitle: 'Choose backup folder',
+      );
+      if (dirPath == null) return null; // User cancelled
+
       final jsonStr = await exportToJson(defaultSound: defaultSound);
-      final dir = await getTemporaryDirectory();
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final file = File('${dir.path}/solasflow_backup_$timestamp.json');
+      final now = DateTime.now();
+      final datePart =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final timePart =
+          '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+      final filename = 'SolasFlow_Settings_${datePart}_$timePart.json';
+      final file = File('$dirPath/$filename');
       await file.writeAsString(jsonStr);
       return file.path;
     } catch (e) {
-      debugPrint('Settings export to temp file failed: $e');
+      debugPrint('Settings export failed: $e');
       return null;
     }
   }

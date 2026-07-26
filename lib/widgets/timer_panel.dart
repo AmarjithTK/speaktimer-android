@@ -24,6 +24,7 @@ class TimerPanel extends StatelessWidget {
   final VoidCallback resetTimer;
   final ValueChanged<double> onSliderChanged;
   final ValueChanged<int> choosePreset;
+  final ValueChanged<int> addTimeToRunningTimer;
 
   final int? armedPresetValue;
   final ValueChanged<int> onPresetTap;
@@ -60,6 +61,7 @@ class TimerPanel extends StatelessWidget {
     required this.resetTimer,
     required this.onSliderChanged,
     required this.choosePreset,
+    required this.addTimeToRunningTimer,
     this.armedPresetValue,
     required this.onPresetTap,
     required this.timerNoiseOn,
@@ -141,8 +143,8 @@ class TimerPanel extends StatelessWidget {
                       // Timer ring (if running/paused with progress)
                       if (isRunning || (_progress > 0 && remainingSeconds > 0))
                         SizedBox(
-                          width: 180,
-                          height: 180,
+                          width: 200,
+                          height: 200,
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
@@ -164,15 +166,18 @@ class TimerPanel extends StatelessWidget {
                                     ),
                                   ),
                                   const SizedBox(height: 4),
-                                  Text(
-                                    displayTime,
-                                    textAlign: TextAlign.center,
-                                    style: GoogleFonts.inter(
-                                      color: c.textPrimary,
-                                      fontSize: 40,
-                                      height: 0.9,
-                                      fontWeight: FontWeight.w800,
-                                      fontFeatures: const [FontFeature.tabularFigures()],
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      displayTime,
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.inter(
+                                        color: c.textPrimary,
+                                        fontSize: 56,
+                                        height: 0.9,
+                                        fontWeight: FontWeight.w800,
+                                        fontFeatures: const [FontFeature.tabularFigures()],
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -295,28 +300,9 @@ class TimerPanel extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: SecondaryButton(
-                      label: '+ 5 min',
-                      icon: Icons.add_rounded,
-                      onPressed: () => choosePreset((sliderValue + 5).clamp(1, 720)),
-                      compact: true,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 8),
-
-            // ── +5 min / -1 min adjustment (when running) ──────
-            if (isRunning)
-              Row(
-                children: [
-                  Expanded(
-                    child: SecondaryButton(
                       label: '− 1 min',
-                      onPressed: () {
-                        final newMinutes = (sliderValue - 1).clamp(1, 720);
-                        choosePreset(newMinutes);
-                      },
+                      icon: Icons.remove_rounded,
+                      onPressed: () => addTimeToRunningTimer(-60),
                       compact: true,
                     ),
                   ),
@@ -324,15 +310,14 @@ class TimerPanel extends StatelessWidget {
                   Expanded(
                     child: SecondaryButton(
                       label: '+ 5 min',
-                      onPressed: () {
-                        final newMinutes = (sliderValue + 5).clamp(1, 720);
-                        choosePreset(newMinutes);
-                      },
+                      icon: Icons.add_rounded,
+                      onPressed: () => addTimeToRunningTimer(300),
                       compact: true,
                     ),
                   ),
                 ],
-              ),
+              ],
+            ),
             const SizedBox(height: 24),
 
             // ── Quick presets ──────────────────────────────────

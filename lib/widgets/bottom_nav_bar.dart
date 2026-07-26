@@ -98,25 +98,20 @@ class _NavTab extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        if (indicatorStyle == IndicatorStyle.pill && selected)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            decoration: BoxDecoration(
-              color: colors.accentLight,
-              borderRadius: BorderRadius.circular(16),
-            ),
+        AnimatedScale(
+          scale: selected ? 1.0 : 0.85,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
             child: Icon(
-              destination.activeIcon,
+              selected ? destination.activeIcon : destination.icon,
+              key: ValueKey<bool>(selected),
               size: 22,
-              color: activeColor,
+              color: selected ? activeColor : inactiveColor,
             ),
-          )
-        else
-          Icon(
-            selected ? destination.activeIcon : destination.icon,
-            size: 22,
-            color: selected ? activeColor : inactiveColor,
           ),
+        ),
         const SizedBox(height: 4),
         Text(
           destination.label,
@@ -126,17 +121,6 @@ class _NavTab extends StatelessWidget {
             color: selected ? activeColor : inactiveColor,
           ),
         ),
-        if (indicatorStyle == IndicatorStyle.accentLine && selected) ...[
-          const SizedBox(height: 3),
-          Container(
-            width: 16,
-            height: 2,
-            decoration: BoxDecoration(
-              color: activeColor,
-              borderRadius: BorderRadius.circular(1),
-            ),
-          ),
-        ],
       ],
     );
   }

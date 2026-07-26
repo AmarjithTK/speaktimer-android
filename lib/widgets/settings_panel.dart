@@ -1,8 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../theme/palette.dart' show AppColorAccess;
-
 import '../models/sound_option.dart';
 
 class SettingsPanel extends StatefulWidget {
@@ -261,326 +259,303 @@ class _SettingsPanelState extends State<SettingsPanel> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
           // ── Audio & Speech ──────────────────────────────────
-          _sectionCard(context, Icons.volume_up_rounded, 'Audio & Speech', [
-            _settingsSwitch(
-              context,
-              icon: _speechMasterOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-              title: 'Master Audio',
-              subtitle: _speechMasterOn ? 'All audio on' : 'All audio off',
-              value: _speechMasterOn,
+          _sectionHeader(context, Icons.volume_up_rounded, 'Audio & Speech'),
+          _settingsSwitch(
+            context,
+            icon: _speechMasterOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+            title: 'Master Audio',
+            subtitle: _speechMasterOn ? 'All audio on' : 'All audio off',
+            value: _speechMasterOn,
+            onChanged: (val) {
+              setState(() => _speechMasterOn = val ?? true);
+              widget.onSpeechMasterOnChanged(val);
+            },
+          ),
+          _settingsDivider(context),
+          _settingsOption(
+            context,
+            icon: Icons.music_note_rounded,
+            title: 'Background sound',
+            value: _soundTitle(_soundChosen),
+            onTap: () => _showStringPicker(
+              context, title: 'Background sound',
+              currentValue: _soundChosen,
+              options: widget.soundList.map((s) => (s.link, s.title, null)).toList(),
               onChanged: (val) {
-                setState(() => _speechMasterOn = val ?? true);
-                widget.onSpeechMasterOnChanged(val);
+                setState(() => _soundChosen = val!);
+                widget.onSoundChanged(val);
               },
             ),
-            _settingsDivider(context),
-            _settingsOption(
-              context,
-              icon: Icons.music_note_rounded,
-              title: 'Background sound',
-              value: _soundTitle(_soundChosen),
-              onTap: () => _showStringPicker(
-                context, title: 'Background sound',
-                currentValue: _soundChosen,
-                options: widget.soundList.map((s) => (s.link, s.title, null)).toList(),
-                onChanged: (val) {
-                  setState(() => _soundChosen = val!);
-                  widget.onSoundChanged(val);
-                },
-              ),
-            ),
-            _settingsDivider(context),
-            _settingsOption(
-              context,
-              icon: Icons.volume_up_rounded,
-              title: 'Noise volume',
-              value: _getVolTitle(_noiseVolume),
-              onTap: () => _showDoublePicker(
-                context, title: 'Noise volume',
-                currentValue: _noiseVolume,
-                onChanged: (val) {
-                  setState(() => _noiseVolume = val!);
-                  widget.onNoiseVolumeChanged(val);
-                },
-              ),
-            ),
-            _settingsDivider(context),
-            _settingsOption(
-              context,
-              icon: Icons.record_voice_over_rounded,
-              title: 'Speech volume',
-              value: _getVolTitle(_speakVolume),
-              onTap: () => _showDoublePicker(
-                context, title: 'Speech volume',
-                currentValue: _speakVolume,
-                onChanged: (val) {
-                  setState(() => _speakVolume = val!);
-                  widget.onSpeakVolumeChanged(val);
-                },
-              ),
-            ),
-            _settingsDivider(context),
-            _settingsSwitch(
-              context,
-              icon: Icons.volume_up_rounded,
-              title: 'Boost TTS Volume',
-              subtitle: 'Maximum volume for speech announcements only',
-              value: _maximumSpeechVolume,
+          ),
+          _settingsDivider(context),
+          _settingsOption(
+            context,
+            icon: Icons.volume_up_rounded,
+            title: 'Noise volume',
+            value: _getVolTitle(_noiseVolume),
+            onTap: () => _showDoublePicker(
+              context, title: 'Noise volume',
+              currentValue: _noiseVolume,
               onChanged: (val) {
-                setState(() => _maximumSpeechVolume = val ?? false);
-                widget.onMaximumSpeechVolumeChanged(val);
+                setState(() => _noiseVolume = val!);
+                widget.onNoiseVolumeChanged(val);
               },
             ),
-          ]),
-          const SizedBox(height: 12),
+          ),
+          _settingsDivider(context),
+          _settingsOption(
+            context,
+            icon: Icons.record_voice_over_rounded,
+            title: 'Speech volume',
+            value: _getVolTitle(_speakVolume),
+            onTap: () => _showDoublePicker(
+              context, title: 'Speech volume',
+              currentValue: _speakVolume,
+              onChanged: (val) {
+                setState(() => _speakVolume = val!);
+                widget.onSpeakVolumeChanged(val);
+              },
+            ),
+          ),
+          _settingsDivider(context),
+          _settingsSwitch(
+            context,
+            icon: Icons.volume_up_rounded,
+            title: 'Boost TTS Volume',
+            subtitle: 'Maximum volume for speech announcements only',
+            value: _maximumSpeechVolume,
+            onChanged: (val) {
+              setState(() => _maximumSpeechVolume = val ?? false);
+              widget.onMaximumSpeechVolumeChanged(val);
+            },
+          ),
+          const SizedBox(height: 20),
 
           // ── Voice ────────────────────────────────────────────
-          _sectionCard(context, Icons.record_voice_over_rounded, 'Voice', [
-            _settingsOption(
-              context,
-              icon: Icons.spatial_audio_off_rounded,
-              title: 'Speech engine',
-              value: _speechEngineLabel(_speechEngineMode),
-              onTap: () => _showStringPicker(
-                context, title: 'Speech engine',
-                currentValue: _speechEngineMode,
-                options: speechEngineOptions,
-                onChanged: (val) {
-                  setState(() => _speechEngineMode = val!);
-                  widget.onSpeechEngineModeChanged(val);
-                },
+          _sectionHeader(context, Icons.record_voice_over_rounded, 'Voice'),
+          _settingsOption(
+            context,
+            icon: Icons.spatial_audio_off_rounded,
+            title: 'Speech engine',
+            value: _speechEngineLabel(_speechEngineMode),
+            onTap: () => _showStringPicker(
+              context, title: 'Speech engine',
+              currentValue: _speechEngineMode,
+              options: speechEngineOptions,
+              onChanged: (val) {
+                setState(() => _speechEngineMode = val!);
+                widget.onSpeechEngineModeChanged(val);
+              },
+            ),
+          ),
+          if (widget.speechEngineRuntime.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(52, 0, 14, 8),
+              child: Text(
+                '${widget.speechEngineRuntime} — ${widget.speechEngineRuntimeDetail}',
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
+                maxLines: 2,
               ),
             ),
-            if (widget.speechEngineRuntime.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(52, 0, 14, 8),
-                child: Text(
-                  '${widget.speechEngineRuntime} — ${widget.speechEngineRuntimeDetail}',
-                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
-                  maxLines: 2,
-                ),
-              ),
-            _settingsDivider(context),
-            _settingsOption(
-              context,
-              icon: Icons.language_rounded,
-              title: 'Language list',
-              value: _voiceListLabel(_voiceListMode),
-              onTap: () => _showStringPicker(
-                context, title: 'Language list',
-                currentValue: _voiceListMode,
-                options: voiceModeOptions,
-                onChanged: (val) {
-                  setState(() => _voiceListMode = val!);
-                  widget.onVoiceListModeChanged(val);
-                },
-              ),
+          _settingsDivider(context),
+          _settingsOption(
+            context,
+            icon: Icons.language_rounded,
+            title: 'Language list',
+            value: _voiceListLabel(_voiceListMode),
+            onTap: () => _showStringPicker(
+              context, title: 'Language list',
+              currentValue: _voiceListMode,
+              options: voiceModeOptions,
+              onChanged: (val) {
+                setState(() => _voiceListMode = val!);
+                widget.onVoiceListModeChanged(val);
+              },
             ),
-            _settingsDivider(context),
-            _settingsOption(
-              context,
-              icon: Icons.person_search_rounded,
-              title: 'Preferred voice',
-              value: _favoriteVoiceLabel(),
-              onTap: () => _showStringPicker(
-                context, title: 'Voice',
-                currentValue: _favoriteVoiceKey(),
-                options: voiceOptions,
-                onChanged: (val) {
-                  if (val == null || val == '__auto__') {
+          ),
+          _settingsDivider(context),
+          _settingsOption(
+            context,
+            icon: Icons.person_search_rounded,
+            title: 'Preferred voice',
+            value: _favoriteVoiceLabel(),
+            onTap: () => _showStringPicker(
+              context, title: 'Voice',
+              currentValue: _favoriteVoiceKey(),
+              options: voiceOptions,
+              onChanged: (val) {
+                if (val == null || val == '__auto__') {
+                  setState(() {
+                    _favoriteVoiceName = null;
+                    _favoriteVoiceLocale = null;
+                  });
+                } else {
+                  final parts = val.split('|');
+                  if (parts.length == 2) {
                     setState(() {
-                      _favoriteVoiceName = null;
-                      _favoriteVoiceLocale = null;
+                      _favoriteVoiceName = parts[0];
+                      _favoriteVoiceLocale = parts[1];
                     });
-                  } else {
-                    final parts = val.split('|');
-                    if (parts.length == 2) {
-                      setState(() {
-                        _favoriteVoiceName = parts[0];
-                        _favoriteVoiceLocale = parts[1];
-                      });
-                    }
                   }
-                  widget.onFavoriteVoiceChanged(val);
-                },
-              ),
+                }
+                widget.onFavoriteVoiceChanged(val);
+              },
             ),
-          ]),
-          const SizedBox(height: 12),
+          ),
+          const SizedBox(height: 20),
 
           // ── Focus & Fullscreen ────────────────────────────────
-          _sectionCard(context, Icons.fullscreen_rounded, 'Focus & Fullscreen', [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(52, 8, 14, 0),
-              child: Row(
-                children: [
-                  Text('Font size',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
-                  const Spacer(),
-                  Text('${_appFontSizeMultiplier.toStringAsFixed(1)}x',
-                    style: TextStyle(color: cs.primary, fontWeight: FontWeight.w900, fontSize: 13)),
-                ],
-              ),
+          _sectionHeader(context, Icons.fullscreen_rounded, 'Focus & Fullscreen'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(52, 8, 14, 0),
+            child: Row(
+              children: [
+                Text('Font size',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
+                const Spacer(),
+                Text('${_appFontSizeMultiplier.toStringAsFixed(1)}x',
+                  style: TextStyle(color: cs.primary, fontWeight: FontWeight.w700, fontSize: 13)),
+              ],
             ),
-            Slider(
-              value: _appFontSizeMultiplier, min: 0.8, max: 1.5, divisions: 7,
-              label: '${_appFontSizeMultiplier.toStringAsFixed(1)}x',
-              onChanged: (val) {
-                setState(() => _appFontSizeMultiplier = val);
-                widget.onAppFontSizeMultiplierChanged(val);
-              },
-            ),
-            _settingsDivider(context),
-            _settingsSwitch(context,
-              icon: Icons.dark_mode_rounded, title: 'Dark fullscreen',
-              value: _fullscreenDarkTheme,
-              onChanged: (val) {
-                setState(() => _fullscreenDarkTheme = val ?? true);
-                widget.onFullscreenDarkThemeChanged(val);
-              }),
-            _settingsDivider(context),
-            _settingsSwitch(context,
-              icon: Icons.brightness_4_rounded, title: 'Dim brightness',
-              value: _fullscreenDimBrightness,
-              onChanged: (val) {
-                setState(() => _fullscreenDimBrightness = val ?? false);
-                widget.onFullscreenDimBrightnessChanged(val);
-              }),
-            _settingsDivider(context),
-            _settingsSwitch(context,
-              icon: Icons.screen_rotation_rounded, title: 'Start landscape',
-              value: _fullscreenStartLandscape,
-              onChanged: (val) {
-                setState(() => _fullscreenStartLandscape = val ?? false);
-                widget.onFullscreenStartLandscapeChanged(val);
-              }),
-          ]),
-          const SizedBox(height: 12),
+          ),
+          Slider(
+            value: _appFontSizeMultiplier, min: 0.8, max: 1.5, divisions: 7,
+            label: '${_appFontSizeMultiplier.toStringAsFixed(1)}x',
+            onChanged: (val) {
+              setState(() => _appFontSizeMultiplier = val);
+              widget.onAppFontSizeMultiplierChanged(val);
+            },
+          ),
+          _settingsDivider(context),
+          _settingsSwitch(context,
+            icon: Icons.dark_mode_rounded, title: 'Dark fullscreen',
+            value: _fullscreenDarkTheme,
+            onChanged: (val) {
+              setState(() => _fullscreenDarkTheme = val ?? true);
+              widget.onFullscreenDarkThemeChanged(val);
+            }),
+          _settingsDivider(context),
+          _settingsSwitch(context,
+            icon: Icons.brightness_4_rounded, title: 'Dim brightness',
+            value: _fullscreenDimBrightness,
+            onChanged: (val) {
+              setState(() => _fullscreenDimBrightness = val ?? false);
+              widget.onFullscreenDimBrightnessChanged(val);
+            }),
+          _settingsDivider(context),
+          _settingsSwitch(context,
+            icon: Icons.screen_rotation_rounded, title: 'Start landscape',
+            value: _fullscreenStartLandscape,
+            onChanged: (val) {
+              setState(() => _fullscreenStartLandscape = val ?? false);
+              widget.onFullscreenStartLandscapeChanged(val);
+            }),
+          const SizedBox(height: 20),
 
           // ── Sleep Mode ────────────────────────────────────────
-          _sectionCard(context, Icons.nightlight_round, 'Sleep Mode', [
-            _settingsSwitch(context,
-              icon: Icons.nightlight_round, title: 'Enable sleep mode',
-              subtitle: 'Quiet hours for speech',
-              value: _muteSpeechAfterMidnight,
-              onChanged: (val) {
-                setState(() => _muteSpeechAfterMidnight = val ?? false);
-                widget.onMuteSpeechAfterMidnightChanged(val);
-              }),
-            if (_muteSpeechAfterMidnight) ...[
-              _settingsDivider(context),
-              _settingsOption(context,
-                icon: Icons.bedtime_rounded, title: 'Mode',
-                value: _nightMuteMode == 'automatic' ? 'Automatic' : 'Manual',
-                onTap: () => _showStringPicker(
-                  context, title: 'Sleep mode',
-                  currentValue: _nightMuteMode, options: nightModeOptions,
-                  onChanged: (val) {
-                    setState(() => _nightMuteMode = val!);
-                    widget.onNightMuteModeChanged(val);
-                  })),
-              _settingsDivider(context),
-              _settingsOption(context,
-                icon: Icons.schedule_rounded, title: 'Starts at',
-                value: widget.sleepStartLabel, onTap: widget.onPickSleepStart),
-              _settingsDivider(context),
-              _settingsOption(context,
-                icon: Icons.alarm_rounded, title: 'Ends at',
-                value: widget.sleepEndLabel, onTap: widget.onPickSleepEnd),
-            ],
-          ]),
-          const SizedBox(height: 12),
+          _sectionHeader(context, Icons.nightlight_round, 'Sleep Mode'),
+          _settingsSwitch(context,
+            icon: Icons.nightlight_round, title: 'Enable sleep mode',
+            subtitle: 'Quiet hours for speech',
+            value: _muteSpeechAfterMidnight,
+            onChanged: (val) {
+              setState(() => _muteSpeechAfterMidnight = val ?? false);
+              widget.onMuteSpeechAfterMidnightChanged(val);
+            }),
+          if (_muteSpeechAfterMidnight) ...[
+            _settingsDivider(context),
+            _settingsOption(context,
+              icon: Icons.bedtime_rounded, title: 'Mode',
+              value: _nightMuteMode == 'automatic' ? 'Automatic' : 'Manual',
+              onTap: () => _showStringPicker(
+                context, title: 'Sleep mode',
+                currentValue: _nightMuteMode, options: nightModeOptions,
+                onChanged: (val) {
+                  setState(() => _nightMuteMode = val!);
+                  widget.onNightMuteModeChanged(val);
+                })),
+            _settingsDivider(context),
+            _settingsOption(context,
+              icon: Icons.schedule_rounded, title: 'Starts at',
+              value: widget.sleepStartLabel, onTap: widget.onPickSleepStart),
+            _settingsDivider(context),
+            _settingsOption(context,
+              icon: Icons.alarm_rounded, title: 'Ends at',
+              value: widget.sleepEndLabel, onTap: widget.onPickSleepEnd),
+          ],
+          const SizedBox(height: 20),
 
           // ── System ────────────────────────────────────────────
-          _sectionCard(context, Icons.settings_rounded, 'System', [
-            SwitchListTile(
-              value: widget.accessibilityEnabled,
-              onChanged: (_) => widget.onOpenAccessibility?.call(),
-              activeThumbColor: cs.onPrimary, activeTrackColor: cs.primary,
-              secondary: Icon(Icons.power_settings_new_rounded, color: cs.primary, size: 22),
-              title: Text('Auto-start on reboot',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
-              subtitle: Text(
-                widget.accessibilityEnabled ? 'Accessibility service is ON' : 'Tap to enable',
-                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
-            ),
-            _settingsDivider(context),
-            ListTile(
-              leading: Icon(Icons.backup_rounded, color: cs.primary, size: 22),
-              title: Text('Backup settings',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
-              subtitle: Text('Export all settings as JSON',
-                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
-              trailing: Icon(Icons.file_download_outlined, color: cs.onSurfaceVariant, size: 20),
-              onTap: widget.onBackupSettings,
-            ),
-            _settingsDivider(context),
-            ListTile(
-              leading: Icon(Icons.restore_rounded, color: cs.primary, size: 22),
-              title: Text('Restore settings',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
-              subtitle: Text('Import settings from a JSON backup',
-                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
-              trailing: Icon(Icons.file_upload_outlined, color: cs.onSurfaceVariant, size: 20),
-              onTap: widget.onRestoreSettings,
-            ),
-            _settingsDivider(context),
-            ListTile(
-              leading: Icon(Icons.help_outline_rounded, color: cs.primary, size: 22),
-              title: Text('Help / Working',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
-              trailing: Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant),
-              onTap: widget.onOpenHelp,
-            ),
-            _settingsDivider(context),
-            ListTile(
-              leading: Icon(Icons.info_outline_rounded, color: cs.primary, size: 22),
-              title: Text('Built by Amarjith TK',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
-              subtitle: Text('Atherpulse Technologies',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: cs.onSurfaceVariant)),
-              trailing: Icon(Icons.open_in_new_rounded, color: cs.onSurfaceVariant, size: 20),
-              onTap: () async {
-                final url = Uri.parse('https://atherpulse.in');
-                await launchUrl(url, mode: LaunchMode.externalApplication);
-              },
-            ),
-          ]),
+          _sectionHeader(context, Icons.settings_rounded, 'System'),
+          SwitchListTile(
+            value: widget.accessibilityEnabled,
+            onChanged: (_) => widget.onOpenAccessibility?.call(),
+            activeThumbColor: cs.onPrimary, activeTrackColor: cs.primary,
+            secondary: Icon(Icons.power_settings_new_rounded, color: cs.primary, size: 22),
+            title: Text('Auto-start on reboot',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
+            subtitle: Text(
+              widget.accessibilityEnabled ? 'Accessibility service is ON' : 'Tap to enable',
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+          ),
+          _settingsDivider(context),
+          ListTile(
+            leading: Icon(Icons.backup_rounded, color: cs.primary, size: 22),
+            title: Text('Backup settings',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
+            subtitle: Text('Export all settings as JSON',
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+            trailing: Icon(Icons.file_download_outlined, color: cs.onSurfaceVariant, size: 20),
+            onTap: widget.onBackupSettings,
+          ),
+          _settingsDivider(context),
+          ListTile(
+            leading: Icon(Icons.restore_rounded, color: cs.primary, size: 22),
+            title: Text('Restore settings',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
+            subtitle: Text('Import settings from a JSON backup',
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+            trailing: Icon(Icons.file_upload_outlined, color: cs.onSurfaceVariant, size: 20),
+            onTap: widget.onRestoreSettings,
+          ),
+          _settingsDivider(context),
+          ListTile(
+            leading: Icon(Icons.help_outline_rounded, color: cs.primary, size: 22),
+            title: Text('Help / Working',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
+            trailing: Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant),
+            onTap: widget.onOpenHelp,
+          ),
+          _settingsDivider(context),
+          ListTile(
+            leading: Icon(Icons.info_outline_rounded, color: cs.primary, size: 22),
+            title: Text('Built by Amarjith TK',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
+            subtitle: Text('Atherpulse Technologies',
+              style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12, color: cs.onSurfaceVariant)),
+            trailing: Icon(Icons.open_in_new_rounded, color: cs.onSurfaceVariant, size: 20),
+            onTap: () async {
+              final url = Uri.parse('https://atherpulse.in');
+              await launchUrl(url, mode: LaunchMode.externalApplication);
+            },
+          ),
         ],
       ),
     );
   }
 
-  // ── Reusable section card ────────────────────────────────────
-  Widget _sectionCard(BuildContext context, IconData icon, String title, List<Widget> children) {
+  // ── Section header (flat, no card) ──────────────────────────
+  Widget _sectionHeader(BuildContext context, IconData icon, String title) {
     final cs = Theme.of(context).colorScheme;
-    final c = context.appColors;
-    return Material(
-      color: c.surface,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-              child: Row(
-                children: [
-                  Icon(icon, size: 18, color: cs.primary),
-                  const SizedBox(width: 8),
-                  Text(title,
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
-                ],
-              ),
-            ),
-            ...children,
-            const SizedBox(height: 4),
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: cs.primary),
+          const SizedBox(width: 8),
+          Text(title,
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: cs.onSurfaceVariant)),
+        ],
       ),
     );
   }
@@ -596,7 +571,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
       activeThumbColor: cs.onPrimary, activeTrackColor: cs.primary,
       secondary: Icon(icon, color: cs.primary, size: 22),
       title: Text(title,
-        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
+        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
       subtitle: subtitle != null
           ? Text(subtitle, style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12))
           : null,
@@ -611,7 +586,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
     return ListTile(
       leading: Icon(icon, color: cs.primary, size: 22),
       title: Text(title,
-        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
+        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
       trailing: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 160),
         child: Row(
