@@ -297,7 +297,7 @@ class TimerPanel extends StatelessWidget {
                     child: SecondaryButton(
                       label: '+ 5 min',
                       icon: Icons.add_rounded,
-                      onPressed: () => choosePreset(sliderValue + 300),
+                      onPressed: () => choosePreset((sliderValue + 5).clamp(1, 720)),
                       compact: true,
                     ),
                   ),
@@ -314,8 +314,8 @@ class TimerPanel extends StatelessWidget {
                     child: SecondaryButton(
                       label: '− 1 min',
                       onPressed: () {
-                        final newSeconds = (sliderValue - 60).clamp(60, 720 * 60);
-                        choosePreset(newSeconds);
+                        final newMinutes = (sliderValue - 1).clamp(1, 720);
+                        choosePreset(newMinutes);
                       },
                       compact: true,
                     ),
@@ -325,8 +325,8 @@ class TimerPanel extends StatelessWidget {
                     child: SecondaryButton(
                       label: '+ 5 min',
                       onPressed: () {
-                        final newSeconds = (sliderValue + 300).clamp(60, 720 * 60);
-                        choosePreset(newSeconds);
+                        final newMinutes = (sliderValue + 5).clamp(1, 720);
+                        choosePreset(newMinutes);
                       },
                       compact: true,
                     ),

@@ -551,6 +551,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// True while the focus fullscreen route is on top.
   bool _fullscreenFocusOpen = false;
 
+  /// True when the timer has finished but the dialog hasn't been
+  /// dismissed yet.  Used by the foreground notification to show
+  /// "Timer finished!" with action buttons.
+  bool _isTimerFinished = false;
+
   /// Presets shown in the timer-finished popup.
   final List<int> _timerFinishedPresetMinutes = [
     1,
@@ -665,8 +670,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         channelId: 'solasflow_fg',
         channelName: 'SolasFlow',
         channelDescription: 'Keeps timer alive in background',
-        channelImportance: NotificationChannelImportance.LOW,
-        priority: NotificationPriority.LOW,
+        channelImportance: NotificationChannelImportance.MIN,
+        priority: NotificationPriority.MIN,
       ),
       iosNotificationOptions: const IOSNotificationOptions(
         showNotification: true,
@@ -721,6 +726,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       stopwatchValue: stopwatchElapsedValue,
       currentTimeDisplay: idleTime,
       speechMasterOn: speechMasterOn,
+      isTimerFinished: _isTimerFinished,
     );
   }
 
@@ -1089,12 +1095,186 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           onOpenHelp: () {
             Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => _buildHelpTab()),
-            );
-          },
+              );
+            },
+            onBackupSettings: () => unawaited(_handleBackupSettings()),
+            onRestoreSettings: () => unawaited(_handleRestoreSettings()),
+          ),
         ),
-      ),
-    );
-  }
+      );
+    }
+  
+    Future<void> _handleBackupSettings() async {
+      if (!mounted) return;
+      try {
+        final jsonStr = await _settingsService.exportToJson(
+          defaultSound: soundList.first.link,
+        );
+        if (!mounted) return;
+        final filePath = await _settingsService.exportToTempFile(
+          defaultSound: soundList.first.link,
+        );
+        if (!mounted) return;
+  
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Backup Complete'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Your settings have been exported.'),
+                const SizedBox(height: 12),
+                if (filePath != null)
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(ctx).colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: SelectableText(
+                      filePath,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                Text(
+                  'You can also copy the JSON below and save it manually.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  // Copy JSON to clipboard
+                  Clipboard.setData(ClipboardData(text: jsonStr));
+                  Navigator.of(ctx).pop();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Settings copied to clipboard')),
+                    );
+                  }
+                },
+                child: const Text('Copy JSON'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Done'),
+              ),
+            ],
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Backup failed: $e')),
+        );
+      }
+    }
+  
+    Future<void> _handleRestoreSettings() async {
+      if (!mounted) return;
+      try {
+        final imported = await _settingsService.importFromFile();
+        if (imported == null) return; // User cancelled or error
+        if (!mounted) return;
+  
+        // Show a preview dialog before applying
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Restore Settings'),
+            content: const Text(
+              'This will replace all current settings with the imported backup. '
+              'The app will reload to apply the changes. Continue?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Restore'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true || !mounted) return;
+  
+        // Save the imported settings
+        await _settingsService.save(imported);
+        setState(() {
+          // Apply all restored settings
+          _applyRestoredSettings(imported);
+        });
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Settings restored successfully!')),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Restore failed: $e')),
+        );
+      }
+    }
+  
+    void _applyRestoredSettings(AppSettings settings) {
+      soundChosen = settings.soundChosen;
+      noiseVolume = settings.noiseVolume;
+      speakVolume = settings.speakVolume;
+      maximumSpeechVolume = settings.maximumSpeechVolume;
+      speechMasterOn = settings.speechMasterOn;
+      clockOn = settings.clockOn;
+      clockIntervalMins = settings.clockIntervalMins;
+      clockShowMilliseconds = settings.clockShowMilliseconds;
+      clockShowSeconds = settings.clockShowSeconds;
+      clockSpeakTime = settings.clockSpeakTime;
+      clockSpeakRepeatCount = settings.clockSpeakRepeatCount.clamp(1, 3);
+      clockNoiseOn = settings.clockNoiseOn;
+      motivationOn = settings.motivationOn;
+      motivationCategory = settings.motivationCategory;
+      motivationDelaySeconds = settings.motivationDelaySeconds;
+      timerSpeakOn = settings.timerSpeakOn;
+      timerAnnounceEvery = settings.timerAnnounceEvery;
+      timerShowMilliseconds = settings.timerShowMilliseconds;
+      timerNoiseOn = settings.timerNoiseOn;
+      goalReminderOn = settings.goalReminderOn;
+      goalReminderIntervalMins = settings.goalReminderIntervalMins;
+      goalReminderItems = List<String>.from(settings.goalReminderItems);
+      goalReminderNextIndex = settings.goalReminderNextIndex;
+      stopwatchShowMilliseconds = settings.stopwatchShowMilliseconds;
+      stopwatchSpeakDelaySeconds = settings.stopwatchSpeakDelaySeconds;
+      muteSpeechAfterMidnight = settings.muteSpeechAfterMidnight;
+      nightMuteMode = settings.nightMuteMode;
+      sleepStartMinutes = settings.sleepStartMinutes;
+      sleepEndMinutes = settings.sleepEndMinutes;
+      appDarkTheme = settings.appDarkTheme;
+      fullscreenDarkTheme = settings.fullscreenDarkTheme;
+      fullscreenDimBrightness = settings.fullscreenDimBrightness;
+      fullscreenStartLandscape = settings.fullscreenStartLandscape;
+      _speechLanguageService.setLanguage(
+        _speechService.normalizeVoiceLanguageMode(settings.voiceListMode),
+      );
+      speechEngineMode = _speechService.normalizeSpeechEngineMode(
+        settings.speechEngineMode,
+      );
+      favoriteVoiceName = settings.favoriteVoiceName;
+      favoriteVoiceLocale = settings.favoriteVoiceLocale;
+      setAppFontSizeMultiplier(settings.appFontSizeMultiplier);
+      setAppThemeMode(appDarkTheme);
+      _applyAudioSettings();
+      _lsSave();
+    }
 
   Future<void> _openFullscreenFocus({
     FullscreenFocusMode? specificMode,
@@ -1224,6 +1404,21 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             startStopwatch();
           }
           _syncForegroundNotification(force: true);
+          break;
+        case 'btn_timer_repeat':
+          // Repeat last finished timer from notification
+          if (_lastFinishedTimerDurationSeconds > 0) {
+            _startTimerFromMinutes(
+              (_lastFinishedTimerDurationSeconds ~/ 60).clamp(1, 720).toInt(),
+            );
+          }
+          break;
+        case 'btn_timer_dismiss':
+          setState(() {
+            _isTimerFinished = false;
+          });
+          FlutterRingtonePlayer().stop();
+          unawaited(_syncForegroundNotification(force: true));
           break;
         case 'btn_exit':
           unawaited(_exitAppFully());
@@ -2449,19 +2644,30 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           );
         }
 
+        // Play alarm/notification until user dismisses the dialog.
+        // A 30-second safety timeout prevents infinite ringing if the
+        // dialog doesn't appear or the user walks away.
         if (Platform.isAndroid && !_isAudioMuted()) {
           FlutterRingtonePlayer().playAlarm(looping: true);
-          Future.delayed(const Duration(seconds: 5), () {
+          Future.delayed(const Duration(seconds: 30), () {
             FlutterRingtonePlayer().stop();
           });
         } else {
           unawaited(
             _audioService.playNotification(
               assetPath: notifySound,
-              stopAfter: const Duration(seconds: 5),
+              stopAfter: const Duration(seconds: 10),
             ),
           );
         }
+
+        setState(() {
+          _isTimerFinished = true;
+        });
+
+        // Update foreground notification to show timer-finished state
+        // so the user can take action even from another app.
+        unawaited(_syncForegroundNotification(force: true));
 
         showTimerFinishedDialog = true;
       }
@@ -2477,6 +2683,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     FlutterRingtonePlayer().stop();
     stopTimer();
     setState(() {
+      _isTimerFinished = false;
       chainModeOn = false;
       chainIndex = 0;
       sliderValue = safeMinutes;
@@ -2500,6 +2707,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     if (!mounted) return;
     if (selectedMinutes == null) {
+      setState(() {
+        _isTimerFinished = false;
+      });
+      FlutterRingtonePlayer().stop();
+      unawaited(_syncForegroundNotification(force: true));
       if (_fullscreenFocusOpen) {
         await Navigator.of(context, rootNavigator: true).maybePop();
       }
@@ -2517,9 +2729,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       useRootNavigator: true,
       barrierDismissible: true,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Timer finished'),
-          content: StatefulBuilder(
+        return ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: AlertDialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            title: const Text('Timer finished'),
+            contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+            content: StatefulBuilder(
             builder: (context, setDialogState) {
               return SingleChildScrollView(
                 child: Column(
@@ -2597,7 +2813,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               child: const Text('Start custom'),
             ),
           ],
-        );
+        ), // AlertDialog
+      ); // ConstrainedBox
       },
     );
 
@@ -2796,6 +3013,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
 
     setState(() {
+      _isTimerFinished = false;
       timerInterval = Timer.periodic(const Duration(seconds: 1), tick);
     });
     unawaited(_saveLastTimerSeconds(seconds > 0 ? seconds : sliderValue * 60));
@@ -2825,6 +3043,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   void choosePreset(int val) {
     setState(() {
+      _isTimerFinished = false;
       sliderValue = val;
     });
     resetTimer();

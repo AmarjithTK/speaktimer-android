@@ -7,6 +7,7 @@
 // - Apply data migrations for backward compatibility across app versions
 // - Save updated preferences back to persistent storage
 // - Handle defaults for missing or corrupted preference values
+// - Export/import full settings snapshot as JSON (backup & restore)
 //
 // Architecture Pattern:
 // - Uses AppSettings data class for type-safe preference snapshots
@@ -18,6 +19,12 @@
 // If app v2.x stored sound paths as "assets/rain.mp3" but v3.x expects
 // "rain.mp3", load() automatically fixes this via _runMigrations().
 
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/pref_keys.dart';
@@ -304,5 +311,60 @@ class SettingsService {
     }
 
     await prefs.setInt(PrefKeys.settingsSchemaVersion, _currentSchemaVersion);
+  }
+
+  // ── Backup / Restore ──────────────────────────────────────────
+
+  /// Serialize all current settings to a formatted JSON string.
+  Future<String> exportToJson({required String defaultSound}) async {
+    final settings = await load(defaultSound: defaultSound);
+    return const JsonEncoder.withIndent('  ').convert(settings.toJson());
+  }
+
+  /// Deserialize settings from a JSON string.
+  /// Returns [AppSettings] on success, or `null` if parsing fails.
+  AppSettings? importFromJson(String jsonStr) {
+    try {
+      final json = const JsonDecoder().convert(jsonStr) as Map<String, dynamic>;
+      return AppSettings.fromJson(json);
+    } catch (e) {
+      debugPrint('Settings import failed: $e');
+      return null;
+    }
+  }
+
+  /// Export settings to a file in the app's temporary directory.
+  /// Returns the file path, or `null` on failure.
+  Future<String?> exportToTempFile({required String defaultSound}) async {
+    try {
+      final jsonStr = await exportToJson(defaultSound: defaultSound);
+      final dir = await getTemporaryDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final file = File('${dir.path}/solasflow_backup_$timestamp.json');
+      await file.writeAsString(jsonStr);
+      return file.path;
+    } catch (e) {
+      debugPrint('Settings export to temp file failed: $e');
+      return null;
+    }
+  }
+
+  /// Import settings from a user-selected JSON file.
+  /// Returns the imported [AppSettings] on success, or `null` on failure/cancel.
+  Future<AppSettings?> importFromFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+    );
+    if (result == null || result.files.isEmpty) return null;
+
+    try {
+      final file = File(result.files.single.path!);
+      final jsonStr = await file.readAsString();
+      return importFromJson(jsonStr);
+    } catch (e) {
+      debugPrint('Settings import failed: $e');
+      return null;
+    }
   }
 }

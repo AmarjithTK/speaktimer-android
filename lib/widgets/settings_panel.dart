@@ -50,6 +50,10 @@ class SettingsPanel extends StatefulWidget {
   final VoidCallback? onOpenAccessibility;
   final bool accessibilityEnabled;
 
+  // ── Backup & Restore callbacks ──────────────────────────────
+  final VoidCallback? onBackupSettings;
+  final VoidCallback? onRestoreSettings;
+
   const SettingsPanel({
     super.key,
     required this.soundChosen,
@@ -95,6 +99,8 @@ class SettingsPanel extends StatefulWidget {
     required this.onOpenHelp,
     this.onOpenAccessibility,
     this.accessibilityEnabled = false,
+    this.onBackupSettings,
+    this.onRestoreSettings,
   });
 
   @override
@@ -497,6 +503,26 @@ class _SettingsPanelState extends State<SettingsPanel> {
               subtitle: Text(
                 widget.accessibilityEnabled ? 'Accessibility service is ON' : 'Tap to enable',
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+            ),
+            _settingsDivider(context),
+            ListTile(
+              leading: Icon(Icons.backup_rounded, color: cs.primary, size: 22),
+              title: Text('Backup settings',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
+              subtitle: Text('Export all settings as JSON',
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+              trailing: Icon(Icons.file_download_outlined, color: cs.onSurfaceVariant, size: 20),
+              onTap: widget.onBackupSettings,
+            ),
+            _settingsDivider(context),
+            ListTile(
+              leading: Icon(Icons.restore_rounded, color: cs.primary, size: 22),
+              title: Text('Restore settings',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
+              subtitle: Text('Import settings from a JSON backup',
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+              trailing: Icon(Icons.file_upload_outlined, color: cs.onSurfaceVariant, size: 20),
+              onTap: widget.onRestoreSettings,
             ),
             _settingsDivider(context),
             ListTile(
