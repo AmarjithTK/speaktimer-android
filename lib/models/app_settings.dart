@@ -38,6 +38,8 @@ class AppSettings {
   final String? favoriteVoiceLocale;
   final bool speechMasterOn;
   final double appFontSizeMultiplier;
+  final bool backgroundPersistenceOn;
+  final double fullscreenDimBrightnessLevel;
 
   const AppSettings({
     required this.soundChosen,
@@ -79,6 +81,8 @@ class AppSettings {
     required this.favoriteVoiceLocale,
     required this.speechMasterOn,
     required this.appFontSizeMultiplier,
+    required this.backgroundPersistenceOn,
+    required this.fullscreenDimBrightnessLevel,
   });
 
   // ── JSON serialization for backup/restore ──────────────────
@@ -122,6 +126,8 @@ class AppSettings {
     'favoriteVoiceLocale': favoriteVoiceLocale,
     'speechMasterOn': speechMasterOn,
     'appFontSizeMultiplier': appFontSizeMultiplier,
+    'backgroundPersistenceOn': backgroundPersistenceOn,
+    'fullscreenDimBrightnessLevel': fullscreenDimBrightnessLevel,
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
@@ -167,5 +173,7 @@ class AppSettings {
     favoriteVoiceLocale: json['favoriteVoiceLocale'] as String?,
     speechMasterOn: json['speechMasterOn'] as bool? ?? true,
     appFontSizeMultiplier: (json['appFontSizeMultiplier'] as num?)?.toDouble() ?? 1.0,
+    backgroundPersistenceOn: json['backgroundPersistenceOn'] as bool? ?? false,
+    fullscreenDimBrightnessLevel: (json['fullscreenDimBrightnessLevel'] as num?)?.toDouble() ?? 0.08,
   );
 }

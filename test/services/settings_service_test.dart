@@ -67,6 +67,8 @@ void main() {
         favoriteVoiceName: 'Voice 1',
         favoriteVoiceLocale: 'en-US',
         speechMasterOn: true,
+        backgroundPersistenceOn: false,
+        fullscreenDimBrightnessLevel: 0.08,
       );
 
       await service.save(input);

@@ -39,4 +39,6 @@ class PrefKeys {
   static const favoriteVoiceName = 'FavoriteVoiceName';
   static const favoriteVoiceLocale = 'FavoriteVoiceLocale';
   static const appFontSizeMultiplier = 'AppFontSizeMultiplier';
+  static const backgroundPersistenceOn = 'BackgroundPersistenceOn';
+  static const fullscreenDimBrightnessLevel = 'FullscreenDimBrightnessLevel';
 }

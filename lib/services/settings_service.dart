@@ -135,6 +135,8 @@ class SettingsService {
       favoriteVoiceLocale: prefs.getString(PrefKeys.favoriteVoiceLocale),
       speechMasterOn: prefs.getBool(PrefKeys.speechMasterOn) ?? true,
       appFontSizeMultiplier: prefs.getDouble(PrefKeys.appFontSizeMultiplier) ?? 1.0,
+      backgroundPersistenceOn: prefs.getBool(PrefKeys.backgroundPersistenceOn) ?? false,
+      fullscreenDimBrightnessLevel: prefs.getDouble(PrefKeys.fullscreenDimBrightnessLevel) ?? 0.08,
     );
   }
 
@@ -251,6 +253,8 @@ class SettingsService {
 
     await prefs.setBool(PrefKeys.speechMasterOn, settings.speechMasterOn);
     await prefs.setDouble(PrefKeys.appFontSizeMultiplier, settings.appFontSizeMultiplier);
+    await prefs.setBool(PrefKeys.backgroundPersistenceOn, settings.backgroundPersistenceOn);
+    await prefs.setDouble(PrefKeys.fullscreenDimBrightnessLevel, settings.fullscreenDimBrightnessLevel);
   }
 
   Future<void> _runMigrations(SharedPreferences prefs) async {

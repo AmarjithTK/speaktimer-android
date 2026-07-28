@@ -119,7 +119,6 @@ class StopwatchPanel extends StatelessWidget {
               child: Center(
                 child: Container(
                   width: double.infinity,
-                  constraints: const BoxConstraints(minHeight: 240),
                   padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
                   decoration: BoxDecoration(
                     color: c.surface,

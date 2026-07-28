@@ -22,6 +22,7 @@ class ClockPanel extends StatelessWidget {
   final bool motivationOn;
   final String motivationCategory;
   final int motivationDelaySeconds;
+  final bool backgroundPersistenceOn;
   final List<int> clockIntervalOptions;
   final List<int> clockSpeakRepeatOptions;
   final List<String> motivationCategories;
@@ -35,6 +36,7 @@ class ClockPanel extends StatelessWidget {
   final ValueChanged<bool?> onMotivationChanged;
   final ValueChanged<String?> onMotivationCategoryChanged;
   final ValueChanged<int?> onMotivationDelayChanged;
+  final ValueChanged<bool?> onBackgroundPersistenceChanged;
 
   const ClockPanel({
     super.key,
@@ -64,6 +66,8 @@ class ClockPanel extends StatelessWidget {
     required this.onMotivationChanged,
     required this.onMotivationCategoryChanged,
     required this.onMotivationDelayChanged,
+    required this.backgroundPersistenceOn,
+    required this.onBackgroundPersistenceChanged,
   });
 
   ({String time, String? suffix}) _splitClockDisplay(String value) {
@@ -178,6 +182,18 @@ class ClockPanel extends StatelessWidget {
                   label: 'Quotes',
                   active: motivationOn,
                   onTap: () => onMotivationChanged(!motivationOn),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // ── Background persistence toggle row ──────────────
+            Row(
+              children: [
+                _FeatureToggle(
+                  icon: Icons.phonelink_lock_rounded,
+                  label: 'Background',
+                  active: backgroundPersistenceOn,
+                  onTap: () => onBackgroundPersistenceChanged(!backgroundPersistenceOn),
                 ),
               ],
             ),

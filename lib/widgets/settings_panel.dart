@@ -26,6 +26,7 @@ class SettingsPanel extends ConsumerStatefulWidget {
   final ValueChanged<double?> onAppFontSizeMultiplierChanged;
   final ValueChanged<bool?> onFullscreenDarkThemeChanged;
   final ValueChanged<bool?> onFullscreenDimBrightnessChanged;
+  final ValueChanged<double?> onFullscreenDimBrightnessLevelChanged;
   final ValueChanged<bool?> onFullscreenStartLandscapeChanged;
   final ValueChanged<bool?> onMuteSpeechAfterMidnightChanged;
   final ValueChanged<String?> onNightMuteModeChanged;
@@ -59,6 +60,7 @@ class SettingsPanel extends ConsumerStatefulWidget {
     required this.onAppFontSizeMultiplierChanged,
     required this.onFullscreenDarkThemeChanged,
     required this.onFullscreenDimBrightnessChanged,
+    required this.onFullscreenDimBrightnessLevelChanged,
     required this.onFullscreenStartLandscapeChanged,
     required this.onMuteSpeechAfterMidnightChanged,
     required this.onNightMuteModeChanged,
@@ -348,6 +350,30 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
               notifier.updateFullscreenDimBrightness(val ?? false);
               widget.onFullscreenDimBrightnessChanged(val);
             }),
+          if (s.fullscreenDimBrightness) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Icon(Icons.brightness_low_rounded, size: 18, color: Theme.of(context).colorScheme.onSurface.withAlpha(150)),
+                  Expanded(
+                    child: Slider(
+                      value: s.fullscreenDimBrightnessLevel,
+                      min: 0.01,
+                      max: 0.5,
+                      divisions: 49,
+                      label: '${(s.fullscreenDimBrightnessLevel * 100).round()}%',
+                      onChanged: (val) {
+                        notifier.updateFullscreenDimBrightnessLevel(val);
+                        widget.onFullscreenDimBrightnessLevelChanged(val);
+                      },
+                    ),
+                  ),
+                  Icon(Icons.brightness_high_rounded, size: 18, color: Theme.of(context).colorScheme.onSurface.withAlpha(150)),
+                ],
+              ),
+            ),
+          ],
           _settingsDivider(context),
           _settingsSwitch(context,
             icon: Icons.screen_rotation_rounded, title: 'Start landscape',

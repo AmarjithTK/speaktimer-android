@@ -20,6 +20,7 @@ class FullscreenFocusView extends StatefulWidget {
   final bool initialDimBrightness;
   final bool initialForceLandscape;
   final bool initialShowClock;
+  final double initialDimBrightnessLevel;
   final bool startImmersive;
   final ValueChanged<bool>? onThemeChanged;
   final ValueChanged<bool>? onDimBrightnessChanged;
@@ -47,6 +48,7 @@ class FullscreenFocusView extends StatefulWidget {
     required this.initialDimBrightness,
     required this.initialForceLandscape,
     this.initialShowClock = false,
+    this.initialDimBrightnessLevel = 0.08,
     this.startImmersive = false,
     this.onThemeChanged,
     this.onDimBrightnessChanged,
@@ -70,6 +72,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   bool _darkTheme = true;
   bool _forceLandscape = false;
   bool _dimBrightness = false;
+  double _dimBrightnessLevel = 0.08;
   bool _showClock = false;
   bool _showEntryHint = true;
   bool _showExitHint = true;
@@ -87,6 +90,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
     _mode = widget.initialMode;
     _darkTheme = widget.initialDarkTheme;
     _dimBrightness = widget.initialDimBrightness;
+    _dimBrightnessLevel = widget.initialDimBrightnessLevel;
     _forceLandscape = widget.initialForceLandscape;
     _showClock = widget.initialShowClock;
     _showControls = !widget.startImmersive;
@@ -165,7 +169,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   Future<void> _applyBrightness() async {
     try {
       if (_dimBrightness) {
-        await ScreenBrightness.instance.setApplicationScreenBrightness(0.08);
+        await ScreenBrightness.instance.setApplicationScreenBrightness(_dimBrightnessLevel);
       } else {
         await ScreenBrightness.instance.resetApplicationScreenBrightness();
       }
@@ -494,7 +498,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                       decoration: BoxDecoration(
                         color: surface,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: outline, width: 1),
+                        border: Border.all(color: outline, width: 2.5),
                       ),
                       child: Text(
                         _stripClockSuffix(_clockText),

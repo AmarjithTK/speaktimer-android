@@ -525,6 +525,12 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   bool fullscreenStartLandscape = false;
   bool fullscreenShowClock = false;
 
+  /// Keep app running in background (foreground service when idle)
+  bool backgroundPersistenceOn = false;
+
+  /// Brightness level when dim mode is enabled in fullscreen (0.0 = black, 1.0 = full)
+  double fullscreenDimBrightnessLevel = 0.08;
+
   /// Enable/disable timer completion announcements
   bool timerSpeakOn = true;
 
@@ -749,7 +755,19 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   Future<void> _initializeForegroundNotification() async {
     if (!_supportsForegroundTask) return;
     await _requestPermissions();
-    await _ensureForegroundServiceRunning();
+    // Only start foreground service on init if background persistence is enabled
+    if (backgroundPersistenceOn) {
+      await _ensureForegroundServiceRunning();
+    }
+  }
+
+  Future<void> _stopForegroundService() async {
+    if (!_supportsForegroundTask) return;
+    try {
+      await FlutterForegroundTask.stopService();
+    } on MissingPluginException {
+    } on PlatformException {
+    }
   }
 
   void _startForegroundHealthCheck() {
@@ -757,6 +775,11 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     foregroundHealthTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (!mounted) return;
       if (timerInterval == null && stopwatchInterval == null && !clockOn) {
+        return;
+      }
+      // Only keep foreground service alive if background persistence is on,
+      // or if there's active content (timer/stopwatch/clock)
+      if (!backgroundPersistenceOn && timerInterval == null && stopwatchInterval == null && !clockOn) {
         return;
       }
       unawaited(_ensureForegroundServiceRunning());
@@ -983,6 +1006,12 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
           onFullscreenDimBrightnessChanged: (val) {
             setState(() {
               fullscreenDimBrightness = val ?? false;
+              _lsSave();
+            });
+          },
+          onFullscreenDimBrightnessLevelChanged: (val) {
+            setState(() {
+              fullscreenDimBrightnessLevel = val ?? 0.08;
               _lsSave();
             });
           },
@@ -1265,6 +1294,8 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
       );
       favoriteVoiceName = settings.favoriteVoiceName;
       favoriteVoiceLocale = settings.favoriteVoiceLocale;
+      backgroundPersistenceOn = settings.backgroundPersistenceOn;
+      fullscreenDimBrightnessLevel = settings.fullscreenDimBrightnessLevel;
       setAppFontSizeMultiplier(settings.appFontSizeMultiplier);
       setAppThemeMode(appDarkTheme);
       _applyAudioSettings();
@@ -1291,6 +1322,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
               initialMode: initialMode,
               initialDarkTheme: fullscreenDarkTheme,
               initialDimBrightness: fullscreenDimBrightness,
+              initialDimBrightnessLevel: fullscreenDimBrightnessLevel,
               initialForceLandscape: forceHorizontal
                   ? true
                   : fullscreenStartLandscape,
@@ -1519,6 +1551,8 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
       favoriteVoiceName = settings.favoriteVoiceName;
       favoriteVoiceLocale = settings.favoriteVoiceLocale;
       speechMasterOn = settings.speechMasterOn;
+      backgroundPersistenceOn = settings.backgroundPersistenceOn;
+      fullscreenDimBrightnessLevel = settings.fullscreenDimBrightnessLevel;
       setAppFontSizeMultiplier(settings.appFontSizeMultiplier);
 
       if (!motivationCategories.contains(motivationCategory)) {
@@ -1643,6 +1677,8 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
       favoriteVoiceLocale: favoriteVoiceLocale,
       speechMasterOn: speechMasterOn,
       appFontSizeMultiplier: appFontSizeNotifier.value,
+      backgroundPersistenceOn: backgroundPersistenceOn,
+      fullscreenDimBrightnessLevel: fullscreenDimBrightnessLevel,
     );
   }
 
@@ -1770,6 +1806,8 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
         seconds = mins * 60;
         final m = mins.toString().padLeft(2, '0');
         timerValue = '$m:00';
+        // Ensure clock patch shows in fullscreen timer when triggered from widget
+        fullscreenShowClock = true;
       });
       startTimer();
       _openFullscreenFocus(
@@ -3054,7 +3092,9 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
       unawaited(_saveLastTimerSeconds(seconds));
     }
     timerInterval?.cancel();
-    timerInterval = null;
+    setState(() {
+      timerInterval = null;
+    });
     _applyAudioSettings();
     _syncForegroundNotification(force: true);
   }
@@ -3220,6 +3260,19 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
               motivationDelaySeconds = val;
               _lsSave();
             });
+          },
+          backgroundPersistenceOn: backgroundPersistenceOn,
+          onBackgroundPersistenceChanged: (val) {
+            final nowOn = val ?? false;
+            setState(() {
+              backgroundPersistenceOn = nowOn;
+              _lsSave();
+            });
+            if (nowOn) {
+              _ensureForegroundServiceRunning();
+            } else {
+              _stopForegroundService();
+            }
           },
         ),
       ),

@@ -38,6 +38,7 @@ class SettingsState {
   final bool appDarkTheme;
   final bool fullscreenDarkTheme;
   final bool fullscreenDimBrightness;
+  final double fullscreenDimBrightnessLevel;
   final bool fullscreenStartLandscape;
   final bool fullscreenShowClock;
   final String voiceListMode;
@@ -79,6 +80,7 @@ class SettingsState {
     required this.appDarkTheme,
     required this.fullscreenDarkTheme,
     required this.fullscreenDimBrightness,
+    required this.fullscreenDimBrightnessLevel,
     required this.fullscreenStartLandscape,
     required this.fullscreenShowClock,
     required this.voiceListMode,
@@ -121,6 +123,7 @@ class SettingsState {
     appDarkTheme: false,
     fullscreenDarkTheme: true,
     fullscreenDimBrightness: false,
+    fullscreenDimBrightnessLevel: 0.08,
     fullscreenStartLandscape: false,
     fullscreenShowClock: false,
     voiceListMode: 'auto',
@@ -161,6 +164,7 @@ class SettingsState {
     appDarkTheme: s.appDarkTheme,
     fullscreenDarkTheme: s.fullscreenDarkTheme,
     fullscreenDimBrightness: s.fullscreenDimBrightness,
+    fullscreenDimBrightnessLevel: s.fullscreenDimBrightnessLevel,
     fullscreenStartLandscape: s.fullscreenStartLandscape,
     fullscreenShowClock: s.fullscreenShowClock,
     voiceListMode: s.voiceListMode,
@@ -203,6 +207,7 @@ class SettingsState {
     bool? appDarkTheme,
     bool? fullscreenDarkTheme,
     bool? fullscreenDimBrightness,
+    double? fullscreenDimBrightnessLevel,
     bool? fullscreenStartLandscape,
     bool? fullscreenShowClock,
     String? voiceListMode,
@@ -244,6 +249,7 @@ class SettingsState {
       appDarkTheme: appDarkTheme ?? this.appDarkTheme,
       fullscreenDarkTheme: fullscreenDarkTheme ?? this.fullscreenDarkTheme,
       fullscreenDimBrightness: fullscreenDimBrightness ?? this.fullscreenDimBrightness,
+      fullscreenDimBrightnessLevel: fullscreenDimBrightnessLevel ?? this.fullscreenDimBrightnessLevel,
       fullscreenStartLandscape: fullscreenStartLandscape ?? this.fullscreenStartLandscape,
       fullscreenShowClock: fullscreenShowClock ?? this.fullscreenShowClock,
       voiceListMode: voiceListMode ?? this.voiceListMode,
@@ -294,6 +300,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
   void updateAppDarkTheme(bool value) => state = state.copyWith(appDarkTheme: value);
   void updateFullscreenDarkTheme(bool value) => state = state.copyWith(fullscreenDarkTheme: value);
   void updateFullscreenDimBrightness(bool value) => state = state.copyWith(fullscreenDimBrightness: value);
+  void updateFullscreenDimBrightnessLevel(double value) => state = state.copyWith(fullscreenDimBrightnessLevel: value);
   void updateFullscreenStartLandscape(bool value) => state = state.copyWith(fullscreenStartLandscape: value);
   void updateFullscreenShowClock(bool value) => state = state.copyWith(fullscreenShowClock: value);
   void updateVoiceListMode(String value) => state = state.copyWith(voiceListMode: value);
