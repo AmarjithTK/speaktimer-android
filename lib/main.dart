@@ -97,6 +97,9 @@ import 'widgets/help_panel.dart';
 import 'widgets/bottom_nav_bar.dart';
 import 'services/voice_session_manager.dart';
 import 'services/speech_language_service.dart';
+import 'services/session_log_service.dart';
+import 'models/session_log.dart';
+import 'widgets/dashboard_screen.dart';
 
 final ValueNotifier<ThemeMode> appThemeModeNotifier = ValueNotifier(
   ThemeMode.light,
@@ -259,6 +262,15 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   /// Cycles through motivational quotes by category
   /// Encapsulates quote rotation state and list management
   final QuoteRotationService _quoteRotationService = QuoteRotationService();
+
+  /// Session log service for study/non-study tagging
+  final SessionLogService _sessionLogService = SessionLogService();
+
+  /// Session recording state — captured when timer starts
+  DateTime? _sessionStartTime;
+
+  /// Today's summary display string for the timer panel
+  String _todaySummary = '';
 
   /// Manages Android foreground service & persistent notifications
   /// Keeps app alive during long timer sessions
@@ -527,6 +539,10 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
 
   /// Keep app running in background (foreground service when idle)
   bool backgroundPersistenceOn = false;
+
+  /// Study/non-study session tagging feature (opt-in)
+  bool taggingOn = false;
+  String sessionTag = 'study';
 
   /// Brightness level when dim mode is enabled in fullscreen (0.0 = black, 1.0 = full)
   double fullscreenDimBrightnessLevel = 0.08;
@@ -1296,6 +1312,8 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
       favoriteVoiceLocale = settings.favoriteVoiceLocale;
       backgroundPersistenceOn = settings.backgroundPersistenceOn;
       fullscreenDimBrightnessLevel = settings.fullscreenDimBrightnessLevel;
+      taggingOn = settings.taggingOn;
+      sessionTag = settings.sessionTag;
       setAppFontSizeMultiplier(settings.appFontSizeMultiplier);
       setAppThemeMode(appDarkTheme);
       _applyAudioSettings();
@@ -1553,6 +1571,8 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
       speechMasterOn = settings.speechMasterOn;
       backgroundPersistenceOn = settings.backgroundPersistenceOn;
       fullscreenDimBrightnessLevel = settings.fullscreenDimBrightnessLevel;
+      taggingOn = settings.taggingOn;
+      sessionTag = settings.sessionTag;
       setAppFontSizeMultiplier(settings.appFontSizeMultiplier);
 
       if (!motivationCategories.contains(motivationCategory)) {
@@ -1595,6 +1615,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     _applyAudioSettings();
     setAppThemeMode(appDarkTheme);
     _restartGoalReminderTimer();
+    _refreshTodaySummary();
     unawaited(_writeWidgetState());
     if (clockOn) {
       Future.delayed(const Duration(milliseconds: 200), startClock);
@@ -1679,12 +1700,90 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
       appFontSizeMultiplier: appFontSizeNotifier.value,
       backgroundPersistenceOn: backgroundPersistenceOn,
       fullscreenDimBrightnessLevel: fullscreenDimBrightnessLevel,
+      taggingOn: taggingOn,
+      sessionTag: sessionTag,
     );
   }
 
   void _lsSave() {
     unawaited(_settingsService.save(_currentSettingsSnapshot()));
     unawaited(_writeWidgetState());
+  }
+
+  /// Log the current timer session to persistent storage (tagging only).
+  void _logCurrentSession(int elapsedSeconds) {
+    if (_sessionStartTime == null) return;
+    final session = SessionLog(
+      startTime: _sessionStartTime!,
+      endTime: DateTime.now(),
+      durationSeconds: elapsedSeconds,
+      tag: sessionTag,
+    );
+    _sessionStartTime = null;
+    unawaited(_sessionLogService.logSession(session));
+    _refreshTodaySummary();
+  }
+
+  /// Refresh the today summary string shown in the timer panel.
+  void _refreshTodaySummary() async {
+    if (!taggingOn) {
+      if (_todaySummary.isNotEmpty) setState(() => _todaySummary = '');
+      return;
+    }
+    final summary = await _sessionLogService.getDailySummary(DateTime.now());
+    if (!mounted) return;
+    final parts = <String>[];
+    if (summary.studySeconds > 0) parts.add('Study ${summary.studyFormatted}');
+    if (summary.nonStudySeconds > 0) parts.add('Non-study ${summary.nonStudyFormatted}');
+    setState(() => _todaySummary = parts.join(' · '));
+  }
+
+  /// Show a dialog to pick Study or Non-study when launched from widget.
+  /// Returns the selected tag string, or null if cancelled.
+  Future<String?> _showTagSelectionDialog() async {
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'Session Tag',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+        content: const Text(
+          'How will you use this timer?',
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () => Navigator.of(ctx).pop('study'),
+            icon: const Icon(Icons.menu_book_rounded),
+            label: const Text('Study'),
+          ),
+          TextButton.icon(
+            onPressed: () => Navigator.of(ctx).pop('non-study'),
+            icon: const Icon(Icons.hourglass_top_rounded),
+            label: const Text('Non-study'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Start a preset timer from widget (extracted for reuse with tag dialog).
+  void _startPresetFromWidget(int mins) {
+    setState(() {
+      currentTabIndex = 1;
+      chainModeOn = false;
+      seconds = mins * 60;
+      final m = mins.toString().padLeft(2, '0');
+      timerValue = '$m:00';
+      fullscreenShowClock = true;
+    });
+    startTimer();
+    _openFullscreenFocus(
+      specificMode: FullscreenFocusMode.timer,
+      forceHorizontal: true,
+      startImmersive: true,
+    );
   }
 
   /// Writes current toggle states + timer display to Android SharedPreferences
@@ -1800,21 +1899,19 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
 
     if (presetMap.containsKey(type)) {
       final mins = presetMap[type]!;
-      setState(() {
-        currentTabIndex = 1;
-        chainModeOn = false;
-        seconds = mins * 60;
-        final m = mins.toString().padLeft(2, '0');
-        timerValue = '$m:00';
-        // Ensure clock patch shows in fullscreen timer when triggered from widget
-        fullscreenShowClock = true;
-      });
-      startTimer();
-      _openFullscreenFocus(
-        specificMode: FullscreenFocusMode.timer,
-        forceHorizontal: true,
-        startImmersive: true,
-      );
+      // If tagging is ON, show tag selection dialog first
+      if (taggingOn) {
+        final selectedTag = await _showTagSelectionDialog();
+        if (selectedTag != null) {
+          setState(() {
+            sessionTag = selectedTag;
+            _lsSave();
+          });
+          _startPresetFromWidget(mins);
+        }
+      } else {
+        _startPresetFromWidget(mins);
+      }
       return;
     }
 
@@ -3082,12 +3179,23 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
       _isTimerFinished = false;
       timerInterval = Timer.periodic(const Duration(seconds: 1), tick);
     });
+    // Capture session start time for tagging
+    if (taggingOn) {
+      _sessionStartTime = DateTime.now();
+    }
     unawaited(_saveLastTimerSeconds(seconds > 0 ? seconds : sliderValue * 60));
     _applyAudioSettings();
     _syncForegroundNotification(force: true);
   }
 
   void stopTimer() {
+    // Log session before stopping (if tagging enabled and session was recorded)
+    if (taggingOn && _sessionStartTime != null && timerInterval != null) {
+      final elapsed = _activeTimerDurationSeconds - seconds;
+      if (elapsed > 0) {
+        _logCurrentSession(elapsed);
+      }
+    }
     if (seconds > 0) {
       unawaited(_saveLastTimerSeconds(seconds));
     }
@@ -3370,6 +3478,27 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
               chainIndex = 0;
               _lsSave();
             });
+          },
+          taggingOn: taggingOn,
+          sessionTag: sessionTag,
+          todaySummary: _todaySummary,
+          onTaggingOnChanged: (val) {
+            setState(() {
+              taggingOn = val;
+              _lsSave();
+            });
+            if (val) _refreshTodaySummary();
+          },
+          onSessionTagChanged: (val) {
+            setState(() {
+              sessionTag = val;
+              _lsSave();
+            });
+          },
+          onDashboardPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const DashboardScreen()),
+            );
           },
         ),
       ),

@@ -137,6 +137,8 @@ class SettingsService {
       appFontSizeMultiplier: prefs.getDouble(PrefKeys.appFontSizeMultiplier) ?? 1.0,
       backgroundPersistenceOn: prefs.getBool(PrefKeys.backgroundPersistenceOn) ?? false,
       fullscreenDimBrightnessLevel: prefs.getDouble(PrefKeys.fullscreenDimBrightnessLevel) ?? 0.08,
+      taggingOn: prefs.getBool(PrefKeys.taggingOn) ?? false,
+      sessionTag: prefs.getString(PrefKeys.sessionTag) ?? 'study',
     );
   }
 
@@ -255,6 +257,8 @@ class SettingsService {
     await prefs.setDouble(PrefKeys.appFontSizeMultiplier, settings.appFontSizeMultiplier);
     await prefs.setBool(PrefKeys.backgroundPersistenceOn, settings.backgroundPersistenceOn);
     await prefs.setDouble(PrefKeys.fullscreenDimBrightnessLevel, settings.fullscreenDimBrightnessLevel);
+    await prefs.setBool(PrefKeys.taggingOn, settings.taggingOn);
+    await prefs.setString(PrefKeys.sessionTag, settings.sessionTag);
   }
 
   Future<void> _runMigrations(SharedPreferences prefs) async {

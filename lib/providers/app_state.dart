@@ -47,6 +47,8 @@ class SettingsState {
   final String? favoriteVoiceLocale;
   final bool speechMasterOn;
   final double appFontSizeMultiplier;
+  final bool taggingOn;
+  final String sessionTag;
 
   const SettingsState({
     required this.soundChosen,
@@ -89,6 +91,8 @@ class SettingsState {
     this.favoriteVoiceLocale,
     required this.speechMasterOn,
     required this.appFontSizeMultiplier,
+    required this.taggingOn,
+    required this.sessionTag,
   });
 
   factory SettingsState.defaults() => const SettingsState(
@@ -130,6 +134,8 @@ class SettingsState {
     speechEngineMode: 'auto',
     speechMasterOn: true,
     appFontSizeMultiplier: 1.0,
+    taggingOn: false,
+    sessionTag: 'study',
   );
 
   factory SettingsState.fromAppSettings(AppSettings s) => SettingsState(
@@ -173,6 +179,8 @@ class SettingsState {
     favoriteVoiceLocale: s.favoriteVoiceLocale,
     speechMasterOn: s.speechMasterOn,
     appFontSizeMultiplier: s.appFontSizeMultiplier,
+    taggingOn: s.taggingOn,
+    sessionTag: s.sessionTag,
   );
 
   SettingsState copyWith({
@@ -216,6 +224,8 @@ class SettingsState {
     String? Function()? favoriteVoiceLocale,
     bool? speechMasterOn,
     double? appFontSizeMultiplier,
+    bool? taggingOn,
+    String? sessionTag,
   }) {
     return SettingsState(
       soundChosen: soundChosen ?? this.soundChosen,
@@ -258,6 +268,8 @@ class SettingsState {
       favoriteVoiceLocale: favoriteVoiceLocale != null ? favoriteVoiceLocale() : this.favoriteVoiceLocale,
       speechMasterOn: speechMasterOn ?? this.speechMasterOn,
       appFontSizeMultiplier: appFontSizeMultiplier ?? this.appFontSizeMultiplier,
+      taggingOn: taggingOn ?? this.taggingOn,
+      sessionTag: sessionTag ?? this.sessionTag,
     );
   }
 }
@@ -312,6 +324,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
     );
   }
   void updateAppFontSizeMultiplier(double value) => state = state.copyWith(appFontSizeMultiplier: value);
+  void updateTaggingOn(bool value) => state = state.copyWith(taggingOn: value);
+  void updateSessionTag(String value) => state = state.copyWith(sessionTag: value);
   void updateStopwatchShowMilliseconds(bool value) => state = state.copyWith(stopwatchShowMilliseconds: value);
   void updateStopwatchSpeakDelaySeconds(int value) => state = state.copyWith(stopwatchSpeakDelaySeconds: value);
 }

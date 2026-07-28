@@ -41,4 +41,6 @@ class PrefKeys {
   static const appFontSizeMultiplier = 'AppFontSizeMultiplier';
   static const backgroundPersistenceOn = 'BackgroundPersistenceOn';
   static const fullscreenDimBrightnessLevel = 'FullscreenDimBrightnessLevel';
+  static const taggingOn = 'TaggingOn';
+  static const sessionTag = 'SessionTag';
 }

@@ -50,6 +50,14 @@ class TimerPanel extends StatelessWidget {
   final VoidCallback onFullscreenImmersivePressed;
   final VoidCallback onExitApp;
 
+  // Tagging (study/non-study)
+  final bool taggingOn;
+  final String sessionTag;
+  final ValueChanged<bool> onTaggingOnChanged;
+  final ValueChanged<String> onSessionTagChanged;
+  final String todaySummary;
+  final VoidCallback onDashboardPressed;
+
   const TimerPanel({
     super.key,
     required this.timerValue,
@@ -86,6 +94,12 @@ class TimerPanel extends StatelessWidget {
     required this.onFullscreenPressed,
     required this.onFullscreenImmersivePressed,
     required this.onExitApp,
+    required this.taggingOn,
+    required this.sessionTag,
+    required this.onTaggingOnChanged,
+    required this.onSessionTagChanged,
+    required this.todaySummary,
+    required this.onDashboardPressed,
   });
 
   (String, String, String?) _splitTimer(String value) {
@@ -361,6 +375,82 @@ class TimerPanel extends StatelessWidget {
                 ),
               ],
             ),
+
+            // ── Tagging toggle + Study/Non-Study selector ──────
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                _FeatureToggle(
+                  icon: Icons.label_rounded,
+                  label: 'Tagging',
+                  active: taggingOn,
+                  onTap: () => onTaggingOnChanged(!taggingOn),
+                ),
+              ],
+            ),
+            if (taggingOn) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _FeatureToggle(
+                    icon: Icons.menu_book_rounded,
+                    label: 'Study',
+                    active: sessionTag == 'study',
+                    onTap: () => onSessionTagChanged('study'),
+                  ),
+                  const SizedBox(width: 10),
+                  _FeatureToggle(
+                    icon: Icons.hourglass_top_rounded,
+                    label: 'Non-study',
+                    active: sessionTag == 'non-study',
+                    onTap: () => onSessionTagChanged('non-study'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Time Utilization dashboard entry
+              GestureDetector(
+                onTap: onDashboardPressed,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: c.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: c.surfaceBorder),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.analytics_rounded, color: c.accent, size: 22),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Time Utilization',
+                              style: GoogleFonts.inter(
+                                color: c.textPrimary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (todaySummary.isNotEmpty)
+                              Text(
+                                todaySummary,
+                                style: GoogleFonts.inter(
+                                  color: c.textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded, color: c.textMuted, size: 20),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
 
             // ── Inline timer options (no bottom sheet) ──────────

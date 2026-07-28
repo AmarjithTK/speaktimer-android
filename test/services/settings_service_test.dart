@@ -18,7 +18,7 @@ void main() {
 
       expect(loaded.soundChosen, 'audio/rain.mp3');
       expect(prefs.getString(PrefKeys.soundChosen), 'audio/rain.mp3');
-      expect(prefs.getInt(PrefKeys.settingsSchemaVersion), 7);
+      expect(prefs.getInt(PrefKeys.settingsSchemaVersion), 8);
     });
   });
 
@@ -69,6 +69,8 @@ void main() {
         speechMasterOn: true,
         backgroundPersistenceOn: false,
         fullscreenDimBrightnessLevel: 0.08,
+        taggingOn: false,
+        sessionTag: 'study',
       );
 
       await service.save(input);

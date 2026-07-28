@@ -40,6 +40,8 @@ class AppSettings {
   final double appFontSizeMultiplier;
   final bool backgroundPersistenceOn;
   final double fullscreenDimBrightnessLevel;
+  final bool taggingOn;
+  final String sessionTag;
 
   const AppSettings({
     required this.soundChosen,
@@ -83,6 +85,8 @@ class AppSettings {
     required this.appFontSizeMultiplier,
     required this.backgroundPersistenceOn,
     required this.fullscreenDimBrightnessLevel,
+    required this.taggingOn,
+    required this.sessionTag,
   });
 
   // ── JSON serialization for backup/restore ──────────────────
@@ -128,6 +132,8 @@ class AppSettings {
     'appFontSizeMultiplier': appFontSizeMultiplier,
     'backgroundPersistenceOn': backgroundPersistenceOn,
     'fullscreenDimBrightnessLevel': fullscreenDimBrightnessLevel,
+    'taggingOn': taggingOn,
+    'sessionTag': sessionTag,
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
@@ -175,5 +181,7 @@ class AppSettings {
     appFontSizeMultiplier: (json['appFontSizeMultiplier'] as num?)?.toDouble() ?? 1.0,
     backgroundPersistenceOn: json['backgroundPersistenceOn'] as bool? ?? false,
     fullscreenDimBrightnessLevel: (json['fullscreenDimBrightnessLevel'] as num?)?.toDouble() ?? 0.08,
+    taggingOn: json['taggingOn'] as bool? ?? false,
+    sessionTag: json['sessionTag'] as String? ?? 'study',
   );
 }
