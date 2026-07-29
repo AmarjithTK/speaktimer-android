@@ -81,13 +81,16 @@ class PresetGrid extends StatelessWidget {
                   } else if (showCustomButton && i == presets.length) {
                     rowItems.add(
                       Expanded(
-                        child: _PresetChip(
-                          label: '',
-                          selected: false,
-                          armed: false,
-                          colors: colors,
-                          onTap: onCustomTap ?? () {},
-                          iconOnly: true,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: spacing),
+                          child: _PresetChip(
+                            label: '',
+                            selected: false,
+                            armed: false,
+                            colors: colors,
+                            onTap: onCustomTap ?? () {},
+                            iconOnly: true,
+                          ),
                         ),
                       ),
                     );

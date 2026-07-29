@@ -753,7 +753,20 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     );
   }
 
+  /// Whether any active feature needs the foreground notification.
+  bool get _isAnythingActive =>
+      timerInterval != null ||
+      stopwatchInterval != null ||
+      clockOn ||
+      _isTimerFinished;
+
   Future<void> _syncForegroundNotification({bool force = false}) async {
+    // Only keep the foreground service alive when something is active.
+    // This prevents notification competition with other apps and saves battery.
+    if (!_isAnythingActive) {
+      await _stopForegroundService();
+      return;
+    }
     lastNotificationSyncMs = await _foregroundNotificationService.sync(
       state: _foregroundState(),
       lastSyncMs: lastNotificationSyncMs,
@@ -762,6 +775,8 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   }
 
   Future<void> _ensureForegroundServiceRunning() async {
+    // Only start the foreground service when something actually needs it.
+    if (!_isAnythingActive) return;
     await _foregroundNotificationService.ensureRunning(
       state: _foregroundState(),
       callback: startCallback,
@@ -1511,7 +1526,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
         });
       }
 
-      if (timerInterval == null) {
+      if (timerInterval == null && _isAnythingActive) {
         _idleNotificationTicks = (_idleNotificationTicks + 1) % 4;
         if (_idleNotificationTicks == 0) {
           _syncForegroundNotification();
