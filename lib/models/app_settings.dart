@@ -32,6 +32,7 @@ class AppSettings {
   final bool fullscreenDimBrightness;
   final bool fullscreenStartLandscape;
   final bool fullscreenShowClock;
+  final double fullscreenClockScale;
   final String voiceListMode;
   final String speechEngineMode;
   final String? favoriteVoiceName;
@@ -77,6 +78,7 @@ class AppSettings {
     required this.fullscreenDimBrightness,
     required this.fullscreenStartLandscape,
     required this.fullscreenShowClock,
+    this.fullscreenClockScale = 1.0,
     required this.voiceListMode,
     required this.speechEngineMode,
     required this.favoriteVoiceName,
@@ -124,6 +126,7 @@ class AppSettings {
     'fullscreenDimBrightness': fullscreenDimBrightness,
     'fullscreenStartLandscape': fullscreenStartLandscape,
     'fullscreenShowClock': fullscreenShowClock,
+    'fullscreenClockScale': fullscreenClockScale,
     'voiceListMode': voiceListMode,
     'speechEngineMode': speechEngineMode,
     'favoriteVoiceName': favoriteVoiceName,
@@ -173,6 +176,7 @@ class AppSettings {
     fullscreenDimBrightness: json['fullscreenDimBrightness'] as bool? ?? false,
     fullscreenStartLandscape: json['fullscreenStartLandscape'] as bool? ?? false,
     fullscreenShowClock: json['fullscreenShowClock'] as bool? ?? false,
+    fullscreenClockScale: (json['fullscreenClockScale'] as num?)?.toDouble() ?? 1.0,
     voiceListMode: json['voiceListMode'] as String? ?? 'auto',
     speechEngineMode: json['speechEngineMode'] as String? ?? 'auto',
     favoriteVoiceName: json['favoriteVoiceName'] as String?,

@@ -275,7 +275,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   /// Manages Android foreground service & persistent notifications
   /// Keeps app alive during long timer sessions
   final ForegroundNotificationService _foregroundNotificationService =
-      const ForegroundNotificationService(
+      ForegroundNotificationService(
         notificationIconMetaDataName:
             'com.atherpulse.solasflow.service.NOTIFICATION_ICON',
       );
@@ -536,6 +536,9 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   /// Start fullscreen focus mode in landscape orientation
   bool fullscreenStartLandscape = false;
   bool fullscreenShowClock = false;
+  double fullscreenClockScale = 1.0;
+  List<String> _installedEngines = [];
+  int _lastStopwatchNotificationSecond = -1;
 
   /// Keep app running in background (foreground service when idle)
   bool backgroundPersistenceOn = false;
@@ -777,6 +780,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   Future<void> _ensureForegroundServiceRunning() async {
     // Only start the foreground service when something actually needs it.
     if (!_isAnythingActive) return;
+    _foregroundNotificationService.resetCache();
     await _foregroundNotificationService.ensureRunning(
       state: _foregroundState(),
       callback: startCallback,
@@ -796,6 +800,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     if (!_supportsForegroundTask) return;
     try {
       await FlutterForegroundTask.stopService();
+      _foregroundNotificationService.resetCache();
     } on MissingPluginException {
     } on PlatformException {
     }
@@ -964,8 +969,12 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     _startForegroundHealthCheck();
   }
 
-  void _openSettings() {
-    final settingsVoices = _availableVoicesForSettings();
+  void _openSettings() async {
+    if (Platform.isAndroid && _installedEngines.isEmpty) {
+      _installedEngines = await _speechService.getInstalledEngines(flutterTts);
+    }
+    final settingsVoices = voices;
+    if (!mounted) return;
     Navigator.of(context).push(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 250),
@@ -979,6 +988,19 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
               });
             }
           },
+          onFullscreenClockScaleChanged: (val) {
+            if (val == null) return;
+            setState(() {
+              fullscreenClockScale = val;
+              _lsSave();
+            });
+          },
+          onFullscreenShowClockChanged: (val) {
+            setState(() {
+              fullscreenShowClock = val ?? false;
+              _lsSave();
+            });
+          },
           sleepStartLabel: _formatMinutesAs12Hour(ref.read(settingsProvider).sleepStartMinutes),
           sleepEndLabel: _formatMinutesAs12Hour(ref.read(settingsProvider).sleepEndMinutes),
           soundList: soundList,
@@ -988,6 +1010,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
           speechEngineRuntime: _speechService.lastEngineUsed,
           speechEngineRuntimeDetail: _speechService.lastEngineDetail,
           voices: settingsVoices,
+          availableEngines: _installedEngines,
           onSoundChanged: (val) {
             setState(() {
               soundChosen = val!;
@@ -1108,12 +1131,22 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
             });
             if (speechMasterOn) _applyAudioSettings();
           },
-          onSpeechEngineModeChanged: (val) {
+          onSpeechEngineModeChanged: (val) async {
             if (val == null) return;
             setState(() {
-              speechEngineMode = _speechService.normalizeSpeechEngineMode(val);
+              speechEngineMode = val;
               _lsSave();
             });
+            if (Platform.isAndroid &&
+                val != 'auto' &&
+                val != 'sherpa_only' &&
+                val != 'system_only') {
+              await _speechService.setSpeechEngine(
+                flutterTts: flutterTts,
+                engine: val,
+              );
+            }
+            await _initTts(forceRebind: true);
           },
           onFavoriteVoiceChanged: (val) {
             debugPrint('[SettingsPanel] onFavoriteVoiceChanged val=$val');
@@ -1317,6 +1350,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
       fullscreenDimBrightness = settings.fullscreenDimBrightness;
       fullscreenStartLandscape = settings.fullscreenStartLandscape;
       fullscreenShowClock = settings.fullscreenShowClock;
+      fullscreenClockScale = settings.fullscreenClockScale;
       _speechLanguageService.setLanguage(
         _speechService.normalizeVoiceLanguageMode(settings.voiceListMode),
       );
@@ -1360,6 +1394,21 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
                   ? true
                   : fullscreenStartLandscape,
               initialShowClock: fullscreenShowClock,
+              initialClockScale: fullscreenClockScale,
+              onShowClockChanged: (show) {
+                if (!mounted) return;
+                setState(() {
+                  fullscreenShowClock = show;
+                  _lsSave();
+                });
+              },
+              onClockScaleChanged: (scale) {
+                if (!mounted) return;
+                setState(() {
+                  fullscreenClockScale = scale;
+                  _lsSave();
+                });
+              },
               startImmersive: startImmersive,
               onThemeChanged: (isDark) {
                 if (!mounted) return;
@@ -1575,6 +1624,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
       fullscreenDimBrightness = settings.fullscreenDimBrightness;
       fullscreenStartLandscape = settings.fullscreenStartLandscape;
       fullscreenShowClock = settings.fullscreenShowClock;
+      fullscreenClockScale = settings.fullscreenClockScale;
       _speechLanguageService.setLanguage(
         _speechService.normalizeVoiceLanguageMode(settings.voiceListMode),
       );
@@ -1707,6 +1757,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
       fullscreenDimBrightness: fullscreenDimBrightness,
       fullscreenStartLandscape: fullscreenStartLandscape,
       fullscreenShowClock: fullscreenShowClock,
+      fullscreenClockScale: fullscreenClockScale,
       voiceListMode: _speechLanguageService.language,
       speechEngineMode: speechEngineMode,
       favoriteVoiceName: favoriteVoiceName,
@@ -2687,8 +2738,11 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
         showMilliseconds: stopwatchShowMilliseconds,
       );
 
-      _syncForegroundNotification(force: true);
-
+      if (stopwatchElapsedSeconds != _lastStopwatchNotificationSecond &&
+          (stopwatchElapsedSeconds % 30 == 0 || stopwatchElapsedSeconds <= 3)) {
+        _lastStopwatchNotificationSecond = stopwatchElapsedSeconds;
+        _syncForegroundNotification(force: true);
+      }
       if (stopwatchSpeakOn &&
           stopwatchElapsedSeconds > 0 &&
           stopwatchElapsedSeconds % stopwatchSpeakDelaySeconds == 0 &&
@@ -2746,8 +2800,14 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
       timerValue = tickResult.timerValue;
       timerDisplayValue = _formatTimerDisplayValue(seconds);
 
-      _syncForegroundNotification(force: true);
-
+      // Throttle notification updates during timer to avoid rapid notification re-ranking
+      // and interference with other foreground apps (e.g. sound recorder).
+      if (tickResult.isFinished ||
+          seconds % 60 == 0 ||
+          seconds <= 10 ||
+          tickResult.shouldAnnounceRemaining) {
+        _syncForegroundNotification(force: true);
+      }
       if (tickResult.shouldAnnounceRemaining) {
         final mins = tickResult.announceMinutes;
         final preferredVoice = getPreferredVoice();
@@ -3215,9 +3275,13 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
       unawaited(_saveLastTimerSeconds(seconds));
     }
     timerInterval?.cancel();
-    setState(() {
+    if (mounted) {
+      setState(() {
+        timerInterval = null;
+      });
+    } else {
       timerInterval = null;
-    });
+    }
     _applyAudioSettings();
     _syncForegroundNotification(force: true);
   }
@@ -3637,9 +3701,13 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     goalReminderTimer?.cancel();
     _armedPresetTimer?.cancel();
     _widgetArmedTimer?.cancel();
-    stopClock();
-    stopTimer();
-    stopStopwatch();
+    clockTimer?.cancel();
+    clockTimer = null;
+    timerInterval?.cancel();
+    timerInterval = null;
+    _stopwatchEngine.stop();
+    stopwatchInterval?.cancel();
+    stopwatchInterval = null;
     displayTick?.cancel();
     unawaited(_audioService.dispose());
     // Remove callback to avoid memory leaks

@@ -20,12 +20,14 @@ class FullscreenFocusView extends StatefulWidget {
   final bool initialDimBrightness;
   final bool initialForceLandscape;
   final bool initialShowClock;
+  final double initialClockScale;
   final double initialDimBrightnessLevel;
   final bool startImmersive;
   final ValueChanged<bool>? onThemeChanged;
   final ValueChanged<bool>? onDimBrightnessChanged;
   final ValueChanged<bool>? onForceLandscapeChanged;
-
+  final ValueChanged<bool>? onShowClockChanged;
+  final ValueChanged<double>? onClockScaleChanged;
   // Timer controls
   final VoidCallback? onTimerStart;
   final VoidCallback? onTimerStop;
@@ -48,11 +50,14 @@ class FullscreenFocusView extends StatefulWidget {
     required this.initialDimBrightness,
     required this.initialForceLandscape,
     this.initialShowClock = false,
+    this.initialClockScale = 1.0,
     this.initialDimBrightnessLevel = 0.08,
     this.startImmersive = false,
     this.onThemeChanged,
     this.onDimBrightnessChanged,
     this.onForceLandscapeChanged,
+    this.onShowClockChanged,
+    this.onClockScaleChanged,
     this.onTimerStart,
     this.onTimerStop,
     this.onTimerReset,
@@ -74,6 +79,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   bool _dimBrightness = false;
   double _dimBrightnessLevel = 0.08;
   bool _showClock = false;
+  double _clockScale = 1.0;
   bool _showEntryHint = true;
   bool _showExitHint = true;
   FullscreenFocusMode _mode = FullscreenFocusMode.clock;
@@ -93,7 +99,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
     _dimBrightnessLevel = widget.initialDimBrightnessLevel;
     _forceLandscape = widget.initialForceLandscape;
     _showClock = widget.initialShowClock;
-    _showControls = !widget.startImmersive;
+    _clockScale = widget.initialClockScale;
     _showEntryHint = !widget.startImmersive;
     _showExitHint = !widget.startImmersive;
 
@@ -191,6 +197,21 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   String _stripClockSuffix(String value) {
     return value.replaceAll(RegExp(r'\s(AM|PM)$'), '');
   }
+  void _cycleClockScale() {
+    _onControlInteraction();
+    final scales = [0.8, 1.0, 1.25, 1.5, 2.0];
+    int nextIdx = 1;
+    for (int i = 0; i < scales.length; i++) {
+      if ((scales[i] - _clockScale).abs() < 0.05) {
+        nextIdx = (i + 1) % scales.length;
+        break;
+      }
+    }
+    final newScale = scales[nextIdx];
+    setState(() => _clockScale = newScale);
+    widget.onClockScaleChanged?.call(newScale);
+  }
+
 
 
   (String, String) _splitTimer(String value) {
@@ -480,36 +501,37 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                 ),
               ),
             // ── Small clock overlay (bottom-center, always visible) ────
-            if (_showClock && _mode != FullscreenFocusMode.clock && !_showControls)
+            if (_showClock && _mode != FullscreenFocusMode.clock)
               Positioned(
                 bottom: 16,
                 left: 0,
                 right: 0,
-                child: IgnorePointer(
-                  child: AnimatedOpacity(
-                    opacity: _showControls ? 0.3 : 0.85,
-                    duration: const Duration(milliseconds: 300),
-                    child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: surface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: outline, width: 2.5),
-                      ),
-                      child: Text(
-                        _stripClockSuffix(_clockText),
-                        style: TextStyle(
-                          color: fg,
-                          fontSize: 42,
-                          fontWeight: FontWeight.w900,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                child: Center(
+                  child: GestureDetector(
+                    onTap: _cycleClockScale,
+                    child: AnimatedOpacity(
+                      opacity: _showControls ? 0.95 : 0.85,
+                      duration: const Duration(milliseconds: 300),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: (10 * _clockScale).clamp(6.0, 24.0),
+                          vertical: (5 * _clockScale).clamp(3.0, 14.0),
+                        ),
+                        decoration: BoxDecoration(
+                          color: surface,
+                          borderRadius: BorderRadius.circular(8 * _clockScale),
+                          border: Border.all(color: outline, width: 2.5),
+                        ),
+                        child: Text(
+                          _stripClockSuffix(_clockText),
+                          style: TextStyle(
+                            color: fg,
+                            fontSize: (42 * _clockScale).clamp(24.0, 96.0),
+                            fontWeight: FontWeight.w900,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
                         ),
                       ),
-                    ),
                     ),
                   ),
                 ),
@@ -560,6 +582,33 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                                 }
                               },
                             ),
+                            _topToggleChip(
+                              fg: fg,
+                              variant: variant,
+                              selectedBg: selectedBg,
+                              icon: Icons.access_time_rounded,
+                              label: 'Clock',
+                              selected: _showClock,
+                              onTap: () {
+                                _onControlInteraction();
+                                final val = !_showClock;
+                                setState(() => _showClock = val);
+                                widget.onShowClockChanged?.call(val);
+                              },
+                            ),
+                            if (_showClock) ...[
+                              const SizedBox(width: 6),
+                              _topToggleChip(
+                                fg: fg,
+                                variant: variant,
+                                selectedBg: selectedBg,
+                                icon: Icons.format_size_rounded,
+                                label: '${_clockScale.toStringAsFixed(1)}x',
+                                selected: true,
+                                onTap: _cycleClockScale,
+                              ),
+                            ],
+                            const SizedBox(width: 6),
                             const SizedBox(width: 6),
                             IconButton(
                               tooltip: _darkTheme

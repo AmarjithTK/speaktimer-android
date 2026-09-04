@@ -41,6 +41,7 @@ class SettingsState {
   final double fullscreenDimBrightnessLevel;
   final bool fullscreenStartLandscape;
   final bool fullscreenShowClock;
+  final double fullscreenClockScale;
   final String voiceListMode;
   final String speechEngineMode;
   final String? favoriteVoiceName;
@@ -85,6 +86,7 @@ class SettingsState {
     required this.fullscreenDimBrightnessLevel,
     required this.fullscreenStartLandscape,
     required this.fullscreenShowClock,
+    this.fullscreenClockScale = 1.0,
     required this.voiceListMode,
     required this.speechEngineMode,
     this.favoriteVoiceName,
@@ -130,6 +132,7 @@ class SettingsState {
     fullscreenDimBrightnessLevel: 0.08,
     fullscreenStartLandscape: false,
     fullscreenShowClock: false,
+    fullscreenClockScale: 1.0,
     voiceListMode: 'auto',
     speechEngineMode: 'auto',
     speechMasterOn: true,
@@ -173,6 +176,7 @@ class SettingsState {
     fullscreenDimBrightnessLevel: s.fullscreenDimBrightnessLevel,
     fullscreenStartLandscape: s.fullscreenStartLandscape,
     fullscreenShowClock: s.fullscreenShowClock,
+    fullscreenClockScale: s.fullscreenClockScale,
     voiceListMode: s.voiceListMode,
     speechEngineMode: s.speechEngineMode,
     favoriteVoiceName: s.favoriteVoiceName,
@@ -218,6 +222,7 @@ class SettingsState {
     double? fullscreenDimBrightnessLevel,
     bool? fullscreenStartLandscape,
     bool? fullscreenShowClock,
+    double? fullscreenClockScale,
     String? voiceListMode,
     String? speechEngineMode,
     String? Function()? favoriteVoiceName,
@@ -262,6 +267,7 @@ class SettingsState {
       fullscreenDimBrightnessLevel: fullscreenDimBrightnessLevel ?? this.fullscreenDimBrightnessLevel,
       fullscreenStartLandscape: fullscreenStartLandscape ?? this.fullscreenStartLandscape,
       fullscreenShowClock: fullscreenShowClock ?? this.fullscreenShowClock,
+      fullscreenClockScale: fullscreenClockScale ?? this.fullscreenClockScale,
       voiceListMode: voiceListMode ?? this.voiceListMode,
       speechEngineMode: speechEngineMode ?? this.speechEngineMode,
       favoriteVoiceName: favoriteVoiceName != null ? favoriteVoiceName() : this.favoriteVoiceName,
@@ -315,6 +321,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
   void updateFullscreenDimBrightnessLevel(double value) => state = state.copyWith(fullscreenDimBrightnessLevel: value);
   void updateFullscreenStartLandscape(bool value) => state = state.copyWith(fullscreenStartLandscape: value);
   void updateFullscreenShowClock(bool value) => state = state.copyWith(fullscreenShowClock: value);
+  void updateFullscreenClockScale(double value) => state = state.copyWith(fullscreenClockScale: value);
   void updateVoiceListMode(String value) => state = state.copyWith(voiceListMode: value);
   void updateSpeechEngineMode(String value) => state = state.copyWith(speechEngineMode: value);
   void updateFavoriteVoice(String? name, String? locale) {

@@ -632,11 +632,10 @@ class SpeechService {
       case 'malayalam':
         return 'malayalam';
       case 'english':
-      case 'all':
-      case 'pleasant':
+        return 'english';
       case 'auto':
       default:
-        return 'english';
+        return 'auto';
     }
   }
 
@@ -710,14 +709,24 @@ class SpeechService {
       return _sortByQuality(english.isNotEmpty ? english : voices);
     }
     if (mode == 'malayalam') {
-      return _sortByQuality(malayalam.isNotEmpty ? malayalam : voices);
+      if (malayalam.isNotEmpty) return _sortByQuality(malayalam);
+      return [
+        {'name': 'Standard Malayalam', 'locale': 'ml-IN'}
+      ];
     }
 
-    final mixed = [..._sortByQuality(malayalam), ..._sortByQuality(english)];
+    final effectiveMalayalam = malayalam.isNotEmpty
+        ? malayalam
+        : [
+            {'name': 'Standard Malayalam', 'locale': 'ml-IN'}
+          ];
+    final mixed = [
+      ..._sortByQuality(effectiveMalayalam),
+      ..._sortByQuality(english),
+    ];
     if (mixed.isNotEmpty) return mixed;
     return _sortByQuality(voices);
   }
-
   Map<dynamic, dynamic>? preferredVoice({
     required List<Map<dynamic, dynamic>> voices,
     required String voiceListMode,
@@ -742,7 +751,11 @@ class SpeechService {
     }
 
     final ranked = _sortByQuality(available);
-    return ranked.isNotEmpty ? ranked.first : voices.first;
+    if (ranked.isNotEmpty) return ranked.first;
+    if (normalizeVoiceLanguageMode(voiceListMode) == 'malayalam') {
+      return {'name': 'Standard Malayalam', 'locale': 'ml-IN'};
+    }
+    return voices.isNotEmpty ? voices.first : null;
   }
 
   Future<void> speakItem({
@@ -780,16 +793,26 @@ class SpeechService {
       if (fallbackOk) return;
     }
 
-    if (preferredVoice != null) {
-      await flutterTts.setVoice({
-        'name': preferredVoice['name'],
-        'locale': preferredVoice['locale'],
-      });
-    }
+    final isFavMalayalam = preferredVoice != null &&
+        isMalayalamLocale(preferredVoice['locale']?.toString());
+    final isFavEnglish = preferredVoice != null &&
+        isEnglishLocale(preferredVoice['locale']?.toString());
 
     if (useMalayalamNuance) {
+      if (isFavMalayalam) {
+        await flutterTts.setVoice({
+          'name': preferredVoice['name'],
+          'locale': preferredVoice['locale'],
+        });
+      }
       await flutterTts.setLanguage('ml-IN');
     } else {
+      if (isFavEnglish) {
+        await flutterTts.setVoice({
+          'name': preferredVoice['name'],
+          'locale': preferredVoice['locale'],
+        });
+      }
       await flutterTts.setLanguage('en-IN');
     }
 
@@ -815,5 +838,30 @@ class SpeechService {
 
     _setEngineStatus('system', 'System TTS (${useMalayalamNuance ? 'ml-IN' : 'en-IN'})');
   }
-}
 
+  Future<List<String>> getInstalledEngines(FlutterTts flutterTts) async {
+    if (!Platform.isAndroid) return [];
+    try {
+      final dynamic engines = await flutterTts.getEngines;
+      if (engines is List) {
+        return engines.map((e) => e.toString()).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  Future<bool> setSpeechEngine({
+    required FlutterTts flutterTts,
+    required String engine,
+  }) async {
+    if (!Platform.isAndroid) return false;
+    try {
+      await flutterTts.setEngine(engine);
+      _setEngineStatus('engine_changed', 'Engine set to $engine');
+      return true;
+    } catch (e) {
+      _setEngineStatus('engine_error', 'Failed setting engine $engine: $e');
+      return false;
+    }
+  }
+}

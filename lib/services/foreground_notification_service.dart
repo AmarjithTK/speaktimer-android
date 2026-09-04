@@ -6,8 +6,11 @@ import '../models/foreground_notification_state.dart';
 
 class ForegroundNotificationService {
   final String notificationIconMetaDataName;
+  String? _lastTitle;
+  String? _lastText;
+  int _lastButtonsCount = -1;
 
-  const ForegroundNotificationService({
+  ForegroundNotificationService({
     required this.notificationIconMetaDataName,
   });
 
@@ -29,17 +32,31 @@ class ForegroundNotificationService {
   }
 
   Future<void> _updateServiceSafe(ForegroundNotificationState state) async {
+    if (state.title == _lastTitle &&
+        state.text == _lastText &&
+        state.buttons.length == _lastButtonsCount) {
+      return;
+    }
     try {
       await FlutterForegroundTask.updateService(
         notificationTitle: state.title,
         notificationText: state.text,
         notificationButtons: state.buttons,
       );
+      _lastTitle = state.title;
+      _lastText = state.text;
+      _lastButtonsCount = state.buttons.length;
     } on MissingPluginException {
       // Plugin is unavailable on this runtime; ignore foreground update.
     } on PlatformException {
       // Platform rejected the update; ignore and keep app functional.
     }
+  }
+
+  void resetCache() {
+    _lastTitle = null;
+    _lastText = null;
+    _lastButtonsCount = -1;
   }
 
   Future<int> sync({

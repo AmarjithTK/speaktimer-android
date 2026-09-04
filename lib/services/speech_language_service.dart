@@ -6,10 +6,10 @@ import 'malayalam_tts_service.dart';
 /// Centralized speech language manager.
 /// The selected language is the single source of truth for all speech.
 class SpeechLanguageService {
-  static const List<String> supportedLanguages = ['english', 'malayalam'];
+  static const List<String> supportedLanguages = ['auto', 'english', 'malayalam'];
 
-  /// The active speech language.
-  String _language = 'english';
+  /// The active speech language ('auto', 'english', 'malayalam').
+  String _language = 'auto';
   String get language => _language;
 
   /// Available TTS voices (set externally from [FlutterTts.getVoices]).
@@ -27,17 +27,34 @@ class SpeechLanguageService {
   /// Returns voices filtered to the active language.
   List<Map<dynamic, dynamic>> voicesForLanguage() {
     if (_language == 'malayalam') {
-      return allVoices.where((v) {
-        final locale = (v['locale']?.toString() ?? '').toLowerCase();
+      final ml = allVoices.where((v) {
+        final locale = (v['locale']?.toString() ?? '').toLowerCase().replaceAll('_', '-');
         return locale.startsWith('ml');
       }).toList();
+      if (ml.isNotEmpty) return ml;
+      return [
+        {'name': 'Standard Malayalam', 'locale': 'ml-IN'}
+      ];
     }
-    // English
-    return allVoices.where((v) {
-      final locale = (v['locale']?.toString() ?? '').toLowerCase();
-      // Show English locales (en-US, en-GB, en-IN, etc.)
+    if (_language == 'english') {
+      return allVoices.where((v) {
+        final locale = (v['locale']?.toString() ?? '').toLowerCase().replaceAll('_', '-');
+        return locale.startsWith('en');
+      }).toList();
+    }
+    // Auto mode: return all voices (Malayalam first, then English)
+    final ml = allVoices.where((v) {
+      final locale = (v['locale']?.toString() ?? '').toLowerCase().replaceAll('_', '-');
+      return locale.startsWith('ml');
+    }).toList();
+    final en = allVoices.where((v) {
+      final locale = (v['locale']?.toString() ?? '').toLowerCase().replaceAll('_', '-');
       return locale.startsWith('en');
     }).toList();
+    return [
+      if (ml.isNotEmpty) ...ml else {'name': 'Standard Malayalam', 'locale': 'ml-IN'},
+      ...en,
+    ];
   }
 
   /// Finds the best voice for the active language from the available voices.
@@ -72,8 +89,11 @@ class SpeechLanguageService {
       }
     }
 
-    // Fallback: first available voice
+    // Fallback: first available voice for language
     if (langVoices.isNotEmpty) return langVoices.first;
+    if (_language == 'malayalam') {
+      return {'name': 'Standard Malayalam', 'locale': 'ml-IN'};
+    }
     return null;
   }
 

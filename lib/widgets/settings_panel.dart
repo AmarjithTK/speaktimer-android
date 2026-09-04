@@ -13,11 +13,11 @@ class SettingsPanel extends ConsumerStatefulWidget {
   final bool isSpeechActive;
   final int speechQueueLength;
   final List<Map<dynamic, dynamic>> voices;
+  final List<String> availableEngines;
   final String speechEngineRuntime;
   final String speechEngineRuntimeDetail;
   final String sleepStartLabel;
   final String sleepEndLabel;
-
   final ValueChanged<String?> onSoundChanged;
   final ValueChanged<double?> onNoiseVolumeChanged;
   final ValueChanged<double?> onSpeakVolumeChanged;
@@ -29,6 +29,8 @@ class SettingsPanel extends ConsumerStatefulWidget {
   final ValueChanged<double?> onFullscreenDimBrightnessLevelChanged;
   final ValueChanged<bool?> onFullscreenStartLandscapeChanged;
   final ValueChanged<bool?> onMuteSpeechAfterMidnightChanged;
+  final ValueChanged<double?>? onFullscreenClockScaleChanged;
+  final ValueChanged<bool?>? onFullscreenShowClockChanged;
   final ValueChanged<String?> onNightMuteModeChanged;
   final VoidCallback onPickSleepStart;
   final VoidCallback onPickSleepEnd;
@@ -48,6 +50,7 @@ class SettingsPanel extends ConsumerStatefulWidget {
     required this.isSpeechActive,
     required this.speechQueueLength,
     required this.voices,
+    this.availableEngines = const [],
     required this.speechEngineRuntime,
     required this.speechEngineRuntimeDetail,
     required this.sleepStartLabel,
@@ -62,6 +65,8 @@ class SettingsPanel extends ConsumerStatefulWidget {
     required this.onFullscreenDimBrightnessChanged,
     required this.onFullscreenDimBrightnessLevelChanged,
     required this.onFullscreenStartLandscapeChanged,
+    this.onFullscreenClockScaleChanged,
+    this.onFullscreenShowClockChanged,
     required this.onMuteSpeechAfterMidnightChanged,
     required this.onNightMuteModeChanged,
     required this.onPickSleepStart,
@@ -98,14 +103,19 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
 
   String _voiceCharacterName(String name, String locale) {
     final lower = name.toLowerCase();
+    final isMl = locale.toLowerCase().startsWith('ml');
     if (lower.contains('veena')) return 'Veena';
     if (lower.contains('rishi')) return 'Rishi';
+    if (isMl) {
+      if (lower.contains('female')) return 'Malayalam Female';
+      if (lower.contains('male')) return 'Malayalam Male';
+      return 'Malayalam Native';
+    }
     if (lower.contains('female')) return 'Female';
     if (lower.contains('male')) return 'Male';
-    if (locale.startsWith('ml')) return 'Malayalam Native';
-    if (locale.startsWith('en-in')) return 'Indian English';
-    if (locale.startsWith('en-us')) return 'US English';
-    if (locale.startsWith('en-gb')) return 'UK English';
+    if (locale.toLowerCase().startsWith('en-in')) return 'Indian English';
+    if (locale.toLowerCase().startsWith('en-us')) return 'US English';
+    if (locale.toLowerCase().startsWith('en-gb')) return 'UK English';
     return 'Standard';
   }
 
@@ -113,7 +123,15 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
     switch (value) {
       case 'system_only': return 'System TTS only';
       case 'sherpa_only': return 'Sherpa-ONNX only';
-      default: return 'Auto';
+      case 'auto': return 'Auto (System default)';
+      case 'com.google.android.tts': return 'Google Speech Services';
+      case 'com.samsung.SMT': return 'Samsung Text-to-Speech';
+      default:
+        if (value.startsWith('com.')) {
+          final parts = value.split('.');
+          return parts.length > 1 ? parts.sublist(1).join(' ') : value;
+        }
+        return value.isNotEmpty ? value : 'Auto';
     }
   }
 
@@ -128,6 +146,9 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
   String _favoriteVoiceLabel() {
     final s = ref.read(settingsProvider);
     if (s.favoriteVoiceName == null || s.favoriteVoiceLocale == null) {
+      final lang = s.voiceListMode.toLowerCase();
+      if (lang == 'malayalam') return 'Best voice for Malayalam';
+      if (lang == 'english') return 'Best voice for English';
       return 'Best voice for selected language';
     }
     return '${_voiceCharacterName(s.favoriteVoiceName!, s.favoriteVoiceLocale!)} - ${s.favoriteVoiceLocale}';
@@ -136,9 +157,7 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
   String _favoriteVoiceKey() {
     final s = ref.read(settingsProvider);
     if (s.favoriteVoiceName == null || s.favoriteVoiceLocale == null) return '__auto__';
-    final key = '${s.favoriteVoiceName}|${s.favoriteVoiceLocale}';
-    final exists = widget.voices.any((v) => '${v['name']}|${v['locale']}' == key);
-    return exists ? key : '__auto__';
+    return '${s.favoriteVoiceName}|${s.favoriteVoiceLocale}';
   }
 
   @override
@@ -148,8 +167,15 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
     final notifier = ref.read(settingsProvider.notifier);
 
     final speechEngineOptions = <(String, String, String?)>[
-      ('auto', 'Auto', 'System TTS with Sherpa fallback'),
+      ('auto', 'Auto (System default)', 'Use device default speech engine'),
       ('system_only', 'System TTS only', 'Use the device speech engine'),
+      for (final engine in widget.availableEngines)
+        if (engine != 'auto' && engine != 'system_only' && engine != 'sherpa_only')
+          (
+            engine,
+            _speechEngineLabel(engine),
+            engine,
+          ),
       if (!kIsWeb)
         ('sherpa_only', 'Sherpa-ONNX only', 'Linux/Windows fallback voice'),
     ];
@@ -162,16 +188,56 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
       ('manual', 'Manual mode', 'Use the selected quiet hours'),
       ('automatic', 'Automatic mode', 'Mute after idle time at night'),
     ];
+
+    final currentLanguageMode = s.voiceListMode.toLowerCase();
+    final List<Map<dynamic, dynamic>> languageVoices;
+    if (currentLanguageMode == 'malayalam') {
+      final ml = widget.voices.where((v) {
+        final loc = (v['locale']?.toString() ?? '').toLowerCase().replaceAll('_', '-');
+        return loc.startsWith('ml');
+      }).toList();
+      languageVoices = ml.isNotEmpty
+          ? ml
+          : [
+              {'name': 'Standard Malayalam', 'locale': 'ml-IN'}
+            ];
+    } else if (currentLanguageMode == 'english') {
+      languageVoices = widget.voices.where((v) {
+        final loc = (v['locale']?.toString() ?? '').toLowerCase().replaceAll('_', '-');
+        return loc.startsWith('en');
+      }).toList();
+    } else {
+      final ml = widget.voices.where((v) {
+        final loc = (v['locale']?.toString() ?? '').toLowerCase().replaceAll('_', '-');
+        return loc.startsWith('ml');
+      }).toList();
+      final en = widget.voices.where((v) {
+        final loc = (v['locale']?.toString() ?? '').toLowerCase().replaceAll('_', '-');
+        return loc.startsWith('en');
+      }).toList();
+      languageVoices = [
+        if (ml.isNotEmpty) ...ml else {'name': 'Standard Malayalam', 'locale': 'ml-IN'},
+        ...en,
+      ];
+    }
+
     final voiceOptions = <(String, String, String?)>[
-      ('__auto__', 'Best voice for selected language', null),
-      ...widget.voices.map((voice) {
+      (
+        '__auto__',
+        currentLanguageMode == 'malayalam'
+            ? 'Best voice for Malayalam'
+            : (currentLanguageMode == 'english'
+                ? 'Best voice for English'
+                : 'Best voice for selected language'),
+        null
+      ),
+      ...languageVoices.map((voice) {
         final name = voice['name']?.toString() ?? 'Unknown';
         final locale = voice['locale']?.toString() ?? 'en';
         final key = '$name|$locale';
         return (key, '${_voiceCharacterName(name, locale)} - $locale', name);
       }),
     ];
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -382,6 +448,40 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
               notifier.updateFullscreenStartLandscape(val ?? false);
               widget.onFullscreenStartLandscapeChanged(val);
             }),
+          _settingsDivider(context),
+          _settingsSwitch(context,
+            icon: Icons.access_time_rounded, title: 'Show clock in fullscreen',
+            subtitle: 'Display current time overlay in fullscreen focus',
+            value: s.fullscreenShowClock,
+            onChanged: (val) {
+              notifier.updateFullscreenShowClock(val ?? false);
+              widget.onFullscreenShowClockChanged?.call(val);
+            }),
+          if (s.fullscreenShowClock) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(52, 8, 14, 0),
+              child: Row(
+                children: [
+                  Text('Fullscreen clock size',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
+                  const Spacer(),
+                  Text('${s.fullscreenClockScale.toStringAsFixed(1)}x',
+                    style: TextStyle(color: cs.primary, fontWeight: FontWeight.w700, fontSize: 13)),
+                ],
+              ),
+            ),
+            Slider(
+              value: s.fullscreenClockScale.clamp(0.8, 2.0),
+              min: 0.8,
+              max: 2.0,
+              divisions: 6,
+              label: '${s.fullscreenClockScale.toStringAsFixed(1)}x',
+              onChanged: (val) {
+                notifier.updateFullscreenClockScale(val);
+                widget.onFullscreenClockScaleChanged?.call(val);
+              },
+            ),
+          ],
           _settingsDivider(context),
           _settingsSwitch(context,
             icon: Icons.nightlight_round, title: 'Enable sleep mode',
