@@ -227,54 +227,109 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   }
 
   Widget _buildTimerLikeDisplay(
-    Color fg, {
+    Color fg,
+    Color surface,
+    Color outline, {
     required String value,
   }) {
     final timerParts = _splitTimer(value);
     final mins = timerParts.$1;
     final secs = timerParts.$2;
 
-    return Center(
-      child: FittedBox(
-        fit: BoxFit.contain,
-        alignment: Alignment.center,
-        child: RichText(
-          textAlign: TextAlign.center,
-          text: TextSpan(
-            style: TextStyle(
-              color: fg,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-            children: [
-              TextSpan(
-                text: mins,
-                style: TextStyle(
-                  fontSize: 600,
-                  fontWeight: FontWeight.w900,
-                  height: 1,
-                ),
-              ),
-              TextSpan(
-                text: ':',
-                style: TextStyle(
-                  fontSize: 480,
-                  fontWeight: FontWeight.w800,
-                  color: fg.withAlpha(190),
-                  height: 1,
-                ),
-              ),
-              TextSpan(
-                text: secs,
-                style: TextStyle(
-                  fontSize: 600,
-                  fontWeight: FontWeight.w900,
-                  height: 1,
-                ),
-              ),
-            ],
+    final timerWidget = FittedBox(
+      fit: BoxFit.contain,
+      alignment: Alignment.center,
+      child: RichText(
+        textAlign: TextAlign.center,
+        text: TextSpan(
+          style: TextStyle(
+            color: fg,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
+          children: [
+            TextSpan(
+              text: mins,
+              style: const TextStyle(
+                fontSize: 600,
+                fontWeight: FontWeight.w900,
+                height: 1,
+              ),
+            ),
+            TextSpan(
+              text: ':',
+              style: TextStyle(
+                fontSize: 480,
+                fontWeight: FontWeight.w800,
+                color: fg.withAlpha(190),
+                height: 1,
+              ),
+            ),
+            TextSpan(
+              text: secs,
+              style: const TextStyle(
+                fontSize: 600,
+                fontWeight: FontWeight.w900,
+                height: 1,
+              ),
+            ),
+          ],
         ),
       ),
+    );
+
+    if (!_showClock) {
+      return Center(child: timerWidget);
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableH = constraints.maxHeight;
+        final baseFont = (availableH * 0.12).clamp(16.0, 44.0);
+        final clockFontSize = (baseFont * _clockScale).clamp(14.0, 64.0);
+
+        final clockWidget = GestureDetector(
+          onTap: _cycleClockScale,
+          child: AnimatedOpacity(
+            opacity: _showControls ? 0.95 : 0.85,
+            duration: const Duration(milliseconds: 300),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: (12 * _clockScale).clamp(8.0, 24.0),
+                vertical: (5 * _clockScale).clamp(3.0, 10.0),
+              ),
+              decoration: BoxDecoration(
+                color: surface,
+                borderRadius: BorderRadius.circular(8 * _clockScale),
+                border: Border.all(color: outline, width: 2),
+              ),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  _stripClockSuffix(_clockText),
+                  style: TextStyle(
+                    color: fg,
+                    fontSize: clockFontSize,
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Center(child: timerWidget),
+            ),
+            const SizedBox(height: 8),
+            clockWidget,
+            if (_showControls) const SizedBox(height: 4),
+          ],
+        );
+      },
     );
   }
 
@@ -464,9 +519,9 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                     curve: Curves.easeInOut,
                     padding: EdgeInsets.fromLTRB(
                       4,
-                      _showControls ? 72 : 4,
+                      _showControls ? 60 : 4,
                       4,
-                      _showControls ? (showActionButtons ? 92 : 20) : 4,
+                      _showControls ? (showActionButtons ? 78 : 16) : 4,
                     ),
                     child: SizedBox(
                       width: double.infinity,
@@ -488,48 +543,16 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                               : (_mode == FullscreenFocusMode.timer
                                     ? _buildTimerLikeDisplay(
                                         fg,
+                                        surface,
+                                        outline,
                                         value: _timerText,
                                       )
                                     : _buildTimerLikeDisplay(
                                         fg,
+                                        surface,
+                                        outline,
                                         value: _stopwatchText,
                                       )),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            // ── Small clock overlay (bottom-center, always visible) ────
-            if (_showClock && _mode != FullscreenFocusMode.clock)
-              Positioned(
-                bottom: 16,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: GestureDetector(
-                    onTap: _cycleClockScale,
-                    child: AnimatedOpacity(
-                      opacity: _showControls ? 0.95 : 0.85,
-                      duration: const Duration(milliseconds: 300),
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: (10 * _clockScale).clamp(6.0, 24.0),
-                          vertical: (5 * _clockScale).clamp(3.0, 14.0),
-                        ),
-                        decoration: BoxDecoration(
-                          color: surface,
-                          borderRadius: BorderRadius.circular(8 * _clockScale),
-                          border: Border.all(color: outline, width: 2.5),
-                        ),
-                        child: Text(
-                          _stripClockSuffix(_clockText),
-                          style: TextStyle(
-                            color: fg,
-                            fontSize: (42 * _clockScale).clamp(24.0, 96.0),
-                            fontWeight: FontWeight.w900,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
                         ),
                       ),
                     ),
@@ -563,109 +586,120 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                               ),
                               icon: const Icon(Icons.close_rounded),
                             ),
-                            const Spacer(),
-                            _topToggleChip(
-                              fg: fg,
-                              variant: variant,
-                              selectedBg: selectedBg,
-                              icon: Icons.lock_clock_rounded,
-                              label: 'Awake',
-                              selected: _alwaysOn,
-                              onTap: () async {
-                                _onControlInteraction();
-                                final val = !_alwaysOn;
-                                setState(() => _alwaysOn = val);
-                                if (val) {
-                                  await WakelockPlus.enable();
-                                } else {
-                                  await WakelockPlus.disable();
-                                }
-                              },
-                            ),
-                            _topToggleChip(
-                              fg: fg,
-                              variant: variant,
-                              selectedBg: selectedBg,
-                              icon: Icons.access_time_rounded,
-                              label: 'Clock',
-                              selected: _showClock,
-                              onTap: () {
-                                _onControlInteraction();
-                                final val = !_showClock;
-                                setState(() => _showClock = val);
-                                widget.onShowClockChanged?.call(val);
-                              },
-                            ),
-                            if (_showClock) ...[
-                              const SizedBox(width: 6),
-                              _topToggleChip(
-                                fg: fg,
-                                variant: variant,
-                                selectedBg: selectedBg,
-                                icon: Icons.format_size_rounded,
-                                label: '${_clockScale.toStringAsFixed(1)}x',
-                                selected: true,
-                                onTap: _cycleClockScale,
-                              ),
-                            ],
-                            const SizedBox(width: 6),
-                            const SizedBox(width: 6),
-                            IconButton(
-                              tooltip: _darkTheme
-                                  ? 'Light theme'
-                                  : 'Dark theme',
-                              onPressed: () async {
-                                _onControlInteraction();
-                                setState(() => _darkTheme = !_darkTheme);
-                                widget.onThemeChanged?.call(_darkTheme);
-                              },
-                              icon: Icon(
-                                _darkTheme
-                                    ? Icons.dark_mode_rounded
-                                    : Icons.light_mode_rounded,
-                                color: fg,
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: _dimBrightness
-                                  ? 'Disable dim'
-                                  : 'Dim brightness',
-                              onPressed: () async {
-                                _onControlInteraction();
-                                setState(
-                                  () => _dimBrightness = !_dimBrightness,
-                                );
-                                widget.onDimBrightnessChanged?.call(
-                                  _dimBrightness,
-                                );
-                                await _applyBrightness();
-                              },
-                              icon: Icon(
-                                _dimBrightness
-                                    ? Icons.brightness_2_rounded
-                                    : Icons.brightness_6_rounded,
-                                color: fg,
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: _forceLandscape
-                                  ? 'Unlock Rotation'
-                                  : 'Rotate Horizontal',
-                              onPressed: () async {
-                                _onControlInteraction();
-                                setState(
-                                  () => _forceLandscape = !_forceLandscape,
-                                );
-                                widget.onForceLandscapeChanged?.call(
-                                  _forceLandscape,
-                                );
-                                await _applyOrientation();
-                              },
-                              icon: Icon(
-                                _forceLandscape
-                                    ? Icons.stay_current_landscape_rounded
-                                    : Icons.screen_rotation_alt_rounded,
-                                color: fg,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                reverse: true,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _topToggleChip(
+                                      fg: fg,
+                                      variant: variant,
+                                      selectedBg: selectedBg,
+                                      icon: Icons.lock_clock_rounded,
+                                      label: 'Awake',
+                                      selected: _alwaysOn,
+                                      onTap: () async {
+                                        _onControlInteraction();
+                                        final val = !_alwaysOn;
+                                        setState(() => _alwaysOn = val);
+                                        if (val) {
+                                          await WakelockPlus.enable();
+                                        } else {
+                                          await WakelockPlus.disable();
+                                        }
+                                      },
+                                    ),
+                                    const SizedBox(width: 6),
+                                    _topToggleChip(
+                                      fg: fg,
+                                      variant: variant,
+                                      selectedBg: selectedBg,
+                                      icon: Icons.access_time_rounded,
+                                      label: 'Clock',
+                                      selected: _showClock,
+                                      onTap: () {
+                                        _onControlInteraction();
+                                        final val = !_showClock;
+                                        setState(() => _showClock = val);
+                                        widget.onShowClockChanged?.call(val);
+                                      },
+                                    ),
+                                    if (_showClock) ...[
+                                      const SizedBox(width: 6),
+                                      _topToggleChip(
+                                        fg: fg,
+                                        variant: variant,
+                                        selectedBg: selectedBg,
+                                        icon: Icons.format_size_rounded,
+                                        label: '${_clockScale.toStringAsFixed(1)}x',
+                                        selected: true,
+                                        onTap: _cycleClockScale,
+                                      ),
+                                    ],
+                                    const SizedBox(width: 6),
+                                    IconButton(
+                                      tooltip: _darkTheme
+                                          ? 'Light theme'
+                                          : 'Dark theme',
+                                      onPressed: () async {
+                                        _onControlInteraction();
+                                        setState(() => _darkTheme = !_darkTheme);
+                                        widget.onThemeChanged?.call(_darkTheme);
+                                      },
+                                      icon: Icon(
+                                        _darkTheme
+                                            ? Icons.dark_mode_rounded
+                                            : Icons.light_mode_rounded,
+                                        color: fg,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: _dimBrightness
+                                          ? 'Disable dim'
+                                          : 'Dim brightness',
+                                      onPressed: () async {
+                                        _onControlInteraction();
+                                        setState(
+                                          () => _dimBrightness = !_dimBrightness,
+                                        );
+                                        widget.onDimBrightnessChanged?.call(
+                                          _dimBrightness,
+                                        );
+                                        await _applyBrightness();
+                                      },
+                                      icon: Icon(
+                                        _dimBrightness
+                                            ? Icons.brightness_2_rounded
+                                            : Icons.brightness_6_rounded,
+                                        color: fg,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: _forceLandscape
+                                          ? 'Unlock Rotation'
+                                          : 'Rotate Horizontal',
+                                      onPressed: () async {
+                                        _onControlInteraction();
+                                        setState(
+                                          () => _forceLandscape = !_forceLandscape,
+                                        );
+                                        widget.onForceLandscapeChanged?.call(
+                                          _forceLandscape,
+                                        );
+                                        await _applyOrientation();
+                                      },
+                                      icon: Icon(
+                                        _forceLandscape
+                                            ? Icons.stay_current_landscape_rounded
+                                            : Icons.screen_rotation_alt_rounded,
+                                        color: fg,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
