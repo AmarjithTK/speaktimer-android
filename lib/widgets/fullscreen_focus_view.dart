@@ -283,9 +283,14 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final availableH = constraints.maxHeight;
-        final baseFont = (availableH * 0.12).clamp(16.0, 44.0);
-        final clockFontSize = (baseFont * _clockScale).clamp(14.0, 64.0);
+        final cleanClockTime = _stripClockSuffix(_clockText).split('.').first;
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+        final isLandscape = w > h * 1.2;
+
+        // Flex allocation between timer and clock based on _clockScale
+        final clockFlex = (_clockScale * (isLandscape ? 2.5 : 3.0)).round().clamp(2, 6);
+        final timerFlex = (10 - clockFlex).clamp(4, 8);
 
         final clockWidget = GestureDetector(
           onTap: _cycleClockScale,
@@ -294,21 +299,21 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
             duration: const Duration(milliseconds: 300),
             child: Container(
               padding: EdgeInsets.symmetric(
-                horizontal: (12 * _clockScale).clamp(8.0, 24.0),
-                vertical: (5 * _clockScale).clamp(3.0, 10.0),
+                horizontal: (14 * _clockScale).clamp(8.0, 24.0),
+                vertical: (6 * _clockScale).clamp(4.0, 12.0),
               ),
               decoration: BoxDecoration(
                 color: surface,
-                borderRadius: BorderRadius.circular(8 * _clockScale),
+                borderRadius: BorderRadius.circular(10 * _clockScale),
                 border: Border.all(color: outline, width: 2),
               ),
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  _stripClockSuffix(_clockText),
+                  cleanClockTime,
                   style: TextStyle(
                     color: fg,
-                    fontSize: clockFontSize,
+                    fontSize: 200,
                     fontWeight: FontWeight.w900,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
@@ -322,11 +327,14 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Expanded(
+              flex: timerFlex,
               child: Center(child: timerWidget),
             ),
             const SizedBox(height: 8),
-            clockWidget,
-            if (_showControls) const SizedBox(height: 4),
+            Expanded(
+              flex: clockFlex,
+              child: Center(child: clockWidget),
+            ),
           ],
         );
       },
@@ -717,7 +725,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                   ),
                 ),
               ),
-              if (_showEntryHint)
+              if (_showEntryHint && !_showControls)
                 Positioned(
                   top: 14,
                   left: 0,
@@ -745,7 +753,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                     ),
                   ),
                 ),
-              if (_showExitHint)
+              if (_showExitHint && !_showControls)
                 Positioned(
                   bottom: 20,
                   left: 0,
