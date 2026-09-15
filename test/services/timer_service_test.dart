@@ -38,5 +38,36 @@ void main() {
 
       expect(result.shouldAnnounceRemaining, false);
     });
+
+    test('reports every announcement boundary crossed by a delayed tick', () {
+      final crossed = service.crossedAnnouncementMinutes(
+        previousSeconds: 5 * 60 + 10,
+        currentSeconds: 2 * 60 + 50,
+        announceEveryMinutes: 1,
+      );
+
+      expect(crossed, [5, 4, 3]);
+    });
+
+    test(
+      'clamps invalid announcement intervals instead of dividing by zero',
+      () {
+        final result = service.tick(
+          seconds: 60,
+          timerSpeakOn: true,
+          timerAnnounceEvery: 0,
+        );
+
+        expect(result.shouldAnnounceRemaining, isTrue);
+        expect(
+          service.crossedAnnouncementMinutes(
+            previousSeconds: 61,
+            currentSeconds: 59,
+            announceEveryMinutes: 0,
+          ),
+          [1],
+        );
+      },
+    );
   });
 }

@@ -60,6 +60,7 @@
 // - [ ] Export session data to Google Fit
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:math';
 import 'dart:io';
 
@@ -78,6 +79,7 @@ import 'theme/app_theme.dart';
 import 'l10n/app_localizations.dart';
 import 'models/app_settings.dart';
 import 'models/foreground_notification_state.dart';
+import 'models/timer_runtime.dart';
 import 'models/speech_item.dart';
 import 'models/sound_option.dart';
 import 'services/audio_service.dart';
@@ -86,6 +88,7 @@ import 'services/malayalam_tts_service.dart';
 import 'services/settings_service.dart';
 import 'services/speech_service.dart';
 import 'services/timer_service.dart';
+import 'services/timer_runtime_store.dart';
 import 'features/motivation/motivation_content.dart';
 import 'features/motivation/services/quote_rotation_service.dart';
 import 'widgets/clock_panel.dart';
@@ -101,44 +104,213 @@ import 'services/session_log_service.dart';
 import 'models/session_log.dart';
 import 'widgets/dashboard_screen.dart';
 
-final ValueNotifier<ThemeMode> appThemeModeNotifier = ValueNotifier(
-  ThemeMode.light,
-);
-
-final ValueNotifier<double> appFontSizeNotifier = ValueNotifier(1.0);
-
-void setAppThemeMode(bool isDark) {
-  appThemeModeNotifier.value = isDark ? ThemeMode.dark : ThemeMode.light;
-}
-
-void setAppFontSizeMultiplier(double multiplier) {
-  appFontSizeNotifier.value = multiplier;
-}
-
 @pragma('vm:entry-point')
 void startCallback() {
-  FlutterForegroundTask.setTaskHandler(MyTaskHandler());
+  FlutterForegroundTask.setTaskHandler(SolasFlowTaskHandler());
 }
 
-class MyTaskHandler extends TaskHandler {
-  @override
-  Future<void> onStart(DateTime timestamp, TaskStarter starter) async {}
+class SolasFlowTaskHandler extends TaskHandler {
+  final TimerRuntimeStore _store = TimerRuntimeStore();
+  int _lastPublishedRemaining = -1;
+  int _lastStopwatchPublishedSeconds = -1;
+  int _lastClockMinute = -1;
+  Future<void> _operationTail = Future<void>.value();
+
+  void _enqueue(Future<void> Function() operation) {
+    _operationTail = _operationTail
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('Background task operation failed: $error');
+        })
+        .then((_) => operation());
+  }
 
   @override
-  void onRepeatEvent(DateTime timestamp) {}
+  Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
+    await _reconcile(timestamp, force: true);
+  }
 
   @override
-  Future<void> onDestroy(DateTime timestamp, bool isForceRequest) async {}
+  void onRepeatEvent(DateTime timestamp) {
+    _enqueue(() => _reconcile(timestamp));
+  }
+
+  Future<void> _reconcile(DateTime now, {bool force = false}) async {
+    var runtime = await _store.load();
+    final stopwatch = await _store.loadStopwatch();
+    final settings = await _store.loadTaskSettings();
+    if (runtime.status == TimerRuntimeStatus.running) {
+      final remaining = runtime.remainingAt(now);
+      if (remaining == 0) {
+        runtime = runtime.copyWith(
+          status: TimerRuntimeStatus.finished,
+          remainingSeconds: 0,
+          endAtEpochMs: () => null,
+          revision: runtime.revision + 1,
+        );
+        await _store.save(runtime);
+        force = true;
+      } else if (remaining != runtime.remainingSeconds) {
+        runtime = runtime.copyWith(remainingSeconds: remaining);
+      }
+    }
+
+    final remaining = runtime.remainingAt(now);
+    final stopwatchSeconds = stopwatch.elapsedMsAt(now) ~/ 1000;
+    final clockMinute = now.millisecondsSinceEpoch ~/ 60000;
+    final timerNeedsPublish =
+        runtime.status == TimerRuntimeStatus.running &&
+        remaining != _lastPublishedRemaining &&
+        (remaining <= 10 || remaining % 60 == 0);
+    final stopwatchNeedsPublish =
+        stopwatch.isRunning &&
+        stopwatchSeconds != _lastStopwatchPublishedSeconds &&
+        stopwatchSeconds % 30 == 0;
+    final clockNeedsPublish =
+        settings.clockOn && clockMinute != _lastClockMinute;
+    if (!force &&
+        !timerNeedsPublish &&
+        !stopwatchNeedsPublish &&
+        !clockNeedsPublish) {
+      return;
+    }
+    _lastPublishedRemaining = remaining;
+    _lastStopwatchPublishedSeconds = stopwatchSeconds;
+    _lastClockMinute = clockMinute;
+    await _updateNotification(runtime, stopwatch, settings);
+    FlutterForegroundTask.sendDataToMain({
+      'type': 'runtime',
+      'snapshot': runtime.toJson(),
+      'stopwatch': stopwatch.toJson(),
+    });
+  }
+
+  Future<void> _updateNotification(
+    TimerRuntime runtime,
+    StopwatchRuntime stopwatch,
+    AppSettings settings,
+  ) async {
+    final now = DateTime.now();
+    final remaining = runtime.remainingAt(now);
+    final minutes = (remaining ~/ 60).toString().padLeft(2, '0');
+    final seconds = (remaining % 60).toString().padLeft(2, '0');
+    final stopwatchTotal = stopwatch.elapsedMsAt(now) ~/ 1000;
+    final stopwatchMinutes = (stopwatchTotal ~/ 60).toString().padLeft(2, '0');
+    final stopwatchSeconds = (stopwatchTotal % 60).toString().padLeft(2, '0');
+    final currentTime =
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final state = ForegroundNotificationState(
+      isTimerRunning: runtime.status == TimerRuntimeStatus.running,
+      isStopwatchRunning: stopwatch.isRunning,
+      timerValue: '$minutes:$seconds',
+      stopwatchValue: '$stopwatchMinutes:$stopwatchSeconds',
+      currentTimeDisplay: currentTime,
+      speechMasterOn: settings.speechMasterOn,
+      isTimerFinished: runtime.status == TimerRuntimeStatus.finished,
+    );
+    final result = await FlutterForegroundTask.updateService(
+      notificationTitle: state.title,
+      notificationText: state.text,
+      notificationButtons: state.buttons,
+    );
+    if (result is ServiceRequestFailure) {
+      debugPrint('Background notification update failed: ${result.error}');
+    }
+  }
 
   @override
   void onNotificationButtonPressed(String id) {
-    FlutterForegroundTask.sendDataToMain(id);
+    if (id == 'open_app') {
+      FlutterForegroundTask.launchApp();
+      return;
+    }
+    _enqueue(() => _handleNotificationButton(id));
   }
+
+  @override
+  void onNotificationPressed() {
+    FlutterForegroundTask.launchApp();
+  }
+
+  Future<void> _handleNotificationButton(String id) async {
+    var runtime = await _store.load();
+    var settings = await _store.loadTaskSettings();
+    var stopwatch = await _store.loadStopwatch();
+    if (id == 'audio:set:on' || id == 'audio:set:off') {
+      final enabled = id == 'audio:set:on';
+      await _store.saveSpeechMasterOverride(enabled);
+      settings = settings.copyWith(speechMasterOn: enabled);
+      await _updateNotification(runtime, stopwatch, settings);
+      FlutterForegroundTask.sendDataToMain({
+        'type': 'speechMaster',
+        'value': enabled,
+      });
+      return;
+    }
+
+    if (id == 'btn_timer_repeat' && runtime.durationSeconds > 0) {
+      runtime = TimerRuntime.running(
+        durationSeconds: runtime.durationSeconds,
+        remainingSeconds: runtime.durationSeconds,
+        now: DateTime.now(),
+        chainModeOn: runtime.chainModeOn,
+        chainPresetKey: runtime.chainPresetKey,
+        chainIndex: runtime.chainIndex,
+        runId: runtime.runId,
+        revision: runtime.revision + 1,
+      );
+      await _store.save(runtime);
+      await _updateNotification(runtime, stopwatch, settings);
+      FlutterForegroundTask.sendDataToMain({
+        'type': 'runtime',
+        'snapshot': runtime.toJson(),
+      });
+      return;
+    }
+
+    if (id == 'btn_timer_dismiss' || id == 'btn_exit') {
+      runtime = TimerRuntime.idle().copyWith(revision: runtime.revision + 1);
+      await _store.save(runtime);
+      if (id == 'btn_exit') {
+        stopwatch = StopwatchRuntime.idle().copyWith(
+          revision: stopwatch.revision + 1,
+        );
+        await _store.saveStopwatch(stopwatch);
+      }
+      FlutterForegroundTask.sendDataToMain({
+        'type': id == 'btn_exit' ? 'exit' : 'runtime',
+        'snapshot': runtime.toJson(),
+        'stopwatch': stopwatch.toJson(),
+      });
+      if (id == 'btn_exit' ||
+          (!settings.backgroundPersistenceOn &&
+              !stopwatch.isRunning &&
+              !settings.clockOn)) {
+        final result = await FlutterForegroundTask.stopService();
+        if (result is ServiceRequestFailure) {
+          debugPrint('Background service stop failed: ${result.error}');
+        }
+      } else {
+        await _updateNotification(runtime, stopwatch, settings);
+      }
+    }
+  }
+
+  @override
+  Future<void> onDestroy(DateTime timestamp, bool isForceRequest) async {}
 }
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   FlutterForegroundTask.initCommunicationPort();
+  try {
+    final settings = await SettingsService().load(
+      defaultSound: 'audio/rain.mp3',
+    );
+    SettingsNotifier.bootstrap(settings);
+  } catch (error, stackTrace) {
+    debugPrint('Settings bootstrap failed: $error\n$stackTrace');
+    SettingsNotifier.bootstrap(AppSettings.defaults());
+  }
   runApp(const ProviderScope(child: SolasFlowApp()));
 }
 
@@ -158,16 +330,14 @@ class SolasFlowApp extends ConsumerWidget {
           return MaterialApp(
             title: l10n?.appTitle ?? 'SolasFlow',
             debugShowCheckedModeBanner: false,
-            localizationsDelegates:
-                AppLocalizations.localizationsDelegates,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             themeMode: themeMode,
             builder: (context, child) {
               return MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  textScaler:
-                      TextScaler.linear(fontSizeMultiplier),
-                ),
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(fontSizeMultiplier)),
                 child: child!,
               );
             },
@@ -188,12 +358,10 @@ class MainScreen extends ConsumerStatefulWidget {
   ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObserver {
-  bool get _supportsForegroundTask {
-    if (kIsWeb) return false;
-    return defaultTargetPlatform == TargetPlatform.android ||
-        defaultTargetPlatform == TargetPlatform.iOS;
-  }
+class _MainScreenState extends ConsumerState<MainScreen>
+    with WidgetsBindingObserver {
+  bool get _supportsForegroundTask =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   bool get _supportsQuickActions {
     if (kIsWeb) return false;
@@ -214,26 +382,6 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   static const MethodChannel _widgetChannel = MethodChannel(
     'com.atherpulse.solasflow/widget',
   );
-
-  /// MethodChannel for checking system permissions
-  static const MethodChannel _permissionsChannel = MethodChannel(
-    'com.atherpulse.solasflow/permissions',
-  );
-
-  /// Check if accessibility service is enabled for auto-start on reboot
-  Future<bool> checkAccessibilityEnabled() async {
-    try {
-      return await _permissionsChannel.invokeMethod('isAccessibilityEnabled') ?? false;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  Future<void> openAccessibilitySettings() async {
-    try {
-      await _permissionsChannel.invokeMethod('openAccessibilitySettings');
-    } catch (_) {}
-  }
 
   /// Plays ambient background sounds (rain, waterfall, fire, stream)
   /// Handles volume and audio session management
@@ -265,6 +413,13 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
 
   /// Session log service for study/non-study tagging
   final SessionLogService _sessionLogService = SessionLogService();
+  final TimerRuntimeStore _timerRuntimeStore = TimerRuntimeStore();
+  TimerRuntime _timerRuntime = TimerRuntime.idle();
+  bool _timerCompletionInFlight = false;
+  int _alarmGeneration = 0;
+  bool _bootstrapReady = false;
+  final List<Future<void> Function()> _pendingExternalActions = [];
+  Future<void> _widgetDrainTail = Future<void>.value();
 
   /// Session recording state — captured when timer starts
   DateTime? _sessionStartTime;
@@ -297,8 +452,11 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   /// Backoff gate for repeated initialization failures.
   DateTime _nextTtsInitAllowedAt = DateTime.fromMillisecondsSinceEpoch(0);
 
-  /// Queue of pending speech items (announcements, quotes, affirmations)
-  List<SpeechItem> speechQueue = [];
+  final Queue<SpeechItem> speechQueue = Queue<SpeechItem>();
+  int _speechGeneration = 0;
+  Future<void> _announcementTail = Future<void>.value();
+  final Stopwatch _announcementClock = Stopwatch()..start();
+  int _lastAnnouncementElapsedMs = -10000;
 
   /// Flag to prevent concurrent speech playback (TTS can't overlap)
   bool isSpeechActive = false;
@@ -309,14 +467,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   /// Current voice index in the voices list
   int voiceIndex = 0;
 
-  /// Speech engine mode: auto / system_only / sherpa_only
-  String speechEngineMode = 'auto';
-
-  /// User's preferred voice name (cached from settings)
-  String? favoriteVoiceName;
-
-  /// Locale of the user's preferred voice (e.g., 'en-US', 'ml-IN')
-  String? favoriteVoiceLocale;
+  /// Flag indicating if background audio is currently playing
 
   /// Flag indicating if background audio is currently playing
   bool audioPlaying = false;
@@ -363,6 +514,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
 
   /// Periodic timer for clock time updates
   Timer? clockTimer;
+  DateTime? _nextClockAt;
 
   /// Display ticker: updates UI at 250ms intervals (reduced from 30ms for performance)
   Timer? displayTick;
@@ -373,12 +525,6 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   /// 30-second health check timer for foreground service recovery
   /// Detects if OS killed the service and restarts it
   Timer? foregroundHealthTimer;
-
-  /// Counter for idle notification ticks (used with 4:1 throttle ratio)
-  int _idleNotificationTicks = 0;
-
-  /// Timestamp of last notification sync to prevent excessive updates
-  int lastNotificationSyncMs = 0;
 
   /// Currently active tab index (0=SpeakClock, 1=Timer Setup, 2=Stopwatch, 3=Goals, 4=Settings)
   int currentTabIndex = 1;
@@ -403,8 +549,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   /// Stopwatch ticker interval
   Timer? stopwatchInterval;
 
-  /// Internal high-precision stopwatch engine
-  final Stopwatch _stopwatchEngine = Stopwatch();
+  StopwatchRuntime _stopwatchRuntime = StopwatchRuntime.idle();
 
   /// Elapsed stopwatch seconds
   int stopwatchElapsedSeconds = 0;
@@ -412,149 +557,183 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   /// Formatted elapsed stopwatch display (MM:SS or HH:MM:SS)
   String stopwatchElapsedValue = '00:00';
 
-  /// Enable/disable periodic stopwatch announcements
-  bool stopwatchSpeakOn = true;
+  AppSettings get _settings => ref.read(settingsProvider);
 
-  /// Show centiseconds in timer display
-  bool timerShowMilliseconds = false;
+  void _updateSettings(AppSettings Function(AppSettings current) transform) {
+    ref.read(settingsProvider.notifier).update(transform);
+  }
 
-  /// Show centiseconds in stopwatch display
-  bool stopwatchShowMilliseconds = false;
+  bool get stopwatchSpeakOn => _settings.stopwatchSpeakOn;
+  set stopwatchSpeakOn(bool value) =>
+      _updateSettings((settings) => settings.copyWith(stopwatchSpeakOn: value));
+  bool get timerShowMilliseconds => _settings.timerShowMilliseconds;
+  set timerShowMilliseconds(bool value) => _updateSettings(
+    (settings) => settings.copyWith(timerShowMilliseconds: value),
+  );
+  bool get stopwatchShowMilliseconds => _settings.stopwatchShowMilliseconds;
+  set stopwatchShowMilliseconds(bool value) => _updateSettings(
+    (settings) => settings.copyWith(stopwatchShowMilliseconds: value),
+  );
+  int get stopwatchSpeakDelaySeconds => _settings.stopwatchSpeakDelaySeconds;
+  set stopwatchSpeakDelaySeconds(int value) => _updateSettings(
+    (settings) => settings.copyWith(stopwatchSpeakDelaySeconds: value),
+  );
+  String get soundChosen => _settings.soundChosen;
+  set soundChosen(String value) =>
+      _updateSettings((settings) => settings.copyWith(soundChosen: value));
+  double get noiseVolume => _settings.noiseVolume;
+  set noiseVolume(double value) =>
+      _updateSettings((settings) => settings.copyWith(noiseVolume: value));
+  double get speakVolume => _settings.speakVolume;
+  set speakVolume(double value) =>
+      _updateSettings((settings) => settings.copyWith(speakVolume: value));
+  bool get maximumSpeechVolume => _settings.maximumSpeechVolume;
+  set maximumSpeechVolume(bool value) => _updateSettings(
+    (settings) => settings.copyWith(maximumSpeechVolume: value),
+  );
+  bool get speechMasterOn => _settings.speechMasterOn;
+  set speechMasterOn(bool value) =>
+      _updateSettings((settings) => settings.copyWith(speechMasterOn: value));
+  bool get clockOn => _settings.clockOn;
+  set clockOn(bool value) =>
+      _updateSettings((settings) => settings.copyWith(clockOn: value));
+  int get clockIntervalMins => _settings.clockIntervalMins;
+  set clockIntervalMins(int value) => _updateSettings(
+    (settings) => settings.copyWith(clockIntervalMins: value),
+  );
+  bool get clockShowMilliseconds => _settings.clockShowMilliseconds;
+  set clockShowMilliseconds(bool value) => _updateSettings(
+    (settings) => settings.copyWith(clockShowMilliseconds: value),
+  );
+  bool get clockShowSeconds => _settings.clockShowSeconds;
+  set clockShowSeconds(bool value) =>
+      _updateSettings((settings) => settings.copyWith(clockShowSeconds: value));
+  bool get clockSpeakTime => _settings.clockSpeakTime;
+  set clockSpeakTime(bool value) =>
+      _updateSettings((settings) => settings.copyWith(clockSpeakTime: value));
+  int get clockSpeakRepeatCount => _settings.clockSpeakRepeatCount;
+  set clockSpeakRepeatCount(int value) => _updateSettings(
+    (settings) => settings.copyWith(clockSpeakRepeatCount: value),
+  );
+  bool get clockNoiseOn => _settings.clockNoiseOn;
+  set clockNoiseOn(bool value) =>
+      _updateSettings((settings) => settings.copyWith(clockNoiseOn: value));
+  bool get motivationOn => _settings.motivationOn;
+  set motivationOn(bool value) =>
+      _updateSettings((settings) => settings.copyWith(motivationOn: value));
+  String get motivationCategory => _settings.motivationCategory;
+  set motivationCategory(String value) => _updateSettings(
+    (settings) => settings.copyWith(motivationCategory: value),
+  );
+  int get motivationDelaySeconds => _settings.motivationDelaySeconds;
+  set motivationDelaySeconds(int value) => _updateSettings(
+    (settings) => settings.copyWith(motivationDelaySeconds: value),
+  );
+  bool get timerNoiseOn => _settings.timerNoiseOn;
+  set timerNoiseOn(bool value) =>
+      _updateSettings((settings) => settings.copyWith(timerNoiseOn: value));
+  bool get goalReminderOn => _settings.goalReminderOn;
+  set goalReminderOn(bool value) =>
+      _updateSettings((settings) => settings.copyWith(goalReminderOn: value));
+  int get goalReminderIntervalMins => _settings.goalReminderIntervalMins;
+  set goalReminderIntervalMins(int value) => _updateSettings(
+    (settings) => settings.copyWith(goalReminderIntervalMins: value),
+  );
+  List<String> get goalReminderItems => _settings.goalReminderItems;
+  set goalReminderItems(List<String> value) => _updateSettings(
+    (settings) => settings.copyWith(goalReminderItems: value),
+  );
+  int get goalReminderNextIndex => _settings.goalReminderNextIndex;
+  set goalReminderNextIndex(int value) => _updateSettings(
+    (settings) => settings.copyWith(goalReminderNextIndex: value),
+  );
+  bool get appDarkTheme => _settings.appDarkTheme;
+  set appDarkTheme(bool value) =>
+      _updateSettings((settings) => settings.copyWith(appDarkTheme: value));
+  bool get muteSpeechAfterMidnight => _settings.muteSpeechAfterMidnight;
+  set muteSpeechAfterMidnight(bool value) => _updateSettings(
+    (settings) => settings.copyWith(muteSpeechAfterMidnight: value),
+  );
+  String get nightMuteMode => _settings.nightMuteMode;
+  set nightMuteMode(String value) =>
+      _updateSettings((settings) => settings.copyWith(nightMuteMode: value));
+  int get sleepStartMinutes => _settings.sleepStartMinutes;
+  set sleepStartMinutes(int value) => _updateSettings(
+    (settings) => settings.copyWith(sleepStartMinutes: value),
+  );
+  int get sleepEndMinutes => _settings.sleepEndMinutes;
+  set sleepEndMinutes(int value) =>
+      _updateSettings((settings) => settings.copyWith(sleepEndMinutes: value));
+  bool get fullscreenDarkTheme => _settings.fullscreenDarkTheme;
+  set fullscreenDarkTheme(bool value) => _updateSettings(
+    (settings) => settings.copyWith(fullscreenDarkTheme: value),
+  );
+  bool get fullscreenDimBrightness => _settings.fullscreenDimBrightness;
+  set fullscreenDimBrightness(bool value) => _updateSettings(
+    (settings) => settings.copyWith(fullscreenDimBrightness: value),
+  );
+  bool get fullscreenStartLandscape => _settings.fullscreenStartLandscape;
+  set fullscreenStartLandscape(bool value) => _updateSettings(
+    (settings) => settings.copyWith(fullscreenStartLandscape: value),
+  );
+  bool get fullscreenShowClock => _settings.fullscreenShowClock;
+  set fullscreenShowClock(bool value) => _updateSettings(
+    (settings) => settings.copyWith(fullscreenShowClock: value),
+  );
+  double get fullscreenClockScale => _settings.fullscreenClockScale;
+  set fullscreenClockScale(double value) => _updateSettings(
+    (settings) => settings.copyWith(fullscreenClockScale: value),
+  );
+  bool get backgroundPersistenceOn => _settings.backgroundPersistenceOn;
+  set backgroundPersistenceOn(bool value) => _updateSettings(
+    (settings) => settings.copyWith(backgroundPersistenceOn: value),
+  );
+  bool get taggingOn => _settings.taggingOn;
+  set taggingOn(bool value) =>
+      _updateSettings((settings) => settings.copyWith(taggingOn: value));
+  String get sessionTag => _settings.sessionTag;
+  set sessionTag(String value) =>
+      _updateSettings((settings) => settings.copyWith(sessionTag: value));
+  double get fullscreenDimBrightnessLevel =>
+      _settings.fullscreenDimBrightnessLevel;
+  set fullscreenDimBrightnessLevel(double value) => _updateSettings(
+    (settings) => settings.copyWith(fullscreenDimBrightnessLevel: value),
+  );
+  bool get timerSpeakOn => _settings.timerSpeakOn;
+  set timerSpeakOn(bool value) =>
+      _updateSettings((settings) => settings.copyWith(timerSpeakOn: value));
+  int get timerAnnounceEvery => _settings.timerAnnounceEvery;
+  set timerAnnounceEvery(int value) => _updateSettings(
+    (settings) => settings.copyWith(timerAnnounceEvery: value),
+  );
+  String get voiceListMode => _settings.voiceListMode;
+  set voiceListMode(String value) =>
+      _updateSettings((settings) => settings.copyWith(voiceListMode: value));
+  String get speechEngineMode => _settings.speechEngineMode;
+  set speechEngineMode(String value) =>
+      _updateSettings((settings) => settings.copyWith(speechEngineMode: value));
+  String? get favoriteVoiceName => _settings.favoriteVoiceName;
+  set favoriteVoiceName(String? value) => _updateSettings(
+    (settings) => settings.copyWith(favoriteVoiceName: () => value),
+  );
+  String? get favoriteVoiceLocale => _settings.favoriteVoiceLocale;
+  set favoriteVoiceLocale(String? value) => _updateSettings(
+    (settings) => settings.copyWith(favoriteVoiceLocale: () => value),
+  );
+  double get appFontSizeMultiplier => _settings.appFontSizeMultiplier;
+  set appFontSizeMultiplier(double value) => _updateSettings(
+    (settings) => settings.copyWith(appFontSizeMultiplier: value),
+  );
 
-  /// Speak stopwatch elapsed announcement every N seconds
-  int stopwatchSpeakDelaySeconds = 60;
-
-  /// Guard to avoid repeated auto-announcements within the same elapsed second
-  int _lastStopwatchAutoAnnouncedSecond = -1;
-
-  /// ============================================================================
-  /// PREFERENCES STATE - User-configurable settings (loaded from storage)
-  /// ============================================================================
-  /// All preference variables mirror keys in lib/core/pref_keys.dart
-
-  /// Currently selected background sound file path
-  String soundChosen = "audio/rain.mp3";
-
-  /// Volume level for background ambient audio (0.0-1.0)
-  double noiseVolume = 1.0;
-
-  /// Volume level for speech/TTS output (0.0-1.0)
-  double speakVolume = 1.0;
-
-  /// Combine boost + max device volume in one toggle
-  bool maximumSpeechVolume = false;
-
-  /// Global speech on/off — when OFF, suppresses ALL speech
-  bool speechMasterOn = true;
-
-  /// Enable/disable clock announcements
-  bool clockOn = false;
-
-  /// Clock announcement interval in minutes
-  int clockIntervalMins = 30;
-
-  /// Show milliseconds in speaking clock display
-  bool clockShowMilliseconds = true;
-  /// Show seconds in speaking clock display (when false, only hours:minutes shown)
-  bool clockShowSeconds = true;
-
-  /// Enable/disable announcing the time (speech) during clock
-  bool clockSpeakTime = true;
-
-  /// Number of times each clock time announcement should be repeated
-  int clockSpeakRepeatCount = 1;
-
-  /// Enable/disable background noise during clock
-  bool clockNoiseOn = false;
-
-  /// Enable/disable motivational quote announcements
-  bool motivationOn = true;
-
-  /// Category of quotes to use (General, Malayalam, Focus, etc.)
-  String motivationCategory = 'General';
-
-  /// Delay between quote announcements in seconds
-  int motivationDelaySeconds = 10;
-
-  /// Enable/disable background noise during timer
-  bool timerNoiseOn = true;
-
-  /// Enable/disable periodic goal reminders
-  bool goalReminderOn = false;
-
-  /// Accessibility service enabled for auto-start after reboot
-  bool _accessibilityEnabled = false;
-
-  /// Timer that polls accessibility status after the user opens system
-  /// accessibility settings.  Android may not fire `didChangeAppLifecycleState`
-  /// reliably on every ROM, and `Settings.Secure` can lag behind the user's
-  /// toggle by a few hundred ms, so we poll defensively.
-  Timer? _accessibilityPollTimer;
-
-  /// Goal reminder interval in minutes
-  int goalReminderIntervalMins = 60;
-
-  /// Round-robin list of user goals
-  List<String> goalReminderItems = [];
-
-  /// Next goal index for reminders
-  int goalReminderNextIndex = 0;
-
-  /// Use dark theme for app UI
-  bool appDarkTheme = false;
-
-  /// Automatically mute speech after midnight threshold
-  bool muteSpeechAfterMidnight = false;
-
-  /// Night mute mode: 'manual' or 'auto' (with sleep window)
-  String nightMuteMode = 'manual';
-
-  /// Start of auto-mute window in minutes since midnight (e.g., 2400 = 12 AM + 400 min)
-  int sleepStartMinutes = 0;
-
-  /// End of auto-mute window in minutes since midnight
-  int sleepEndMinutes = 360;
-
-  /// Flag: auto-mute is currently active in the sleep window
   bool autoNightMuteActive = false;
-
-  /// Timer for managing idle auto-mute countdown
   Timer? nightIdleTimer;
-
-  /// Timer for resuming speech after auto-mute duration expires
   Timer? nightResumeSpeechTimer;
-
-  /// Periodic timer for goal reminders
   Timer? goalReminderTimer;
-
-  /// Use dark theme in fullscreen focus mode
-  bool fullscreenDarkTheme = true;
-
-  /// Dim screen brightness in fullscreen focus mode
-  bool fullscreenDimBrightness = false;
-
-  /// Start fullscreen focus mode in landscape orientation
-  bool fullscreenStartLandscape = false;
-  bool fullscreenShowClock = false;
-  double fullscreenClockScale = 1.0;
+  DateTime? _nextGoalReminderAt;
   List<String> _installedEngines = [];
   int _lastStopwatchNotificationSecond = -1;
 
-  /// Keep app running in background (foreground service when idle)
-  bool backgroundPersistenceOn = false;
-
-  /// Study/non-study session tagging feature (opt-in)
-  bool taggingOn = false;
-  String sessionTag = 'study';
-
-  /// Brightness level when dim mode is enabled in fullscreen (0.0 = black, 1.0 = full)
-  double fullscreenDimBrightnessLevel = 0.08;
-
-  /// Enable/disable timer completion announcements
-  bool timerSpeakOn = true;
-
-  /// Announce timer every N minutes during countdown
-  int timerAnnounceEvery = 1;
+  int _lastStopwatchAutoAnnouncedSecond = -1;
 
   /// Enable/disable chain mode (consecutive presets)
   bool chainModeOn = false;
@@ -632,9 +811,21 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
 
   /// Quick preset timer values (in minutes) for rapid timer setup
   final List<int> presetValues = [
-    1, 2, 5, 10, 15,
-    20, 25, 30, 45, 60,
-    3, 7, 12, 35, 90,
+    1,
+    2,
+    5,
+    10,
+    15,
+    20,
+    25,
+    30,
+    45,
+    60,
+    3,
+    7,
+    12,
+    35,
+    90,
   ];
 
   /// Available clock announcement intervals (in minutes)
@@ -708,7 +899,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
         autoRunOnBoot: true,
         autoRunOnMyPackageReplaced: true,
         allowWakeLock: true,
-        allowWifiLock: true,
+        allowWifiLock: false,
         allowAutoRestart: true,
         stopWithTask: false,
       ),
@@ -721,7 +912,9 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     final timePartWithFraction = parts.first; // e.g. 03:45:30.125
     final suffix = parts.length > 1 ? parts.sublist(1).join(' ') : '';
 
-    final timeWithoutFraction = timePartWithFraction.split('.').first; // 03:45:30
+    final timeWithoutFraction = timePartWithFraction
+        .split('.')
+        .first; // 03:45:30
     final hmParts = timeWithoutFraction.split(':');
     final hm = hmParts.length >= 2
         ? '${hmParts[0]}:${hmParts[1]}'
@@ -756,70 +949,50 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     );
   }
 
-  /// Whether any active feature needs the foreground notification.
   bool get _isAnythingActive =>
+      backgroundPersistenceOn ||
       timerInterval != null ||
       stopwatchInterval != null ||
       clockOn ||
       _isTimerFinished;
 
-  Future<void> _syncForegroundNotification({bool force = false}) async {
-    // Only keep the foreground service alive when something is active.
-    // This prevents notification competition with other apps and saves battery.
-    if (!_isAnythingActive) {
-      await _stopForegroundService();
-      return;
-    }
-    lastNotificationSyncMs = await _foregroundNotificationService.sync(
-      state: _foregroundState(),
-      lastSyncMs: lastNotificationSyncMs,
-      force: force,
-    );
-  }
-
-  Future<void> _ensureForegroundServiceRunning() async {
-    // Only start the foreground service when something actually needs it.
-    if (!_isAnythingActive) return;
-    _foregroundNotificationService.resetCache();
-    await _foregroundNotificationService.ensureRunning(
+  Future<void> _reconcileForeground({bool force = false}) async {
+    final ok = await _foregroundNotificationService.reconcile(
+      shouldRun: _isAnythingActive,
       state: _foregroundState(),
       callback: startCallback,
+      force: force,
     );
+    if (!ok && _foregroundNotificationService.lastError != null) {
+      debugPrint(
+        'Foreground state not applied: ${_foregroundNotificationService.lastError}',
+      );
+    }
   }
+
+  Future<void> _syncForegroundNotification({bool force = false}) =>
+      _reconcileForeground(force: force);
 
   Future<void> _initializeForegroundNotification() async {
     if (!_supportsForegroundTask) return;
     await _requestPermissions();
-    // Only start foreground service on init if background persistence is enabled
-    if (backgroundPersistenceOn) {
-      await _ensureForegroundServiceRunning();
-    }
+    await _reconcileForeground(force: true);
   }
 
   Future<void> _stopForegroundService() async {
-    if (!_supportsForegroundTask) return;
-    try {
-      await FlutterForegroundTask.stopService();
-      _foregroundNotificationService.resetCache();
-    } on MissingPluginException {
-    } on PlatformException {
-    }
+    await _foregroundNotificationService.reconcile(
+      shouldRun: false,
+      state: _foregroundState(),
+      callback: startCallback,
+      force: true,
+    );
   }
 
   void _startForegroundHealthCheck() {
     foregroundHealthTimer?.cancel();
     foregroundHealthTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (!mounted) return;
-      if (timerInterval == null && stopwatchInterval == null && !clockOn) {
-        return;
-      }
-      // Only keep foreground service alive if background persistence is on,
-      // or if there's active content (timer/stopwatch/clock)
-      if (!backgroundPersistenceOn && timerInterval == null && stopwatchInterval == null && !clockOn) {
-        return;
-      }
-      unawaited(_ensureForegroundServiceRunning());
-      unawaited(_syncForegroundNotification(force: true));
+      if (!mounted || !_isAnythingActive) return;
+      unawaited(_reconcileForeground(force: true));
     });
   }
 
@@ -915,19 +1088,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
         _syncForegroundNotification(force: true);
         break;
       case 'toggle_speech_master':
-        setState(() {
-          speechMasterOn = !speechMasterOn;
-          if (!speechMasterOn) {
-            speechQueue.clear();
-            unawaited(flutterTts.stop());
-            unawaited(_audioService.stopBackground());
-            FlutterRingtonePlayer().stop();
-            unawaited(flutterTts.stop());
-          }
-          _lsSave();
-        });
-        if (speechMasterOn) _applyAudioSettings();
-        _syncForegroundNotification(force: true);
+        await _setSpeechMaster(!speechMasterOn);
         break;
     }
   }
@@ -940,7 +1101,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
 
     try {
       _quickActions.initialize((type) {
-        unawaited(_handleQuickAction(type));
+        _dispatchExternal(() => _handleQuickAction(type));
       });
 
       _quickActions.setShortcutItems(<ShortcutItem>[
@@ -983,7 +1144,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
           onAppFontSizeMultiplierChanged: (val) {
             if (val != null) {
               setState(() {
-                setAppFontSizeMultiplier(val);
+                appFontSizeMultiplier = val;
                 _lsSave();
               });
             }
@@ -1001,8 +1162,12 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
               _lsSave();
             });
           },
-          sleepStartLabel: _formatMinutesAs12Hour(ref.read(settingsProvider).sleepStartMinutes),
-          sleepEndLabel: _formatMinutesAs12Hour(ref.read(settingsProvider).sleepEndMinutes),
+          sleepStartLabel: _formatMinutesAs12Hour(
+            ref.read(settingsProvider).sleepStartMinutes,
+          ),
+          sleepEndLabel: _formatMinutesAs12Hour(
+            ref.read(settingsProvider).sleepEndMinutes,
+          ),
           soundList: soundList,
           volumeLists: volumeLists,
           isSpeechActive: isSpeechActive,
@@ -1038,18 +1203,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
             });
           },
           onSpeechMasterOnChanged: (val) {
-            final newVal = val ?? true;
-            setState(() {
-              speechMasterOn = newVal;
-              if (!speechMasterOn) {
-                speechQueue.clear();
-                unawaited(flutterTts.stop());
-                unawaited(_audioService.stopBackground());
-                FlutterRingtonePlayer().stop();
-              }
-              _lsSave();
-            });
-            if (speechMasterOn) _applyAudioSettings();
+            unawaited(_setSpeechMaster(val ?? true));
           },
           onFullscreenDarkThemeChanged: (val) {
             setState(() {
@@ -1116,6 +1270,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
             setState(() {
               final normalized = _speechService.normalizeVoiceLanguageMode(val);
               debugPrint('[SettingsPanel] normalized language=$normalized');
+              voiceListMode = normalized;
               _speechLanguageService.setLanguage(normalized);
               final available = _availableVoicesForSettings();
               final hasFavorite = available.any(
@@ -1164,210 +1319,156 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
               _lsSave();
             });
           },
-          accessibilityEnabled: _accessibilityEnabled,
-          onOpenAccessibility: () async {
-            final enabled = await checkAccessibilityEnabled();
-            if (enabled) {
-              if (mounted) setState(() => _accessibilityEnabled = true);
-              return;
-            }
-            await openAccessibilitySettings();
-            _startAccessibilityPoll();
-          },
           onOpenHelp: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => _buildHelpTab()),
-              );
-            },
-            onBackupSettings: () => unawaited(_handleBackupSettings()),
-            onRestoreSettings: () => unawaited(_handleRestoreSettings()),
-          ),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(1.0, 0.0),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-              )),
-              child: child,
-            );
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => _buildHelpTab()));
           },
+          onBackupSettings: () => unawaited(_handleBackupSettings()),
+          onRestoreSettings: () => unawaited(_handleRestoreSettings()),
         ),
-      );
-    }
-  
-    Future<void> _handleBackupSettings() async {
-      if (!mounted) return;
-      try {
-        final filePath = await _settingsService.exportToUserFolder(
-          defaultSound: soundList.first.link,
-        );
-        if (!mounted) return;
-        if (filePath == null) return; // User cancelled directory picker
-
-        final jsonStr = await _settingsService.exportToJson(
-          defaultSound: soundList.first.link,
-        );
-        if (!mounted) return;
-
-        await showDialog<void>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Backup Saved'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Settings exported successfully.'),
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Theme.of(ctx).colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: SelectableText(
-                    filePath,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                    ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SlideTransition(
+            position:
+                Tween<Offset>(
+                  begin: const Offset(1.0, 0.0),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
                   ),
                 ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: jsonStr));
-                  Navigator.of(ctx).pop();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('JSON copied to clipboard')),
-                    );
-                  }
-                },
-                child: const Text('Copy JSON'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Done'),
-              ),
-            ],
-          ),
-        );
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Backup failed: $e')),
-        );
-      }
-    }
-  
-    Future<void> _handleRestoreSettings() async {
+            child: child,
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _handleBackupSettings() async {
+    if (!mounted) return;
+    try {
+      final filePath = await _settingsService.exportToUserFolder(
+        defaultSound: soundList.first.link,
+      );
       if (!mounted) return;
-      try {
-        final imported = await _settingsService.importFromFile();
-        if (imported == null) return; // User cancelled or error
-        if (!mounted) return;
-  
-        // Show a preview dialog before applying
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Restore Settings'),
-            content: const Text(
-              'This will replace all current settings with the imported backup. '
-              'The app will reload to apply the changes. Continue?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Restore'),
+      if (filePath == null) return; // User cancelled directory picker
+
+      final jsonStr = await _settingsService.exportToJson(
+        defaultSound: soundList.first.link,
+      );
+      if (!mounted) return;
+
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Backup Saved'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Settings exported successfully.'),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Theme.of(ctx).colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SelectableText(
+                  filePath,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
             ],
           ),
-        );
-        if (confirmed != true || !mounted) return;
-  
-        // Save the imported settings
-        await _settingsService.save(imported);
-        setState(() {
-          // Apply all restored settings
-          _applyRestoredSettings(imported);
-        });
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Settings restored successfully!')),
-        );
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Restore failed: $e')),
-        );
-      }
-    }
-  
-    void _applyRestoredSettings(AppSettings settings) {
-      soundChosen = settings.soundChosen;
-      noiseVolume = settings.noiseVolume;
-      speakVolume = settings.speakVolume;
-      maximumSpeechVolume = settings.maximumSpeechVolume;
-      speechMasterOn = settings.speechMasterOn;
-      clockOn = settings.clockOn;
-      clockIntervalMins = settings.clockIntervalMins;
-      clockShowMilliseconds = settings.clockShowMilliseconds;
-      clockShowSeconds = settings.clockShowSeconds;
-      clockSpeakTime = settings.clockSpeakTime;
-      clockSpeakRepeatCount = settings.clockSpeakRepeatCount.clamp(1, 3);
-      clockNoiseOn = settings.clockNoiseOn;
-      motivationOn = settings.motivationOn;
-      motivationCategory = settings.motivationCategory;
-      motivationDelaySeconds = settings.motivationDelaySeconds;
-      timerSpeakOn = settings.timerSpeakOn;
-      timerAnnounceEvery = settings.timerAnnounceEvery;
-      timerShowMilliseconds = settings.timerShowMilliseconds;
-      timerNoiseOn = settings.timerNoiseOn;
-      goalReminderOn = settings.goalReminderOn;
-      goalReminderIntervalMins = settings.goalReminderIntervalMins;
-      goalReminderItems = List<String>.from(settings.goalReminderItems);
-      goalReminderNextIndex = settings.goalReminderNextIndex;
-      stopwatchShowMilliseconds = settings.stopwatchShowMilliseconds;
-      stopwatchSpeakDelaySeconds = settings.stopwatchSpeakDelaySeconds;
-      muteSpeechAfterMidnight = settings.muteSpeechAfterMidnight;
-      nightMuteMode = settings.nightMuteMode;
-      sleepStartMinutes = settings.sleepStartMinutes;
-      sleepEndMinutes = settings.sleepEndMinutes;
-      appDarkTheme = settings.appDarkTheme;
-      fullscreenDarkTheme = settings.fullscreenDarkTheme;
-      fullscreenDimBrightness = settings.fullscreenDimBrightness;
-      fullscreenStartLandscape = settings.fullscreenStartLandscape;
-      fullscreenShowClock = settings.fullscreenShowClock;
-      fullscreenClockScale = settings.fullscreenClockScale;
-      _speechLanguageService.setLanguage(
-        _speechService.normalizeVoiceLanguageMode(settings.voiceListMode),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: jsonStr));
+                Navigator.of(ctx).pop();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('JSON copied to clipboard')),
+                  );
+                }
+              },
+              child: const Text('Copy JSON'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Done'),
+            ),
+          ],
+        ),
       );
-      speechEngineMode = _speechService.normalizeSpeechEngineMode(
-        settings.speechEngineMode,
-      );
-      favoriteVoiceName = settings.favoriteVoiceName;
-      favoriteVoiceLocale = settings.favoriteVoiceLocale;
-      backgroundPersistenceOn = settings.backgroundPersistenceOn;
-      fullscreenDimBrightnessLevel = settings.fullscreenDimBrightnessLevel;
-      taggingOn = settings.taggingOn;
-      sessionTag = settings.sessionTag;
-      setAppFontSizeMultiplier(settings.appFontSizeMultiplier);
-      setAppThemeMode(appDarkTheme);
-      _applyAudioSettings();
-      _lsSave();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Backup failed: $e')));
     }
+  }
+
+  Future<void> _handleRestoreSettings() async {
+    if (!mounted) return;
+    try {
+      final imported = await _settingsService.importFromFile();
+      if (imported == null) return; // User cancelled or error
+      if (!mounted) return;
+
+      // Show a preview dialog before applying
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Restore Settings'),
+          content: const Text(
+            'This will replace all current settings with the imported backup. '
+            'The app will reload to apply the changes. Continue?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Restore'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+
+      _applyRestoredSettings(imported);
+      setState(() {});
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Settings restored successfully!')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Restore failed: $e')));
+    }
+  }
+
+  void _applyRestoredSettings(AppSettings settings) {
+    final normalized = settings.normalized();
+    ref.read(settingsProvider.notifier).replace(normalized);
+    _speechLanguageService.setLanguage(normalized.voiceListMode);
+    _voiceSessionManager.resetSession();
+    _applyAudioSettings();
+    _restartGoalReminderTimer();
+    _lsSave();
+    unawaited(_reconcileForeground(force: true));
+  }
 
   Future<void> _openFullscreenFocus({
     FullscreenFocusMode? specificMode,
@@ -1454,15 +1555,22 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   Future<void> _exitAppFully() async {
     try {
       stopClock();
-      stopTimer();
-      speechQueue.clear();
+      timerInterval?.cancel();
+      timerInterval = null;
+      stopwatchInterval?.cancel();
+      stopwatchInterval = null;
+      _cancelPendingSpeech();
+      await _timerRuntimeStore.save(TimerRuntime.idle());
+      await _timerRuntimeStore.saveStopwatch(StopwatchRuntime.idle());
       await flutterTts.stop();
       await _audioService.stopBackground();
-      await FlutterForegroundTask.stopService();
-    } catch (_) {}
+      await _audioService.stopNotification();
+      await _stopForegroundService();
+    } catch (error, stackTrace) {
+      debugPrint('Exit cleanup failed: $error\n$stackTrace');
+    }
 
     if (!mounted) return;
-
     if (Platform.isAndroid || Platform.isIOS) {
       await SystemNavigator.pop();
       return;
@@ -1471,70 +1579,105 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   }
 
   void _onReceiveTaskData(Object data) {
-    if (data is String) {
-      switch (data) {
-        case 'btn_speech_master':
-          setState(() {
-            speechMasterOn = !speechMasterOn;
-            if (!speechMasterOn) {
-              speechQueue.clear();
-              unawaited(flutterTts.stop());
-              unawaited(_audioService.stopBackground());
-              FlutterRingtonePlayer().stop();
-            }
-            _lsSave();
-          });
-          if (speechMasterOn) _applyAudioSettings();
-          _syncForegroundNotification(force: true);
-          break;
-        case 'btn_timer_toggle':
-          if (timerInterval != null) {
-            stopTimer();
-          } else {
-            startTimer();
-          }
-          break;
-        case 'btn_clock_speech':
-          setState(() {
-            clockOn = !clockOn;
-            _lsSave();
-            if (clockOn) {
-              startClock();
-            } else {
-              stopClock();
-            }
-          });
-          _applyAudioSettings();
-          _syncForegroundNotification(force: true);
-          break;
-        case 'btn_stopwatch_toggle':
-          if (stopwatchInterval != null) {
-            stopStopwatch();
-          } else {
-            startStopwatch();
-          }
-          _syncForegroundNotification(force: true);
-          break;
-        case 'btn_timer_repeat':
-          // Repeat last finished timer from notification
-          if (_lastFinishedTimerDurationSeconds > 0) {
-            _startTimerFromMinutes(
-              (_lastFinishedTimerDurationSeconds ~/ 60).clamp(1, 720).toInt(),
-            );
-          }
-          break;
-        case 'btn_timer_dismiss':
-          setState(() {
-            _isTimerFinished = false;
-          });
-          FlutterRingtonePlayer().stop();
-          unawaited(_syncForegroundNotification(force: true));
-          break;
-        case 'btn_exit':
-          unawaited(_exitAppFully());
-          break;
+    _dispatchExternal(() => _handleTaskData(data));
+  }
+
+  void _dispatchExternal(Future<void> Function() action) {
+    if (!_bootstrapReady) {
+      _pendingExternalActions.add(action);
+      return;
+    }
+    unawaited(action());
+  }
+
+  Future<void> _handleTaskData(Object data) async {
+    if (!mounted) return;
+    if (data is Map) {
+      final type = data['type']?.toString();
+      if (type == 'speechMaster' && data['value'] is bool) {
+        await _setSpeechMaster(data['value'] as bool);
+        return;
+      }
+      if (type == 'exit') {
+        await _exitAppFully();
+        return;
+      }
+      if (type == 'runtime' && data['snapshot'] is Map) {
+        final snapshot = Map<String, dynamic>.from(data['snapshot'] as Map);
+        await _applyTimerRuntime(TimerRuntime.fromJson(snapshot));
+        if (data['stopwatch'] is Map) {
+          await _applyStopwatchRuntime(
+            StopwatchRuntime.fromJson(
+              Map<String, dynamic>.from(data['stopwatch'] as Map),
+            ),
+          );
+        }
+        return;
       }
     }
+
+    if (data is! String) return;
+    switch (data) {
+      case 'btn_speech_master':
+        await _setSpeechMaster(!speechMasterOn);
+        return;
+      case 'btn_timer_toggle':
+        timerInterval == null ? startTimer() : stopTimer();
+        return;
+      case 'btn_clock_speech':
+        toggleClock();
+        return;
+      case 'btn_stopwatch_toggle':
+        stopwatchInterval == null ? startStopwatch() : stopStopwatch();
+        return;
+      case 'btn_timer_repeat':
+        if (_lastFinishedTimerDurationSeconds > 0) {
+          _startTimerFromMinutes(
+            (_lastFinishedTimerDurationSeconds ~/ 60).clamp(1, 720),
+          );
+        }
+        return;
+      case 'btn_timer_dismiss':
+        await _dismissFinishedTimer();
+        return;
+      case 'btn_exit':
+        await _exitAppFully();
+        return;
+      default:
+        return;
+    }
+  }
+
+  Future<void> _setSpeechMaster(bool enabled) async {
+    if (!mounted) return;
+    if (speechMasterOn == enabled) {
+      await _settingsService.save(_settings);
+      return;
+    }
+    setState(() => speechMasterOn = enabled);
+    if (!enabled) {
+      _cancelPendingSpeech();
+      await flutterTts.stop();
+      await _audioService.stopBackground();
+      FlutterRingtonePlayer().stop();
+    } else {
+      _applyAudioSettings();
+    }
+    await _settingsService.save(_currentSettingsSnapshot());
+    await _writeWidgetState();
+    await _reconcileForeground(force: true);
+  }
+
+  Future<void> _dismissFinishedTimer() async {
+    if (!mounted) return;
+    FlutterRingtonePlayer().stop();
+    _timerRuntime = TimerRuntime.idle().copyWith(
+      revision: _timerRuntime.revision + 1,
+    );
+    await _timerRuntimeStore.save(_timerRuntime);
+    if (!mounted) return;
+    setState(() => _isTimerFinished = false);
+    await _reconcileForeground(force: true);
   }
 
   @override
@@ -1543,14 +1686,10 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     WidgetsBinding.instance.addObserver(this);
     unawaited(SystemChrome.setPreferredOrientations([]));
     _initForegroundTask();
-    _initPrefs();
-    _initAudio();
-    _initTts();
-    _initializeForegroundNotification();
-    _initQuickActions();
     _initWidgetChannel();
-    // Add callback to handle notification button presses
+    _initQuickActions();
     FlutterForegroundTask.addTaskDataCallback(_onReceiveTaskData);
+    unawaited(_bootstrap());
 
     displayTick = Timer.periodic(const Duration(milliseconds: 250), (_) {
       if (!mounted) return;
@@ -1574,202 +1713,43 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
           stopwatchElapsedValue = stopwatchDisplay;
         });
       }
-
-      if (timerInterval == null && _isAnythingActive) {
-        _idleNotificationTicks = (_idleNotificationTicks + 1) % 4;
-        if (_idleNotificationTicks == 0) {
-          _syncForegroundNotification();
-        }
-      }
     });
   }
 
-  Future<void> _initPrefs() async {
-    final settings = await _settingsService.load(
-      defaultSound: soundList.first.link,
+  Future<void> _bootstrap() async {
+    final settings = _settings;
+    _speechLanguageService.setLanguage(settings.voiceListMode);
+    currentTimeDisplay = _formatCurrentTime(DateTime.now());
+    timerDisplayValue = _formatTimerDisplayValue(seconds);
+    stopwatchElapsedValue = _formatStopwatchElapsed(
+      stopwatchElapsedSeconds,
+      showMilliseconds: stopwatchShowMilliseconds,
     );
-    // Sync loaded settings into Riverpod provider
-    ref.read(settingsProvider.notifier).loadFromSettings(settings);
-    setState(() {
-      soundChosen = settings.soundChosen;
-      noiseVolume = settings.noiseVolume;
-      speakVolume = settings.speakVolume;
-      maximumSpeechVolume = settings.maximumSpeechVolume;
-      clockOn = settings.clockOn;
-      clockIntervalMins = settings.clockIntervalMins;
-      clockShowMilliseconds = settings.clockShowMilliseconds;
-      clockShowSeconds = settings.clockShowSeconds;
-      clockSpeakTime = settings.clockSpeakTime;
-      clockSpeakRepeatCount = settings.clockSpeakRepeatCount.clamp(1, 3);
-      clockNoiseOn = settings.clockNoiseOn;
-      motivationOn = settings.motivationOn;
-      motivationCategory = settings.motivationCategory;
-      motivationDelaySeconds = settings.motivationDelaySeconds;
-      timerSpeakOn = settings.timerSpeakOn;
-      timerAnnounceEvery = settings.timerAnnounceEvery;
-      timerShowMilliseconds = settings.timerShowMilliseconds;
-      timerNoiseOn = settings.timerNoiseOn;
-      goalReminderOn = settings.goalReminderOn;
-      goalReminderIntervalMins = settings.goalReminderIntervalMins;
-      goalReminderItems = List<String>.from(settings.goalReminderItems);
-      goalReminderNextIndex = settings.goalReminderNextIndex;
-      stopwatchShowMilliseconds = settings.stopwatchShowMilliseconds;
-      stopwatchSpeakDelaySeconds = settings.stopwatchSpeakDelaySeconds;
-      appDarkTheme = settings.appDarkTheme;
-      muteSpeechAfterMidnight = settings.muteSpeechAfterMidnight;
-      nightMuteMode = settings.nightMuteMode;
-      sleepStartMinutes = settings.sleepStartMinutes;
-      sleepEndMinutes = settings.sleepEndMinutes;
-      fullscreenDarkTheme = settings.fullscreenDarkTheme;
-      fullscreenDimBrightness = settings.fullscreenDimBrightness;
-      fullscreenStartLandscape = settings.fullscreenStartLandscape;
-      fullscreenShowClock = settings.fullscreenShowClock;
-      fullscreenClockScale = settings.fullscreenClockScale;
-      _speechLanguageService.setLanguage(
-        _speechService.normalizeVoiceLanguageMode(settings.voiceListMode),
-      );
-      speechEngineMode = _speechService.normalizeSpeechEngineMode(
-        settings.speechEngineMode,
-      );
-      favoriteVoiceName = settings.favoriteVoiceName;
-      favoriteVoiceLocale = settings.favoriteVoiceLocale;
-      speechMasterOn = settings.speechMasterOn;
-      backgroundPersistenceOn = settings.backgroundPersistenceOn;
-      fullscreenDimBrightnessLevel = settings.fullscreenDimBrightnessLevel;
-      taggingOn = settings.taggingOn;
-      sessionTag = settings.sessionTag;
-      setAppFontSizeMultiplier(settings.appFontSizeMultiplier);
 
-      if (!motivationCategories.contains(motivationCategory)) {
-        motivationCategory = 'General';
-      }
-      if (!motivationDelayOptions.contains(motivationDelaySeconds)) {
-        motivationDelaySeconds = 10;
-      }
-      if (!stopwatchSpeakDelayOptions.contains(stopwatchSpeakDelaySeconds)) {
-        stopwatchSpeakDelaySeconds = 60;
-      }
-      if (!goalReminderIntervalOptions.contains(goalReminderIntervalMins)) {
-        goalReminderIntervalMins = 60;
-      }
-      goalReminderItems = goalReminderItems
-          .map((item) => item.trim())
-          .where((item) => item.isNotEmpty)
-          .toList();
-      if (goalReminderItems.isEmpty) {
-        goalReminderNextIndex = 0;
-      } else {
-        goalReminderNextIndex =
-            goalReminderNextIndex % goalReminderItems.length;
-      }
-      if (nightMuteMode != 'manual' && nightMuteMode != 'automatic') {
-        nightMuteMode = 'manual';
-      }
-      speechEngineMode = _speechService.normalizeSpeechEngineMode(
-        speechEngineMode,
-      );
-      sleepStartMinutes = sleepStartMinutes.clamp(0, 1439);
-      sleepEndMinutes = sleepEndMinutes.clamp(0, 1439);
-      timerDisplayValue = _formatTimerDisplayValue(seconds);
-      stopwatchElapsedValue = _formatStopwatchElapsed(
-        stopwatchElapsedSeconds,
-        showMilliseconds: stopwatchShowMilliseconds,
-      );
-    });
-
+    await _audioService.init();
+    if (!mounted) return;
+    unawaited(_initTts());
     _applyAudioSettings();
-    setAppThemeMode(appDarkTheme);
     _restartGoalReminderTimer();
-    _refreshTodaySummary();
-    unawaited(_writeWidgetState());
-    if (clockOn) {
-      Future.delayed(const Duration(milliseconds: 200), startClock);
+    unawaited(_refreshTodaySummary());
+    await _restoreTimerRuntime();
+    await _restoreStopwatchRuntime();
+    if (!mounted) return;
+    if (clockOn) startClock();
+    await _initializeForegroundNotification();
+    if (!mounted) return;
+    _bootstrapReady = true;
+    final pending = List<Future<void> Function()>.from(_pendingExternalActions);
+    _pendingExternalActions.clear();
+    for (final action in pending) {
+      await action();
+      if (!mounted) return;
     }
-    // Check accessibility status
-    unawaited(_refreshAccessibilityStatus());
+    await _drainWidgetActions();
+    await _writeWidgetState();
   }
 
-  Future<void> _refreshAccessibilityStatus() async {
-    debugPrint('[A11y-DEBUG] _refreshAccessibilityStatus() called');
-    final enabled = await checkAccessibilityEnabled();
-    debugPrint('[A11y-DEBUG] _refreshAccessibilityStatus() result: $enabled (was: $_accessibilityEnabled)');
-    if (mounted) {
-      setState(() => _accessibilityEnabled = enabled);
-    }
-  }
-
-  /// Polls accessibility status after the user opens system accessibility
-  /// settings.  Runs every 1 s for up to 30 attempts (≈30 s).  Stops early
-  /// once the service is detected as enabled.
-  void _startAccessibilityPoll() {
-    _accessibilityPollTimer?.cancel();
-    var attempts = 0;
-    const maxAttempts = 30;
-    _accessibilityPollTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      attempts++;
-      debugPrint('[A11y-DEBUG] poll attempt $attempts/$maxAttempts');
-      final enabled = await checkAccessibilityEnabled();
-      debugPrint('[A11y-DEBUG] poll result: $enabled (was: $_accessibilityEnabled)');
-      if (enabled) {
-        timer.cancel();
-        _accessibilityPollTimer = null;
-        if (mounted) setState(() => _accessibilityEnabled = true);
-      } else if (attempts >= maxAttempts) {
-        timer.cancel();
-        _accessibilityPollTimer = null;
-        debugPrint('[A11y-DEBUG] poll gave up after $maxAttempts attempts');
-      }
-    });
-  }
-
-  AppSettings _currentSettingsSnapshot() {
-    return AppSettings(
-      soundChosen: soundChosen,
-      noiseVolume: noiseVolume,
-      speakVolume: speakVolume,
-      maximumSpeechVolume: maximumSpeechVolume,
-      clockOn: clockOn,
-      clockIntervalMins: clockIntervalMins,
-      clockShowMilliseconds: clockShowMilliseconds,
-      clockShowSeconds: clockShowSeconds,
-      clockSpeakTime: clockSpeakTime,
-      clockSpeakRepeatCount: clockSpeakRepeatCount,
-      clockNoiseOn: clockNoiseOn,
-      motivationOn: motivationOn,
-      motivationCategory: motivationCategory,
-      motivationDelaySeconds: motivationDelaySeconds,
-      timerSpeakOn: timerSpeakOn,
-      timerAnnounceEvery: timerAnnounceEvery,
-      timerShowMilliseconds: timerShowMilliseconds,
-      timerNoiseOn: timerNoiseOn,
-      goalReminderOn: goalReminderOn,
-      goalReminderIntervalMins: goalReminderIntervalMins,
-      goalReminderItems: goalReminderItems,
-      goalReminderNextIndex: goalReminderNextIndex,
-      stopwatchShowMilliseconds: stopwatchShowMilliseconds,
-      stopwatchSpeakDelaySeconds: stopwatchSpeakDelaySeconds,
-      appDarkTheme: appDarkTheme,
-      muteSpeechAfterMidnight: muteSpeechAfterMidnight,
-      nightMuteMode: nightMuteMode,
-      sleepStartMinutes: sleepStartMinutes,
-      sleepEndMinutes: sleepEndMinutes,
-      fullscreenDarkTheme: fullscreenDarkTheme,
-      fullscreenDimBrightness: fullscreenDimBrightness,
-      fullscreenStartLandscape: fullscreenStartLandscape,
-      fullscreenShowClock: fullscreenShowClock,
-      fullscreenClockScale: fullscreenClockScale,
-      voiceListMode: _speechLanguageService.language,
-      speechEngineMode: speechEngineMode,
-      favoriteVoiceName: favoriteVoiceName,
-      favoriteVoiceLocale: favoriteVoiceLocale,
-      speechMasterOn: speechMasterOn,
-      appFontSizeMultiplier: appFontSizeNotifier.value,
-      backgroundPersistenceOn: backgroundPersistenceOn,
-      fullscreenDimBrightnessLevel: fullscreenDimBrightnessLevel,
-      taggingOn: taggingOn,
-      sessionTag: sessionTag,
-    );
-  }
+  AppSettings _currentSettingsSnapshot() => _settings;
 
   void _lsSave() {
     unawaited(_settingsService.save(_currentSettingsSnapshot()));
@@ -1791,7 +1771,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   }
 
   /// Refresh the today summary string shown in the timer panel.
-  void _refreshTodaySummary() async {
+  Future<void> _refreshTodaySummary() async {
     if (!taggingOn) {
       if (_todaySummary.isNotEmpty) setState(() => _todaySummary = '');
       return;
@@ -1799,8 +1779,12 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     final summary = await _sessionLogService.getDailySummary(DateTime.now());
     if (!mounted) return;
     final parts = <String>[];
-    if (summary.studySeconds > 0) parts.add('Study ${summary.studyFormatted}');
-    if (summary.nonStudySeconds > 0) parts.add('Non-study ${summary.nonStudyFormatted}');
+    if (summary.studySeconds > 0) {
+      parts.add('Study ${summary.studyFormatted}');
+    }
+    if (summary.nonStudySeconds > 0) {
+      parts.add('Non-study ${summary.nonStudyFormatted}');
+    }
     setState(() => _todaySummary = parts.join(' · '));
   }
 
@@ -1852,44 +1836,67 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     );
   }
 
-  /// Writes current toggle states + timer display to Android SharedPreferences
-  /// so home screen widgets can display correct on/off labels without the app open.
   Future<void> _writeWidgetState() async {
     if (!Platform.isAndroid) return;
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('widget_clock_on', clockOn);
-      await prefs.setBool('widget_timer_speak', timerSpeakOn);
-      await prefs.setBool('widget_stopwatch_speak', stopwatchSpeakOn);
-      await prefs.setBool('widget_goals_on', goalReminderOn);
-      await prefs.setBool('widget_speech_master', speechMasterOn);
-      await prefs.setString('widget_timer_display', timerDisplayValue);
-      // Clear widget armed state on normal state sync
-      await prefs.setString('widget_armed_action', '');
-      // Ask native to refresh widget UI
-      await _widgetChannel.invokeMethod('refreshWidgets');
-    } catch (_) {}
+      await _widgetChannel.invokeMethod<bool>('updateWidgetState', {
+        'clockOn': clockOn,
+        'timerSpeakOn': timerSpeakOn,
+        'stopwatchSpeakOn': stopwatchSpeakOn,
+        'goalReminderOn': goalReminderOn,
+        'speechMasterOn': speechMasterOn,
+        'timerDisplay': timerDisplayValue,
+        'armedAction': _widgetArmedAction ?? '',
+      });
+    } on PlatformException catch (error) {
+      debugPrint('Widget state update failed: $error');
+    } on MissingPluginException catch (error) {
+      debugPrint('Widget channel unavailable: $error');
+    }
   }
 
-  /// Writes or clears the widget armed-action state so the home screen
-  /// widget can show a visible armed visual (two-tap confirmation).
   Future<void> _writeWidgetArmedState(String action) async {
-    if (!Platform.isAndroid) return;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('widget_armed_action', action);
-      await _widgetChannel.invokeMethod('refreshWidgets');
-    } catch (_) {}
+    _widgetArmedAction = action.isEmpty ? null : action;
+    await _writeWidgetState();
   }
 
-  /// Sets up the MethodChannel listener for widget button actions sent from MainActivity.
   void _initWidgetChannel() {
     _widgetChannel.setMethodCallHandler((call) async {
-      if (call.method == 'widgetAction') {
-        final action = call.arguments as String?;
-        if (action != null) unawaited(_handleWidgetAction(action));
+      if (call.method == 'widgetActionsAvailable') {
+        _dispatchExternal(_drainWidgetActions);
       }
     });
+  }
+
+  Future<void> _drainWidgetActions() {
+    _widgetDrainTail = _widgetDrainTail
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('Previous widget drain failed: $error');
+        })
+        .then((_) => _drainWidgetActionsNow());
+    return _widgetDrainTail;
+  }
+
+  Future<void> _drainWidgetActionsNow() async {
+    if (!Platform.isAndroid || !mounted) return;
+    try {
+      final queued = await _widgetChannel.invokeListMethod<dynamic>(
+        'drainWidgetActions',
+      );
+      for (final raw in queued ?? const <dynamic>[]) {
+        if (raw is! Map) continue;
+        final id = raw['id']?.toString();
+        final action = raw['action']?.toString();
+        if (id == null || action == null) continue;
+        await _handleWidgetAction(action);
+        await _widgetChannel.invokeMethod<bool>('ackWidgetAction', {'id': id});
+        if (!mounted) return;
+      }
+    } on PlatformException catch (error) {
+      debugPrint('Widget action drain failed: $error');
+    } on MissingPluginException catch (error) {
+      debugPrint('Widget channel unavailable: $error');
+    }
   }
 
   /// Handles actions arriving from home screen widget button taps.
@@ -1908,18 +1915,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
         unawaited(_writeWidgetArmedState(''));
 
         if (type == 'toggle_speech_master') {
-          setState(() {
-            speechMasterOn = !speechMasterOn;
-            if (!speechMasterOn) {
-              speechQueue.clear();
-              unawaited(flutterTts.stop());
-              unawaited(_audioService.stopBackground());
-              FlutterRingtonePlayer().stop();
-            }
-            _lsSave();
-          });
-          if (speechMasterOn) _applyAudioSettings();
-          _syncForegroundNotification(force: true);
+          await _setSpeechMaster(!speechMasterOn);
         } else {
           // open_fullscreen_clock
           setState(() => currentTabIndex = 0);
@@ -2042,10 +2038,6 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     }
   }
 
-  void _initAudio() {
-    unawaited(_audioService.init());
-  }
-
   void _applyAudioSettings() {
     // Master Audio OFF — prevent all ambient audio
     if (_isAudioMuted()) {
@@ -2083,137 +2075,31 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   void _restartGoalReminderTimer() {
     goalReminderTimer?.cancel();
     goalReminderTimer = null;
-
-    if (!goalReminderOn || goalReminderItems.isEmpty) {
-      return;
-    }
-
-    goalReminderTimer = Timer.periodic(
+    _nextGoalReminderAt = null;
+    if (!goalReminderOn || goalReminderItems.isEmpty) return;
+    _nextGoalReminderAt = DateTime.now().add(
       Duration(minutes: goalReminderIntervalMins),
-      (_) {
-        if (!mounted) return;
-        _announceNextGoalReminder();
-      },
     );
+    _scheduleNextGoalReminder();
   }
 
-  Future<void> _showGoalInputDialog({int? editIndex}) async {
-    final isEdit = editIndex != null;
-    final initialText = isEdit ? goalReminderItems[editIndex] : '';
-    final controller = TextEditingController(text: initialText);
-
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(isEdit ? 'Edit goal' : 'Add goal'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              hintText: 'Write one important goal',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(controller.text),
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (result == null) return;
-    final trimmed = result.trim();
-    if (trimmed.isEmpty) return;
-
-    setState(() {
-      if (isEdit) {
-        goalReminderItems[editIndex] = trimmed;
-      } else {
-        goalReminderItems.add(trimmed);
+  void _scheduleNextGoalReminder() {
+    final due = _nextGoalReminderAt;
+    if (due == null || !goalReminderOn || goalReminderItems.isEmpty) return;
+    final now = DateTime.now();
+    final delay = due.isAfter(now) ? due.difference(now) : Duration.zero;
+    goalReminderTimer = Timer(delay, () {
+      if (!mounted || !goalReminderOn || goalReminderItems.isEmpty) return;
+      _announceNextGoalReminder();
+      final interval = Duration(minutes: goalReminderIntervalMins);
+      var next = due.add(interval);
+      final current = DateTime.now();
+      while (!next.isAfter(current)) {
+        next = next.add(interval);
       }
-
-      if (goalReminderItems.isEmpty) {
-        goalReminderNextIndex = 0;
-      } else {
-        goalReminderNextIndex =
-            goalReminderNextIndex % goalReminderItems.length;
-      }
-      _lsSave();
+      _nextGoalReminderAt = next;
+      _scheduleNextGoalReminder();
     });
-    _restartGoalReminderTimer();
-  }
-
-  Future<void> _showBulkGoalInputDialog() async {
-    final controller = TextEditingController();
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Bulk add goals'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            minLines: 6,
-            maxLines: 12,
-            decoration: const InputDecoration(hintText: 'One goal per line'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(controller.text),
-              child: const Text('Add lines'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (result == null) return;
-    final lines = result
-        .split('\n')
-        .map((line) => line.trim())
-        .where((line) => line.isNotEmpty)
-        .toList();
-    if (lines.isEmpty) return;
-
-    setState(() {
-      goalReminderItems.addAll(lines);
-      if (goalReminderItems.isEmpty) {
-        goalReminderNextIndex = 0;
-      } else {
-        goalReminderNextIndex =
-            goalReminderNextIndex % goalReminderItems.length;
-      }
-      _lsSave();
-    });
-    _restartGoalReminderTimer();
-  }
-
-  void _removeGoalAt(int index) {
-    if (index < 0 || index >= goalReminderItems.length) return;
-
-    setState(() {
-      goalReminderItems.removeAt(index);
-      if (goalReminderItems.isEmpty) {
-        goalReminderNextIndex = 0;
-      } else {
-        goalReminderNextIndex =
-            goalReminderNextIndex % goalReminderItems.length;
-      }
-      _lsSave();
-    });
-    _restartGoalReminderTimer();
   }
 
   void _speakGoalReminderMessage(String text) {
@@ -2223,11 +2109,11 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     }
     _speakAfterGap(
       text: text,
-      getLatestOtherSpoke: () => max(
-        max(lastClockSpoke, lastTimerSpoke),
-        lastStopwatchSpoke,
-      ),
-      markSpoke: () => lastGoalReminderSpoke = DateTime.now().millisecondsSinceEpoch,
+      getLatestOtherSpoke: () =>
+          max(max(lastClockSpoke, lastTimerSpoke), lastStopwatchSpoke),
+      markSpoke: () =>
+          lastGoalReminderSpoke = DateTime.now().millisecondsSinceEpoch,
+      isStillValid: () => goalReminderOn && goalReminderItems.isNotEmpty,
       onFire: () => speak(text),
     );
   }
@@ -2247,81 +2133,80 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   }
 
   Future<bool> _initTts({bool forceRebind = false}) async {
-    if (forceRebind) {
-      _ttsReady = false;
-      _nextTtsInitAllowedAt = DateTime.fromMillisecondsSinceEpoch(0);
-      flutterTts = FlutterTts();
+    final existing = _ttsInitInFlight;
+    if (existing != null) {
+      await existing;
+      if (!forceRebind) return _ttsReady;
     }
-
-    if (!_ttsReady && DateTime.now().isBefore(_nextTtsInitAllowedAt)) {
+    if (!forceRebind &&
+        !_ttsReady &&
+        DateTime.now().isBefore(_nextTtsInitAllowedAt)) {
       return false;
     }
 
-    if (_ttsInitInFlight != null) {
-      await _ttsInitInFlight;
-      return _ttsReady;
+    if (forceRebind) {
+      final previous = flutterTts;
+      await previous.stop();
+      flutterTts = FlutterTts();
+      _voiceSessionManager.resetSession();
+      _ttsReady = false;
+      _nextTtsInitAllowedAt = DateTime.fromMillisecondsSinceEpoch(0);
     }
 
+    final tts = flutterTts;
     final completer = Completer<void>();
     _ttsInitInFlight = completer.future;
-
     try {
-      _ttsReady = false;
-
-      flutterTts.setErrorHandler((message) {
-        _ttsReady = false;
+      tts.setErrorHandler((message) {
+        if (identical(tts, flutterTts)) _ttsReady = false;
         debugPrint('TTS error: $message');
       });
-
       try {
-        await flutterTts.awaitSpeakCompletion(true);
+        await tts.awaitSpeakCompletion(true);
+        final engine = _speechService.normalizeSpeechEngineMode(
+          speechEngineMode,
+        );
+        if (Platform.isAndroid &&
+            engine != 'auto' &&
+            engine != 'system_only' &&
+            engine != 'sherpa_only') {
+          await _speechService.setSpeechEngine(flutterTts: tts, engine: engine);
+        }
       } on MissingPluginException {
         _nextTtsInitAllowedAt = DateTime.now().add(const Duration(seconds: 20));
-        debugPrint('flutter_tts plugin unavailable on this platform/runtime.');
         return false;
-      } on PlatformException catch (e) {
+      } on PlatformException catch (error) {
         _nextTtsInitAllowedAt = DateTime.now().add(const Duration(seconds: 20));
-        debugPrint('flutter_tts init failed: $e');
+        debugPrint('TTS init failed: $error');
         return false;
       }
 
-      dynamic fetchedVoices;
-      const maxAttempts = 4;
-      for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      _ttsReady = true;
+      for (var attempt = 1; attempt <= 4; attempt++) {
         try {
-          fetchedVoices = await flutterTts.getVoices;
           final loadedVoices = _speechService.parseSupportedVoices(
-            fetchedVoices,
+            await tts.getVoices,
           );
           if (loadedVoices.isNotEmpty) {
-            if (mounted) {
+            if (mounted && identical(tts, flutterTts)) {
               setState(() {
                 voices = loadedVoices;
                 _speechLanguageService.allVoices = loadedVoices;
               });
-            } else {
-              voices = loadedVoices;
-              _speechLanguageService.allVoices = loadedVoices;
             }
-            _ttsReady = true;
             break;
           }
-        } catch (e) {
-          debugPrint('TTS getVoices attempt $attempt failed: $e');
+        } catch (error) {
+          debugPrint('TTS getVoices attempt $attempt failed: $error');
         }
-        await Future.delayed(Duration(milliseconds: 250 * attempt));
-      }
-
-      if (!_ttsReady) {
-        // Avoid hammering the TTS engine if it is unavailable on device.
-        _nextTtsInitAllowedAt = DateTime.now().add(const Duration(seconds: 12));
-        debugPrint('TTS init unavailable; next retry after cooldown.');
+        await Future<void>.delayed(Duration(milliseconds: 250 * attempt));
       }
     } finally {
       completer.complete();
-      _ttsInitInFlight = null;
+      if (identical(_ttsInitInFlight, completer.future)) {
+        _ttsInitInFlight = null;
+      }
     }
-
     return _ttsReady;
   }
 
@@ -2360,25 +2245,24 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   }
 
   Future<void> drainQueue() async {
-    if (_isAudioMuted()) {
+    if (!mounted || _isAudioMuted()) {
       speechQueue.clear();
       if (isSpeechActive && mounted) {
-        setState(() {
-          isSpeechActive = false;
-        });
+        setState(() => isSpeechActive = false);
       }
       return;
     }
-
     if (isSpeechActive || speechQueue.isEmpty) return;
-    setState(() {
-      isSpeechActive = true;
-    });
 
-    final item = speechQueue.removeAt(0);
-
+    final generation = _speechGeneration;
+    setState(() => isSpeechActive = true);
+    final item = speechQueue.removeFirst();
     if (item.delayMs > 0) {
-      await Future.delayed(Duration(milliseconds: item.delayMs));
+      await Future<void>.delayed(Duration(milliseconds: item.delayMs));
+    }
+    if (!mounted || generation != _speechGeneration || _isAudioMuted()) {
+      if (mounted) setState(() => isSpeechActive = false);
+      return;
     }
 
     final normalizedEngineMode = _speechService.normalizeSpeechEngineMode(
@@ -2387,61 +2271,60 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     final desktopPlatform = Platform.isLinux || Platform.isWindows;
     final desktopSherpaOnly =
         desktopPlatform && normalizedEngineMode == 'sherpa_only';
-
-    // On desktop, speech service can still use Sherpa/espeak without flutter_tts plugin.
     if (!desktopSherpaOnly && !desktopPlatform) {
       final ready = await _ensureTtsReady();
-      if (!ready) {
-        if (mounted) {
-          setState(() {
-            isSpeechActive = false;
-          });
-        }
-        // Drop pending items when engine is unavailable to prevent retry loops.
+      if (!ready || !mounted || generation != _speechGeneration) {
+        if (mounted) setState(() => isSpeechActive = false);
         speechQueue.clear();
         return;
       }
     }
 
-    final pv = getPreferredVoice();
-    final useMalayalam = _isMalayalamActive(pv);
+    final preferredVoice = getPreferredVoice();
     try {
       await _speechService.speakItem(
         flutterTts: flutterTts,
         item: item,
         speakVolume: speakVolume,
         maximumSpeechVolume: maximumSpeechVolume,
-        preferredVoice: pv,
-        useMalayalamNuance: useMalayalam,
+        preferredVoice: preferredVoice,
+        useMalayalamNuance: _isMalayalamActive(preferredVoice),
         speechEngineMode: speechEngineMode,
       );
-    } catch (e) {
-      debugPrint('TTS speak failed, retrying after rebind: $e');
-      try {
-        final rebound = await _ensureTtsReady(forceRebind: true);
-        if (!rebound) {
-          throw Exception('TTS rebind unavailable');
+    } catch (error) {
+      debugPrint('TTS speak failed, retrying after rebind: $error');
+      if (generation == _speechGeneration) {
+        try {
+          final rebound = await _ensureTtsReady(forceRebind: true);
+          if (rebound && generation == _speechGeneration) {
+            final retryVoice = getPreferredVoice();
+            await _speechService.speakItem(
+              flutterTts: flutterTts,
+              item: item,
+              speakVolume: speakVolume,
+              maximumSpeechVolume: maximumSpeechVolume,
+              preferredVoice: retryVoice,
+              useMalayalamNuance: _isMalayalamActive(retryVoice),
+              speechEngineMode: speechEngineMode,
+            );
+          }
+        } catch (retryError) {
+          debugPrint('TTS retry failed: $retryError');
         }
-        final retryVoice = getPreferredVoice();
-        await _speechService.speakItem(
-          flutterTts: flutterTts,
-          item: item,
-          speakVolume: speakVolume,
-          maximumSpeechVolume: maximumSpeechVolume,
-          preferredVoice: retryVoice,
-          useMalayalamNuance: _isMalayalamActive(retryVoice),
-          speechEngineMode: speechEngineMode,
-        );
-      } catch (retryError) {
-        debugPrint('TTS retry failed: $retryError');
       }
     }
+    if (!mounted) return;
+    setState(() => isSpeechActive = false);
+    if (generation == _speechGeneration) unawaited(drainQueue());
+  }
 
-    // Done speaking
-    setState(() {
-      isSpeechActive = false;
-    });
-    drainQueue();
+  void _cancelPendingSpeech() {
+    _speechGeneration++;
+    speechQueue.clear();
+    if (isSpeechActive && mounted) {
+      setState(() => isSpeechActive = false);
+    }
+    unawaited(flutterTts.stop());
   }
 
   void speak(String text) {
@@ -2486,7 +2369,10 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
 
     nightIdleTimer = Timer(const Duration(minutes: 5), () {
       autoNightMuteActive = true;
-      speechQueue.clear();
+      _cancelPendingSpeech();
+      unawaited(_audioService.stopBackground());
+      unawaited(_audioService.stopNotification());
+      FlutterRingtonePlayer().stop();
     });
   }
 
@@ -2527,11 +2413,13 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    debugPrint('[A11y-DEBUG] didChangeAppLifecycleState: $state, _accessibilityEnabled=$_accessibilityEnabled');
     _handleNightUsageStateChange(state);
     if (state == AppLifecycleState.resumed) {
-      debugPrint('[A11y-DEBUG] App resumed — refreshing accessibility status');
-      unawaited(_refreshAccessibilityStatus());
+      _dispatchExternal(() async {
+        await _restoreTimerRuntime();
+        await _drainWidgetActions();
+        await _reconcileForeground(force: true);
+      });
     }
   }
 
@@ -2550,23 +2438,34 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     return autoNightMuteActive;
   }
 
-  /// Centralized speech gap enforcement: ensures 10-second gap between different
-  /// announcement types (clock, timer, stopwatch, goal reminders) to prevent
-  /// overlapping speech. Replaces 4 duplicated implementations.
   void _speakAfterGap({
     required String text,
     required int Function() getLatestOtherSpoke,
     required void Function() markSpoke,
     required VoidCallback onFire,
+    bool Function()? isStillValid,
   }) {
-    const gap = 10000;
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    final latestOther = getLatestOtherSpoke();
-    final waitMs = max(0, gap - (nowMs - latestOther));
-    Future.delayed(Duration(milliseconds: waitMs), () {
-      markSpoke();
-      onFire();
-    });
+    final generation = _speechGeneration;
+    _announcementTail = _announcementTail
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('Announcement predecessor failed: $error');
+        })
+        .then((_) async {
+          final elapsed = _announcementClock.elapsedMilliseconds;
+          final waitMs = max(0, 10000 - (elapsed - _lastAnnouncementElapsedMs));
+          if (waitMs > 0) {
+            await Future<void>.delayed(Duration(milliseconds: waitMs));
+          }
+          if (!mounted ||
+              generation != _speechGeneration ||
+              _isAudioMuted() ||
+              (isStillValid != null && !isStillValid())) {
+            return;
+          }
+          _lastAnnouncementElapsedMs = _announcementClock.elapsedMilliseconds;
+          markSpoke();
+          onFire();
+        });
   }
 
   String timeToWords() {
@@ -2579,19 +2478,37 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
 
   void startClock() {
     stopClock();
-    if (clockSpeakTime) {
-      speakClock(timeToWords());
-    }
-    clockTimer = Timer.periodic(Duration(minutes: clockIntervalMins), (timer) {
-      if (clockSpeakTime) {
-        speakClock(timeToWords());
+    if (!clockOn) return;
+    if (clockSpeakTime) speakClock(timeToWords());
+    _nextClockAt = DateTime.now().add(Duration(minutes: clockIntervalMins));
+    _scheduleNextClockAnnouncement();
+    unawaited(_reconcileForeground(force: true));
+  }
+
+  void _scheduleNextClockAnnouncement() {
+    final due = _nextClockAt;
+    if (due == null || !clockOn) return;
+    final now = DateTime.now();
+    final delay = due.isAfter(now) ? due.difference(now) : Duration.zero;
+    clockTimer = Timer(delay, () {
+      if (!mounted || !clockOn) return;
+      if (clockSpeakTime) speakClock(timeToWords());
+      final interval = Duration(minutes: clockIntervalMins);
+      var next = due.add(interval);
+      final current = DateTime.now();
+      while (!next.isAfter(current)) {
+        next = next.add(interval);
       }
+      _nextClockAt = next;
+      _scheduleNextClockAnnouncement();
     });
   }
 
   void stopClock() {
     clockTimer?.cancel();
     clockTimer = null;
+    _nextClockAt = null;
+    unawaited(_reconcileForeground(force: true));
   }
 
   void toggleClock() {
@@ -2614,11 +2531,10 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     }
     _speakAfterGap(
       text: text,
-      getLatestOtherSpoke: () => max(
-        max(lastTimerSpoke, lastStopwatchSpoke),
-        lastGoalReminderSpoke,
-      ),
+      getLatestOtherSpoke: () =>
+          max(max(lastTimerSpoke, lastStopwatchSpoke), lastGoalReminderSpoke),
       markSpoke: () => lastClockSpoke = DateTime.now().millisecondsSinceEpoch,
+      isStillValid: () => clockOn && clockSpeakTime,
       onFire: () {
         final repeatCount = clockSpeakRepeatCount.clamp(1, 3);
         for (var i = 0; i < repeatCount; i++) {
@@ -2627,7 +2543,11 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
         if (motivationOn) {
           final quoteText = _nextQuoteForCategory(motivationCategory);
           speechQueue.add(
-            SpeechItem(quoteText, isQuote: true, delayMs: motivationDelaySeconds * 1000),
+            SpeechItem(
+              quoteText,
+              isQuote: true,
+              delayMs: motivationDelaySeconds * 1000,
+            ),
           );
         }
         drainQueue();
@@ -2663,10 +2583,8 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     }
     _speakAfterGap(
       text: text,
-      getLatestOtherSpoke: () => max(
-        max(lastClockSpoke, lastStopwatchSpoke),
-        lastGoalReminderSpoke,
-      ),
+      getLatestOtherSpoke: () =>
+          max(max(lastClockSpoke, lastStopwatchSpoke), lastGoalReminderSpoke),
       markSpoke: () => lastTimerSpoke = DateTime.now().millisecondsSinceEpoch,
       onFire: () => speak(text),
     );
@@ -2682,17 +2600,21 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     int totalSeconds, {
     bool showMilliseconds = false,
   }) {
-    final elapsedMs = _stopwatchEngine.elapsedMilliseconds;
-    final totalForView = stopwatchInterval != null
-        ? (elapsedMs ~/ 1000)
-        : totalSeconds;
+    final elapsedMs = _stopwatchRuntime.elapsedMsAt(DateTime.now());
+    final effectiveMs = elapsedMs > 0 ? elapsedMs : totalSeconds * 1000;
+    final totalForView = effectiveMs ~/ 1000;
     final hours = totalForView ~/ 3600;
     final minutes = (totalForView % 3600) ~/ 60;
-    final secs = totalForView % 60;
-    if (hours > 0) {
-      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
-    }
-    return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+    final seconds = totalForView % 60;
+    final base = hours > 0
+        ? '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}'
+        : '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    if (!showMilliseconds) return base;
+    final centiseconds = ((effectiveMs % 1000) ~/ 10).toString().padLeft(
+      2,
+      '0',
+    );
+    return '$base.$centiseconds';
   }
 
   String _stopwatchElapsedSpeechText() {
@@ -2721,59 +2643,102 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     }
     _speakAfterGap(
       text: text,
-      getLatestOtherSpoke: () => max(
-        max(lastClockSpoke, lastTimerSpoke),
-        lastGoalReminderSpoke,
-      ),
-      markSpoke: () => lastStopwatchSpoke = DateTime.now().millisecondsSinceEpoch,
+      getLatestOtherSpoke: () =>
+          max(max(lastClockSpoke, lastTimerSpoke), lastGoalReminderSpoke),
+      markSpoke: () =>
+          lastStopwatchSpoke = DateTime.now().millisecondsSinceEpoch,
+      isStillValid: () => stopwatchInterval != null && stopwatchSpeakOn,
       onFire: () => speak(text),
     );
   }
 
   void _tickStopwatch(Timer timer) {
+    final nextSeconds = _stopwatchRuntime.elapsedMsAt(DateTime.now()) ~/ 1000;
     setState(() {
-      stopwatchElapsedSeconds = _stopwatchEngine.elapsed.inSeconds;
+      stopwatchElapsedSeconds = nextSeconds;
       stopwatchElapsedValue = _formatStopwatchElapsed(
-        stopwatchElapsedSeconds,
+        nextSeconds,
         showMilliseconds: stopwatchShowMilliseconds,
       );
-
-      if (stopwatchElapsedSeconds != _lastStopwatchNotificationSecond &&
-          (stopwatchElapsedSeconds % 30 == 0 || stopwatchElapsedSeconds <= 3)) {
-        _lastStopwatchNotificationSecond = stopwatchElapsedSeconds;
-        _syncForegroundNotification(force: true);
-      }
-      if (stopwatchSpeakOn &&
-          stopwatchElapsedSeconds > 0 &&
-          stopwatchElapsedSeconds % stopwatchSpeakDelaySeconds == 0 &&
-          stopwatchElapsedSeconds != _lastStopwatchAutoAnnouncedSecond) {
-        _lastStopwatchAutoAnnouncedSecond = stopwatchElapsedSeconds;
-        _speakStopwatchMessage(_stopwatchElapsedSpeechText());
-      }
     });
+    if (nextSeconds != _lastStopwatchNotificationSecond &&
+        (nextSeconds % 30 == 0 || nextSeconds <= 3)) {
+      _lastStopwatchNotificationSecond = nextSeconds;
+      unawaited(_reconcileForeground(force: true));
+    }
+    if (stopwatchSpeakOn &&
+        nextSeconds > 0 &&
+        nextSeconds % stopwatchSpeakDelaySeconds == 0 &&
+        nextSeconds != _lastStopwatchAutoAnnouncedSecond) {
+      _lastStopwatchAutoAnnouncedSecond = nextSeconds;
+      _speakStopwatchMessage(_stopwatchElapsedSpeechText());
+    }
+  }
+
+  Future<void> _restoreStopwatchRuntime() async {
+    await _applyStopwatchRuntime(await _timerRuntimeStore.loadStopwatch());
+  }
+
+  Future<void> _applyStopwatchRuntime(StopwatchRuntime runtime) async {
+    if (!mounted || runtime.revision < _stopwatchRuntime.revision) return;
+    stopwatchInterval?.cancel();
+    _stopwatchRuntime = runtime;
+    final elapsedSeconds = runtime.elapsedMsAt(DateTime.now()) ~/ 1000;
+    setState(() {
+      stopwatchElapsedSeconds = elapsedSeconds;
+      stopwatchElapsedValue = _formatStopwatchElapsed(
+        elapsedSeconds,
+        showMilliseconds: stopwatchShowMilliseconds,
+      );
+      stopwatchInterval = runtime.isRunning
+          ? Timer.periodic(
+              Duration(milliseconds: stopwatchShowMilliseconds ? 50 : 250),
+              _tickStopwatch,
+            )
+          : null;
+    });
+    await _reconcileForeground(force: true);
   }
 
   void startStopwatch() {
     if (stopwatchInterval != null) return;
-    _stopwatchEngine.start();
+    _stopwatchRuntime = _stopwatchRuntime.copyWith(
+      isRunning: true,
+      startedAtEpochMs: () => DateTime.now().millisecondsSinceEpoch,
+      revision: _stopwatchRuntime.revision + 1,
+    );
     setState(() {
       stopwatchInterval = Timer.periodic(
-        const Duration(milliseconds: 50),
+        Duration(milliseconds: stopwatchShowMilliseconds ? 50 : 250),
         _tickStopwatch,
       );
     });
+    unawaited(_timerRuntimeStore.saveStopwatch(_stopwatchRuntime));
+    unawaited(_reconcileForeground(force: true));
   }
 
   void stopStopwatch() {
-    _stopwatchEngine.stop();
+    if (!_stopwatchRuntime.isRunning) return;
+    final elapsed = _stopwatchRuntime.elapsedMsAt(DateTime.now());
+    _stopwatchRuntime = _stopwatchRuntime.copyWith(
+      isRunning: false,
+      accumulatedMs: elapsed,
+      startedAtEpochMs: () => null,
+      revision: _stopwatchRuntime.revision + 1,
+    );
     stopwatchInterval?.cancel();
-    stopwatchInterval = null;
+    setState(() => stopwatchInterval = null);
+    unawaited(_timerRuntimeStore.saveStopwatch(_stopwatchRuntime));
+    unawaited(_reconcileForeground(force: true));
   }
 
   void resetStopwatch() {
-    stopStopwatch();
-    _stopwatchEngine.reset();
+    stopwatchInterval?.cancel();
+    _stopwatchRuntime = StopwatchRuntime.idle().copyWith(
+      revision: _stopwatchRuntime.revision + 1,
+    );
     setState(() {
+      stopwatchInterval = null;
       stopwatchElapsedSeconds = 0;
       _lastStopwatchAutoAnnouncedSecond = -1;
       stopwatchElapsedValue = _formatStopwatchElapsed(
@@ -2781,115 +2746,202 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
         showMilliseconds: stopwatchShowMilliseconds,
       );
     });
+    unawaited(_timerRuntimeStore.saveStopwatch(_stopwatchRuntime));
+    unawaited(_reconcileForeground(force: true));
   }
 
   void speakStopwatchElapsedNow() {
     _speakStopwatchMessage(_stopwatchElapsedSpeechText());
   }
 
-  void tick(Timer timer) {
-    bool showTimerFinishedDialog = false;
-    setState(() {
-      final tickResult = _timerService.tick(
-        seconds: seconds,
-        timerSpeakOn: timerSpeakOn,
-        timerAnnounceEvery: timerAnnounceEvery,
+  Future<void> _restoreTimerRuntime() async {
+    final runtime = await _timerRuntimeStore.load();
+    if (!mounted) return;
+    await _applyTimerRuntime(runtime, restored: true);
+  }
+
+  Future<void> _applyTimerRuntime(
+    TimerRuntime runtime, {
+    bool restored = false,
+  }) async {
+    if (!mounted) return;
+    if (runtime.runId == _timerRuntime.runId &&
+        runtime.revision < _timerRuntime.revision) {
+      return;
+    }
+    var next = runtime;
+    if (next.status == TimerRuntimeStatus.running &&
+        next.remainingAt(DateTime.now()) == 0) {
+      next = next.copyWith(
+        status: TimerRuntimeStatus.finished,
+        remainingSeconds: 0,
+        endAtEpochMs: () => null,
+        revision: next.revision + 1,
       );
+      await _timerRuntimeStore.save(next);
+    }
+    if (!mounted) return;
 
-      seconds = tickResult.nextSeconds;
-      timerValue = tickResult.timerValue;
-      timerDisplayValue = _formatTimerDisplayValue(seconds);
-
-      // Throttle notification updates during timer to avoid rapid notification re-ranking
-      // and interference with other foreground apps (e.g. sound recorder).
-      if (tickResult.isFinished ||
-          seconds % 60 == 0 ||
-          seconds <= 10 ||
-          tickResult.shouldAnnounceRemaining) {
-        _syncForegroundNotification(force: true);
-      }
-      if (tickResult.shouldAnnounceRemaining) {
-        final mins = tickResult.announceMinutes;
-        final preferredVoice = getPreferredVoice();
-        final useMalayalam = _isMalayalamActive(preferredVoice);
-        final message = useMalayalam
-            ? _malayalamTtsService.timerRemaining(mins)
-            : "$mins minute${mins != 1 ? 's' : ''} remaining";
-        speakTimerMessage(message);
-      }
-
-      if (tickResult.isFinished) {
-        if (chainModeOn) {
-          final sequence = chainPresets[chainPresetKey] ?? const [25];
-          if (chainIndex < sequence.length - 1) {
-            chainIndex++;
-            final nextMinutes = sequence[chainIndex];
-            seconds = nextMinutes * 60;
-            _activeTimerDurationSeconds = seconds;
-            timerValue = '${nextMinutes.toString().padLeft(2, '0')}:00';
-            timerDisplayValue = _formatTimerDisplayValue(seconds);
-            if (timerSpeakOn) {
-              final preferredVoice = getPreferredVoice();
-              final useMalayalam = _isMalayalamActive(preferredVoice);
-              speakTimerMessage(
-                useMalayalam
-                    ? _malayalamTtsService.nextTimerStarting(nextMinutes)
-                    : 'Starting next timer: $nextMinutes minute${nextMinutes != 1 ? 's' : ''}',
-              );
-            }
-            _syncForegroundNotification(force: true);
-            return;
-          }
-          chainIndex = 0;
-        }
-
-        _lastFinishedTimerDurationSeconds =
-            _activeTimerDurationSeconds > 0
-            ? _activeTimerDurationSeconds
-            : sliderValue * 60;
-
-        resetTimer();
-        if (timerSpeakOn) {
-          final preferredVoice = getPreferredVoice();
-          final useMalayalam = _isMalayalamActive(preferredVoice);
-          speakTimerMessage(
-            useMalayalam
-                ? _malayalamTtsService.timerFinished()
-                : 'Timer finished',
-          );
-        }
-
-        // Play alarm/notification until user dismisses the dialog.
-        // A 30-second safety timeout prevents infinite ringing if the
-        // dialog doesn't appear or the user walks away.
-        if (Platform.isAndroid && !_isAudioMuted()) {
-          FlutterRingtonePlayer().playAlarm(looping: true);
-          Future.delayed(const Duration(seconds: 30), () {
-            FlutterRingtonePlayer().stop();
-          });
-        } else {
-          unawaited(
-            _audioService.playNotification(
-              assetPath: notifySound,
-              stopAfter: const Duration(seconds: 10),
-            ),
-          );
-        }
-
-        setState(() {
-          _isTimerFinished = true;
-        });
-
-        // Update foreground notification to show timer-finished state
-        // so the user can take action even from another app.
-        unawaited(_syncForegroundNotification(force: true));
-
-        showTimerFinishedDialog = true;
+    timerInterval?.cancel();
+    timerInterval = null;
+    final remaining = next.remainingAt(DateTime.now());
+    setState(() {
+      _timerRuntime = next;
+      seconds = remaining;
+      _activeTimerDurationSeconds = next.durationSeconds;
+      chainModeOn = next.chainModeOn;
+      chainPresetKey = next.chainPresetKey;
+      chainIndex = next.chainIndex;
+      _isTimerFinished = next.status == TimerRuntimeStatus.finished;
+      timerValue = _formatTimerDisplayValue(remaining);
+      timerDisplayValue = timerValue;
+      if (next.status == TimerRuntimeStatus.running) {
+        timerInterval = Timer.periodic(const Duration(milliseconds: 250), tick);
       }
     });
+    _applyAudioSettings();
+    await _reconcileForeground(force: true);
+    if (restored && next.status == TimerRuntimeStatus.finished && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_showTimerFinishedDialog());
+      });
+    }
+  }
 
-    if (showTimerFinishedDialog) {
+  void tick(Timer timer) {
+    if (_timerRuntime.status != TimerRuntimeStatus.running) return;
+    final previous = seconds;
+    final remaining = _timerRuntime.remainingAt(DateTime.now());
+    if (remaining == previous) return;
+    if (remaining <= 0) {
+      unawaited(_completeTimerRun());
+      return;
+    }
+
+    final crossed = _timerService.crossedAnnouncementMinutes(
+      previousSeconds: previous,
+      currentSeconds: remaining,
+      announceEveryMinutes: timerAnnounceEvery,
+    );
+    setState(() {
+      seconds = remaining;
+      timerValue = _formatTimerDisplayValue(remaining);
+      timerDisplayValue = timerValue;
+      _timerRuntime = _timerRuntime.copyWith(remainingSeconds: remaining);
+    });
+    if (timerSpeakOn && crossed.isNotEmpty) {
+      final minutes = crossed.last;
+      final preferredVoice = getPreferredVoice();
+      final useMalayalam = _isMalayalamActive(preferredVoice);
+      speakTimerMessage(
+        useMalayalam
+            ? _malayalamTtsService.timerRemaining(minutes)
+            : '$minutes minute${minutes == 1 ? '' : 's'} remaining',
+      );
+    }
+    if (remaining % 60 == 0 || remaining <= 10 || crossed.isNotEmpty) {
+      unawaited(_reconcileForeground(force: true));
+    }
+  }
+
+  Future<void> _completeTimerRun() async {
+    if (_timerCompletionInFlight ||
+        _timerRuntime.status != TimerRuntimeStatus.running) {
+      return;
+    }
+    _timerCompletionInFlight = true;
+    try {
+      if (chainModeOn) {
+        final sequence = chainPresets[chainPresetKey] ?? const [25];
+        if (chainIndex < sequence.length - 1) {
+          chainIndex++;
+          final nextSeconds = sequence[chainIndex] * 60;
+          _activeTimerDurationSeconds = nextSeconds;
+          _timerRuntime = TimerRuntime.running(
+            durationSeconds: nextSeconds,
+            remainingSeconds: nextSeconds,
+            now: DateTime.now(),
+            chainModeOn: true,
+            chainPresetKey: chainPresetKey,
+            chainIndex: chainIndex,
+            runId: _timerRuntime.runId,
+            revision: _timerRuntime.revision + 1,
+          );
+          await _timerRuntimeStore.save(_timerRuntime);
+          if (!mounted) return;
+          setState(() {
+            seconds = nextSeconds;
+            timerValue = _formatTimerDisplayValue(nextSeconds);
+            timerDisplayValue = timerValue;
+          });
+          if (timerSpeakOn) {
+            final preferredVoice = getPreferredVoice();
+            final useMalayalam = _isMalayalamActive(preferredVoice);
+            speakTimerMessage(
+              useMalayalam
+                  ? _malayalamTtsService.nextTimerStarting(nextSeconds ~/ 60)
+                  : 'Starting next timer: ${nextSeconds ~/ 60} minutes',
+            );
+          }
+          await _reconcileForeground(force: true);
+          return;
+        }
+        chainIndex = 0;
+      }
+
+      timerInterval?.cancel();
+      _lastFinishedTimerDurationSeconds = _activeTimerDurationSeconds > 0
+          ? _activeTimerDurationSeconds
+          : sliderValue * 60;
+      _timerRuntime = _timerRuntime.copyWith(
+        status: TimerRuntimeStatus.finished,
+        remainingSeconds: 0,
+        endAtEpochMs: () => null,
+        revision: _timerRuntime.revision + 1,
+      );
+      await _timerRuntimeStore.save(_timerRuntime);
+      if (!mounted) return;
+      setState(() {
+        timerInterval = null;
+        seconds = 0;
+        timerValue = '00:00';
+        timerDisplayValue = '00:00';
+        _isTimerFinished = true;
+      });
+      _applyAudioSettings();
+      await _reconcileForeground(force: true);
+
+      if (taggingOn && _sessionStartTime != null) {
+        _logCurrentSession(_lastFinishedTimerDurationSeconds);
+      }
+      if (timerSpeakOn) {
+        final preferredVoice = getPreferredVoice();
+        final useMalayalam = _isMalayalamActive(preferredVoice);
+        speakTimerMessage(
+          useMalayalam
+              ? _malayalamTtsService.timerFinished()
+              : 'Timer finished',
+        );
+      }
+      final alarmGeneration = ++_alarmGeneration;
+      if (Platform.isAndroid && !_isAudioMuted()) {
+        FlutterRingtonePlayer().playAlarm(looping: true);
+        Future<void>.delayed(const Duration(seconds: 30), () {
+          if (_alarmGeneration == alarmGeneration) {
+            FlutterRingtonePlayer().stop();
+          }
+        });
+      } else if (!_isAudioMuted()) {
+        unawaited(
+          _audioService.playNotification(
+            assetPath: notifySound,
+            stopAfter: const Duration(seconds: 10),
+          ),
+        );
+      }
       unawaited(_showTimerFinishedDialog());
+    } finally {
+      _timerCompletionInFlight = false;
     }
   }
 
@@ -2912,6 +2964,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
 
   Future<void> _showTimerFinishedDialog() async {
     if (!mounted || _timerFinishedDialogOpen) return;
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
 
     _timerFinishedDialogOpen = true;
     final selectedMinutes = _fullscreenFocusOpen
@@ -2922,13 +2975,9 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
 
     if (!mounted) return;
     if (selectedMinutes == null) {
-      setState(() {
-        _isTimerFinished = false;
-      });
-      FlutterRingtonePlayer().stop();
-      unawaited(_syncForegroundNotification(force: true));
+      await _dismissFinishedTimer();
       if (_fullscreenFocusOpen) {
-        await Navigator.of(context, rootNavigator: true).maybePop();
+        await rootNavigator.maybePop();
       }
       return;
     }
@@ -2947,112 +2996,134 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
         return ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 700),
           child: AlertDialog(
-            insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 24,
+            ),
             title: const Text('Timer finished'),
             contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
             content: StatefulBuilder(
-            builder: (context, setDialogState) {
-              return SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextButton.icon(
-                      onPressed: () {
-                        final repeatMinutes =
-                            (_lastFinishedTimerDurationSeconds ~/ 60)
-                                .clamp(1, 720)
-                                .toInt();
-                        Navigator.of(dialogContext).pop(repeatMinutes);
-                      },
-                      icon: const Icon(Icons.replay_rounded),
-                      label: const Text('Repeat Same Timer'),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Start New Preset Timer',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 8),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        const double minChipWidth = 72;
-                        const double spacing = 8;
-                        int columns = ((constraints.maxWidth + spacing) / (minChipWidth + spacing)).floor();
-                        if (columns < 2) columns = 2;
-                        final rows = (_timerFinishedPresetMinutes.length / columns).ceil();
-                        return Column(
-                          children: List.generate(rows, (rowIndex) {
-                            final start = rowIndex * columns;
-                            final end = (start + columns).clamp(0, _timerFinishedPresetMinutes.length);
-                            return Padding(
-                              padding: EdgeInsets.only(bottom: rowIndex < rows - 1 ? spacing : 0),
-                              child: Row(
-                                children: [
-                                  for (int i = start; i < end; i++)
-                                    Expanded(
-                                      child: Padding(
-                                        padding: EdgeInsets.only(right: i < end - 1 ? spacing : 0),
-                                        child: ActionChip(
-                                          label: Center(child: Text('${_timerFinishedPresetMinutes[i]} min')),
-                                          onPressed: () => Navigator.of(dialogContext).pop(_timerFinishedPresetMinutes[i]),
+              builder: (context, setDialogState) {
+                return SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () {
+                          final repeatMinutes =
+                              (_lastFinishedTimerDurationSeconds ~/ 60)
+                                  .clamp(1, 720)
+                                  .toInt();
+                          Navigator.of(dialogContext).pop(repeatMinutes);
+                        },
+                        icon: const Icon(Icons.replay_rounded),
+                        label: const Text('Repeat Same Timer'),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Start New Preset Timer',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          const double minChipWidth = 72;
+                          const double spacing = 8;
+                          int columns =
+                              ((constraints.maxWidth + spacing) /
+                                      (minChipWidth + spacing))
+                                  .floor();
+                          if (columns < 2) columns = 2;
+                          final rows =
+                              (_timerFinishedPresetMinutes.length / columns)
+                                  .ceil();
+                          return Column(
+                            children: List.generate(rows, (rowIndex) {
+                              final start = rowIndex * columns;
+                              final end = (start + columns).clamp(
+                                0,
+                                _timerFinishedPresetMinutes.length,
+                              );
+                              return Padding(
+                                padding: EdgeInsets.only(
+                                  bottom: rowIndex < rows - 1 ? spacing : 0,
+                                ),
+                                child: Row(
+                                  children: [
+                                    for (int i = start; i < end; i++)
+                                      Expanded(
+                                        child: Padding(
+                                          padding: EdgeInsets.only(
+                                            right: i < end - 1 ? spacing : 0,
+                                          ),
+                                          child: ActionChip(
+                                            label: Center(
+                                              child: Text(
+                                                '${_timerFinishedPresetMinutes[i]} min',
+                                              ),
+                                            ),
+                                            onPressed: () =>
+                                                Navigator.of(dialogContext).pop(
+                                                  _timerFinishedPresetMinutes[i],
+                                                ),
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  // Pad incomplete rows
-                                  for (int i = end; i < start + columns; i++)
-                                    const Expanded(child: SizedBox()),
-                                ],
-                              ),
-                            );
-                          }),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: customController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: 'Custom duration (minutes)',
-                        errorText: inputError,
+                                    // Pad incomplete rows
+                                    for (int i = end; i < start + columns; i++)
+                                      const Expanded(child: SizedBox()),
+                                  ],
+                                ),
+                              );
+                            }),
+                          );
+                        },
                       ),
-                      onSubmitted: (_) {
-                        final minutes = int.tryParse(
-                          customController.text.trim(),
-                        );
-                        if (minutes == null || minutes < 1 || minutes > 720) {
-                          setDialogState(() {
-                            inputError = 'Enter a value between 1 and 720';
-                          });
-                          return;
-                        }
-                        Navigator.of(dialogContext).pop(minutes);
-                      },
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Exit / Close Timer'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final minutes = int.tryParse(customController.text.trim());
-                if (minutes == null || minutes < 1 || minutes > 720) {
-                  return;
-                }
-                Navigator.of(dialogContext).pop(minutes);
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: customController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Custom duration (minutes)',
+                          errorText: inputError,
+                        ),
+                        onSubmitted: (_) {
+                          final minutes = int.tryParse(
+                            customController.text.trim(),
+                          );
+                          if (minutes == null || minutes < 1 || minutes > 720) {
+                            setDialogState(() {
+                              inputError = 'Enter a value between 1 and 720';
+                            });
+                            return;
+                          }
+                          Navigator.of(dialogContext).pop(minutes);
+                        },
+                      ),
+                    ],
+                  ),
+                );
               },
-              child: const Text('Start custom'),
             ),
-          ],
-        ), // AlertDialog
-      ); // ConstrainedBox
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Exit / Close Timer'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final minutes = int.tryParse(customController.text.trim());
+                  if (minutes == null || minutes < 1 || minutes > 720) {
+                    return;
+                  }
+                  Navigator.of(dialogContext).pop(minutes);
+                },
+                child: const Text('Start custom'),
+              ),
+            ],
+          ), // AlertDialog
+        ); // ConstrainedBox
       },
     );
 
@@ -3061,7 +3132,6 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   }
 
   Future<int?> _showFullscreenTimerFinishedDialog() {
-
     return showDialog<int>(
       context: context,
       useRootNavigator: true,
@@ -3142,10 +3212,9 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
                     child: FilledButton.icon(
                       onPressed: () {
                         final repeatMinutes =
-                            (_lastFinishedTimerDurationSeconds ~/ 60).clamp(
-                              1,
-                              720,
-                            ).toInt();
+                            (_lastFinishedTimerDurationSeconds ~/ 60)
+                                .clamp(1, 720)
+                                .toInt();
                         Navigator.of(dialogContext).pop(repeatMinutes);
                       },
                       icon: const Icon(Icons.replay_rounded),
@@ -3221,102 +3290,129 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     );
   }
 
-  void startTimer() async {
-    // Clear any pending two-tap armed state when timer starts
+  void startTimer() {
+    if (timerInterval != null) return;
     _armedPresetTimer?.cancel();
     _armedPresetValue = null;
-    _lsSave();
-    if (seconds == 0) {
+    if (seconds <= 0) {
       if (chainModeOn) {
         final sequence = chainPresets[chainPresetKey] ?? const [25];
-        if (chainIndex >= sequence.length) {
-          chainIndex = 0;
-        }
+        if (chainIndex >= sequence.length) chainIndex = 0;
         seconds = sequence[chainIndex] * 60;
       } else {
         seconds = sliderValue * 60;
       }
-      _activeTimerDurationSeconds = seconds;
-    } else if (_activeTimerDurationSeconds <= 0) {
-      _activeTimerDurationSeconds = seconds;
     }
-    timerValue = _formatTimerDisplayValue(seconds).split('.').first;
-    timerDisplayValue = _formatTimerDisplayValue(seconds);
-    if (timerInterval != null) return;
-
-    try {
-      await _ensureForegroundServiceRunning();
-    } catch (e) {
-      debugPrint('FOREGROUND TASK ERROR: $e');
-    }
-
+    seconds = seconds.clamp(1, 720 * 60);
+    _activeTimerDurationSeconds = _activeTimerDurationSeconds > 0
+        ? _activeTimerDurationSeconds
+        : seconds;
+    _timerRuntime = TimerRuntime.running(
+      durationSeconds: _activeTimerDurationSeconds,
+      remainingSeconds: seconds,
+      now: DateTime.now(),
+      chainModeOn: chainModeOn,
+      chainPresetKey: chainPresetKey,
+      chainIndex: chainIndex,
+      revision: _timerRuntime.revision + 1,
+    );
     setState(() {
       _isTimerFinished = false;
-      timerInterval = Timer.periodic(const Duration(seconds: 1), tick);
+      timerValue = _formatTimerDisplayValue(seconds);
+      timerDisplayValue = timerValue;
+      timerInterval = Timer.periodic(const Duration(milliseconds: 250), tick);
     });
-    // Capture session start time for tagging
-    if (taggingOn) {
-      _sessionStartTime = DateTime.now();
-    }
-    unawaited(_saveLastTimerSeconds(seconds > 0 ? seconds : sliderValue * 60));
+    if (taggingOn) _sessionStartTime ??= DateTime.now();
+    unawaited(_timerRuntimeStore.save(_timerRuntime));
+    unawaited(_saveLastTimerSeconds(seconds));
     _applyAudioSettings();
-    _syncForegroundNotification(force: true);
+    unawaited(_reconcileForeground(force: true));
   }
 
   void stopTimer() {
-    // Log session before stopping (if tagging enabled and session was recorded)
-    if (taggingOn && _sessionStartTime != null && timerInterval != null) {
+    if (timerInterval == null) return;
+    seconds = _timerRuntime.remainingAt(DateTime.now());
+    if (taggingOn && _sessionStartTime != null) {
       final elapsed = _activeTimerDurationSeconds - seconds;
-      if (elapsed > 0) {
-        _logCurrentSession(elapsed);
-      }
-    }
-    if (seconds > 0) {
-      unawaited(_saveLastTimerSeconds(seconds));
+      if (elapsed > 0) _logCurrentSession(elapsed);
     }
     timerInterval?.cancel();
+    _timerRuntime = _timerRuntime.copyWith(
+      status: TimerRuntimeStatus.paused,
+      remainingSeconds: seconds,
+      endAtEpochMs: () => null,
+      revision: _timerRuntime.revision + 1,
+    );
+    unawaited(_timerRuntimeStore.save(_timerRuntime));
+    if (seconds > 0) unawaited(_saveLastTimerSeconds(seconds));
     if (mounted) {
-      setState(() {
-        timerInterval = null;
-      });
+      setState(() => timerInterval = null);
     } else {
       timerInterval = null;
     }
     _applyAudioSettings();
-    _syncForegroundNotification(force: true);
+    unawaited(_reconcileForeground(force: true));
   }
 
   void resetTimer() {
-    stopTimer();
+    if (timerInterval != null) stopTimer();
+    timerInterval?.cancel();
+    _timerRuntime = TimerRuntime.idle().copyWith(
+      revision: _timerRuntime.revision + 1,
+    );
+    unawaited(_timerRuntimeStore.save(_timerRuntime));
     setState(() {
+      timerInterval = null;
       seconds = 0;
-      timerValue = "00:00";
-      timerDisplayValue = _formatTimerDisplayValue(0);
+      timerValue = '00:00';
+      timerDisplayValue = '00:00';
       chainIndex = 0;
+      _isTimerFinished = false;
+      _activeTimerDurationSeconds = 0;
     });
+    unawaited(_reconcileForeground(force: true));
   }
 
-  void choosePreset(int val) {
-    setState(() {
-      _isTimerFinished = false;
-      sliderValue = val;
-    });
+  void choosePreset(int value) {
     resetTimer();
+    setState(() {
+      sliderValue = value.clamp(1, 720);
+      seconds = sliderValue * 60;
+      _activeTimerDurationSeconds = seconds;
+    });
     startTimer();
   }
 
-  /// Add or subtract seconds to a running timer without resetting.
-  /// This preserves the exact remaining time (e.g., 9:58 + 5min = 14:58, not 15:00).
   void addTimeToRunningTimer(int additionalSeconds) {
-    if (timerInterval == null) return; // Only works while running
+    if (timerInterval == null) return;
+    final remaining =
+        (_timerRuntime.remainingAt(DateTime.now()) + additionalSeconds).clamp(
+          1,
+          720 * 60,
+        );
+    final duration = (_activeTimerDurationSeconds + additionalSeconds).clamp(
+      1,
+      720 * 60,
+    );
+    _activeTimerDurationSeconds = duration;
+    _timerRuntime = TimerRuntime.running(
+      durationSeconds: duration,
+      remainingSeconds: remaining,
+      now: DateTime.now(),
+      chainModeOn: chainModeOn,
+      chainPresetKey: chainPresetKey,
+      chainIndex: chainIndex,
+      runId: _timerRuntime.runId,
+      revision: _timerRuntime.revision + 1,
+    );
     setState(() {
-      seconds = (seconds + additionalSeconds).clamp(1, 720 * 60);
-      sliderValue = (seconds / 60).ceil().clamp(1, 720);
-      _activeTimerDurationSeconds = (_activeTimerDurationSeconds + additionalSeconds).clamp(1, 720 * 60);
-      timerValue = _formatTimerDisplayValue(seconds).split('.').first;
-      timerDisplayValue = _formatTimerDisplayValue(seconds);
+      seconds = remaining;
+      sliderValue = (remaining / 60).ceil().clamp(1, 720);
+      timerValue = _formatTimerDisplayValue(remaining);
+      timerDisplayValue = timerValue;
     });
-    _syncForegroundNotification(force: true);
+    unawaited(_timerRuntimeStore.save(_timerRuntime));
+    unawaited(_reconcileForeground(force: true));
   }
 
   /// Two-tap confirmation for preset grid buttons.
@@ -3450,16 +3546,11 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
           },
           backgroundPersistenceOn: backgroundPersistenceOn,
           onBackgroundPersistenceChanged: (val) {
-            final nowOn = val ?? false;
             setState(() {
-              backgroundPersistenceOn = nowOn;
+              backgroundPersistenceOn = val ?? false;
               _lsSave();
             });
-            if (nowOn) {
-              _ensureForegroundServiceRunning();
-            } else {
-              _stopForegroundService();
-            }
+            unawaited(_reconcileForeground(force: true));
           },
         ),
       ),
@@ -3575,9 +3666,9 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
             });
           },
           onDashboardPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const DashboardScreen()),
-            );
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const DashboardScreen()));
           },
         ),
       ),
@@ -3694,7 +3785,6 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _accessibilityPollTimer?.cancel();
     foregroundHealthTimer?.cancel();
     nightIdleTimer?.cancel();
     nightResumeSpeechTimer?.cancel();
@@ -3705,10 +3795,11 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     clockTimer = null;
     timerInterval?.cancel();
     timerInterval = null;
-    _stopwatchEngine.stop();
     stopwatchInterval?.cancel();
     stopwatchInterval = null;
     displayTick?.cancel();
+    unawaited(flutterTts.stop());
+    unawaited(_settingsService.flush());
     unawaited(_audioService.dispose());
     // Remove callback to avoid memory leaks
     FlutterForegroundTask.removeTaskDataCallback(_onReceiveTaskData);
@@ -3717,16 +3808,18 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(settingsProvider);
     final appTitle = currentTabIndex == 0
         ? 'Clock'
         : currentTabIndex == 1
-            ? 'Timer'
-            : 'Stopwatch';
+        ? 'Timer'
+        : 'Stopwatch';
 
     return OrientationBuilder(
       builder: (context, orientation) {
         return Scaffold(
           appBar: AppBar(
+            centerTitle: false,
             title: Text(appTitle),
             leading: IconButton(
               icon: const Icon(Icons.menu_rounded),
@@ -3734,6 +3827,15 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
               onPressed: _openSettings,
             ),
             actions: [
+              IconButton(
+                onPressed: () => unawaited(_setSpeechMaster(!speechMasterOn)),
+                tooltip: speechMasterOn ? 'Turn audio off' : 'Turn audio on',
+                icon: Icon(
+                  speechMasterOn
+                      ? Icons.volume_up_rounded
+                      : Icons.volume_off_rounded,
+                ),
+              ),
               IconButton(
                 onPressed: _openFullscreenFocus,
                 tooltip: 'Focus mode',
@@ -3785,17 +3887,17 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
                   destinations: const [
                     NavDestination(
                       icon: Icons.watch_later_outlined,
-                      activeIcon: Icons.watch_later,
+                      activeIcon: Icons.watch_later_outlined,
                       label: 'Clock',
                     ),
                     NavDestination(
                       icon: Icons.hourglass_empty_rounded,
-                      activeIcon: Icons.hourglass_top_rounded,
+                      activeIcon: Icons.hourglass_empty_rounded,
                       label: 'Timer',
                     ),
                     NavDestination(
                       icon: Icons.timer_outlined,
-                      activeIcon: Icons.timer,
+                      activeIcon: Icons.timer_outlined,
                       label: 'Stopwatch',
                     ),
                   ],

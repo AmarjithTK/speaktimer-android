@@ -12,8 +12,7 @@ class VoiceSessionManager {
   /// Cached preferred voice (resolved once per session).
   Map<dynamic, dynamic>? _cachedVoice;
 
-  /// Cached Malayalam active state (resolved once per session).
-  bool _cachedIsMalayalam = false;
+  bool? _cachedIsMalayalam;
 
   /// The voice list mode at the time of caching.
   String _cachedVoiceListMode = '';
@@ -50,6 +49,7 @@ class VoiceSessionManager {
       favoriteVoiceLocale: favoriteVoiceLocale,
     )) {
       _cachedVoice = voiceResolver();
+      _cachedIsMalayalam = null;
       _cachedVoiceListMode = voiceListMode;
       _cachedFavoriteVoiceName = favoriteVoiceName;
       _cachedFavoriteVoiceLocale = favoriteVoiceLocale;
@@ -62,16 +62,14 @@ class VoiceSessionManager {
     required bool Function(Map<dynamic, dynamic>?) isMalayalamResolver,
     required Map<dynamic, dynamic>? preferredVoice,
   }) {
-    if (_cachedIsMalayalam == false && _cachedVoice == null) {
-      _cachedIsMalayalam = isMalayalamResolver(preferredVoice);
-    }
-    return _cachedIsMalayalam;
+    _cachedIsMalayalam ??= isMalayalamResolver(preferredVoice);
+    return _cachedIsMalayalam!;
   }
 
   /// Resets the entire session cache. Call when user changes voice settings.
   void resetSession() {
     _cachedVoice = null;
-    _cachedIsMalayalam = false;
+    _cachedIsMalayalam = null;
     _cachedVoiceListMode = '';
     _cachedFavoriteVoiceName = null;
     _cachedFavoriteVoiceLocale = null;

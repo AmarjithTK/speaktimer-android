@@ -48,14 +48,46 @@ class TimerService {
     return s;
   }
 
+  int remainingSeconds({required DateTime endAt, required DateTime now}) {
+    final deltaMs = endAt.millisecondsSinceEpoch - now.millisecondsSinceEpoch;
+    if (deltaMs <= 0) return 0;
+    return (deltaMs + 999) ~/ 1000;
+  }
+
+  List<int> crossedAnnouncementMinutes({
+    required int previousSeconds,
+    required int currentSeconds,
+    required int announceEveryMinutes,
+  }) {
+    if (currentSeconds >= previousSeconds || previousSeconds <= 0) {
+      return const [];
+    }
+    final frequency = announceEveryMinutes.clamp(1, 720);
+    final crossed = <int>[];
+    final highestMinute = previousSeconds ~/ 60;
+    final lowestMinute = (currentSeconds / 60).ceil();
+    for (var minute = highestMinute; minute >= lowestMinute; minute--) {
+      final boundary = minute * 60;
+      if (minute > 0 &&
+          minute % frequency == 0 &&
+          previousSeconds >= boundary &&
+          currentSeconds < boundary) {
+        crossed.add(minute);
+      }
+    }
+    return crossed;
+  }
+
   TimerTickResult tick({
     required int seconds,
     required bool timerSpeakOn,
     required int timerAnnounceEvery,
   }) {
-    final mins = seconds ~/ 60;
-    final secs = seconds % 60;
-    final nextSeconds = seconds - 1;
+    final safeSeconds = seconds.clamp(0, 720 * 60);
+    final mins = safeSeconds ~/ 60;
+    final secs = safeSeconds % 60;
+    final nextSeconds = safeSeconds > 0 ? safeSeconds - 1 : 0;
+    final frequency = timerAnnounceEvery.clamp(1, 720);
 
     final mStr = mins.toString().padLeft(2, '0');
     final sStr = secs.toString().padLeft(2, '0');
@@ -66,16 +98,14 @@ class TimerService {
         nextSeconds != 0 &&
         timerSpeakOn &&
         mins > 0 &&
-        mins % timerAnnounceEvery == 0;
-
-    final isFinished = nextSeconds == 0;
+        mins % frequency == 0;
 
     return TimerTickResult(
       nextSeconds: nextSeconds,
       timerValue: timerValue,
       shouldAnnounceRemaining: shouldAnnounceRemaining,
       announceMinutes: mins,
-      isFinished: isFinished,
+      isFinished: safeSeconds > 0 && nextSeconds == 0,
     );
   }
 }

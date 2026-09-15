@@ -28,18 +28,28 @@ class SessionLog {
   }
 
   Map<String, dynamic> toJson() => {
-        'startTime': startTime.toIso8601String(),
-        'endTime': endTime.toIso8601String(),
-        'durationSeconds': durationSeconds,
-        'tag': tag,
-      };
+    'startTime': startTime.toIso8601String(),
+    'endTime': endTime.toIso8601String(),
+    'durationSeconds': durationSeconds,
+    'tag': tag,
+  };
 
   factory SessionLog.fromJson(Map<String, dynamic> json) => SessionLog(
-        startTime: DateTime.parse(json['startTime'] as String),
-        endTime: DateTime.parse(json['endTime'] as String),
-        durationSeconds: json['durationSeconds'] as int,
-        tag: json['tag'] as String,
-      );
+    startTime: DateTime.parse(json['startTime'] as String),
+    endTime: DateTime.parse(json['endTime'] as String),
+    durationSeconds: json['durationSeconds'] as int,
+    tag: json['tag'] as String,
+  );
+  int secondsWithin(DateTime dayStart, DateTime dayEnd) {
+    if (!startTime.isBefore(dayEnd) || !endTime.isAfter(dayStart)) return 0;
+    final clippedStart = startTime.isAfter(dayStart) ? startTime : dayStart;
+    final clippedEnd = endTime.isBefore(dayEnd) ? endTime : dayEnd;
+    final overlapMs = clippedEnd.difference(clippedStart).inMilliseconds;
+    if (overlapMs <= 0) return 0;
+    final wallMs = endTime.difference(startTime).inMilliseconds;
+    if (wallMs <= 0) return durationSeconds;
+    return (durationSeconds * overlapMs / wallMs).round();
+  }
 
   /// Daily summary for a group of sessions.
   static DailySummary summarize(List<SessionLog> sessions) {
@@ -52,7 +62,29 @@ class SessionLog {
         nonStudySeconds += s.durationSeconds;
       }
     }
-    return DailySummary(studySeconds: studySeconds, nonStudySeconds: nonStudySeconds);
+    return DailySummary(
+      studySeconds: studySeconds,
+      nonStudySeconds: nonStudySeconds,
+    );
+  }
+
+  static DailySummary summarizeForDay(List<SessionLog> sessions, DateTime day) {
+    final dayStart = DateTime(day.year, day.month, day.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+    var studySeconds = 0;
+    var nonStudySeconds = 0;
+    for (final session in sessions) {
+      final seconds = session.secondsWithin(dayStart, dayEnd);
+      if (session.isStudy) {
+        studySeconds += seconds;
+      } else {
+        nonStudySeconds += seconds;
+      }
+    }
+    return DailySummary(
+      studySeconds: studySeconds,
+      nonStudySeconds: nonStudySeconds,
+    );
   }
 }
 
@@ -61,7 +93,10 @@ class DailySummary {
   final int studySeconds;
   final int nonStudySeconds;
 
-  const DailySummary({required this.studySeconds, required this.nonStudySeconds});
+  const DailySummary({
+    required this.studySeconds,
+    required this.nonStudySeconds,
+  });
 
   int get totalSeconds => studySeconds + nonStudySeconds;
 

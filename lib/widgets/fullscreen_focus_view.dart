@@ -89,6 +89,18 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   String _stopwatchText = '00:00';
   bool _timerRunning = false;
   bool _stopwatchRunning = false;
+  Future<void> _platformEffectTail = Future<void>.value();
+
+  void _enqueuePlatformEffect(Future<void> Function() effect) {
+    _platformEffectTail = _platformEffectTail
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('Fullscreen platform effect predecessor failed: $error');
+        })
+        .then((_) => effect())
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('Fullscreen platform effect failed: $error');
+        });
+  }
 
   @override
   void initState() {
@@ -103,10 +115,12 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
     _showEntryHint = !widget.startImmersive;
     _showExitHint = !widget.startImmersive;
 
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    unawaited(WakelockPlus.enable());
-    unawaited(_applyBrightness());
-    unawaited(_applyOrientation());
+    _enqueuePlatformEffect(
+      () => SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky),
+    );
+    _enqueuePlatformEffect(WakelockPlus.enable);
+    _applyBrightness();
+    _applyOrientation();
     if (_showControls) {
       _restartControlsHideTimer();
     }
@@ -162,24 +176,30 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
     _restartControlsHideTimer();
   }
 
-  Future<void> _applyOrientation() {
-    if (_forceLandscape) {
-      return SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-    }
-    return SystemChrome.setPreferredOrientations([]);
+  void _applyOrientation() {
+    final orientations = _forceLandscape
+        ? <DeviceOrientation>[
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ]
+        : <DeviceOrientation>[];
+    _enqueuePlatformEffect(
+      () => SystemChrome.setPreferredOrientations(orientations),
+    );
   }
 
-  Future<void> _applyBrightness() async {
-    try {
-      if (_dimBrightness) {
-        await ScreenBrightness.instance.setApplicationScreenBrightness(_dimBrightnessLevel);
+  void _applyBrightness() {
+    final shouldDim = _dimBrightness;
+    final dimLevel = _dimBrightnessLevel;
+    _enqueuePlatformEffect(() async {
+      if (shouldDim) {
+        await ScreenBrightness.instance.setApplicationScreenBrightness(
+          dimLevel,
+        );
       } else {
         await ScreenBrightness.instance.resetApplicationScreenBrightness();
       }
-    } catch (_) {}
+    });
   }
 
   void _refresh() {
@@ -197,6 +217,7 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   String _stripClockSuffix(String value) {
     return value.replaceAll(RegExp(r'\s(AM|PM)$'), '');
   }
+
   void _cycleClockScale() {
     _onControlInteraction();
     final scales = [0.8, 1.0, 1.25, 1.5, 2.0];
@@ -211,8 +232,6 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
     setState(() => _clockScale = newScale);
     widget.onClockScaleChanged?.call(newScale);
   }
-
-
 
   (String, String) _splitTimer(String value) {
     final base = value.split('.').first;
@@ -289,7 +308,9 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
         final isLandscape = w > h * 1.2;
 
         // Flex allocation between timer and clock based on _clockScale
-        final clockFlex = (_clockScale * (isLandscape ? 2.5 : 3.0)).round().clamp(2, 6);
+        final clockFlex = (_clockScale * (isLandscape ? 2.5 : 3.0))
+            .round()
+            .clamp(2, 6);
         final timerFlex = (10 - clockFlex).clamp(4, 8);
 
         final clockWidget = GestureDetector(
@@ -480,19 +501,15 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
   void dispose() {
     _tick?.cancel();
     _controlsHideTimer?.cancel();
-    if (_alwaysOn) {
-      WakelockPlus.disable();
-    }
-    unawaited(_resetBrightnessSafe());
-    SystemChrome.setPreferredOrientations([]);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    _enqueuePlatformEffect(() async {
+      if (_alwaysOn) await WakelockPlus.disable();
+      try {
+        await ScreenBrightness.instance.resetApplicationScreenBrightness();
+      } catch (_) {}
+      await SystemChrome.setPreferredOrientations([]);
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    });
     super.dispose();
-  }
-
-  Future<void> _resetBrightnessSafe() async {
-    try {
-      await ScreenBrightness.instance.resetApplicationScreenBrightness();
-    } catch (_) {}
   }
 
   @override
@@ -567,8 +584,8 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                   ),
                 ),
               ),
-            IgnorePointer(
-              ignoring: !_showControls,
+              IgnorePointer(
+                ignoring: !_showControls,
                 child: AnimatedOpacity(
                   opacity: _showControls ? 1 : 0,
                   duration: const Duration(milliseconds: 300),
@@ -609,15 +626,15 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                                       icon: Icons.lock_clock_rounded,
                                       label: 'Awake',
                                       selected: _alwaysOn,
-                                      onTap: () async {
+                                      onTap: () {
                                         _onControlInteraction();
                                         final val = !_alwaysOn;
                                         setState(() => _alwaysOn = val);
-                                        if (val) {
-                                          await WakelockPlus.enable();
-                                        } else {
-                                          await WakelockPlus.disable();
-                                        }
+                                        _enqueuePlatformEffect(
+                                          val
+                                              ? WakelockPlus.enable
+                                              : WakelockPlus.disable,
+                                        );
                                       },
                                     ),
                                     const SizedBox(width: 6),
@@ -642,7 +659,8 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                                         variant: variant,
                                         selectedBg: selectedBg,
                                         icon: Icons.format_size_rounded,
-                                        label: '${_clockScale.toStringAsFixed(1)}x',
+                                        label:
+                                            '${_clockScale.toStringAsFixed(1)}x',
                                         selected: true,
                                         onTap: _cycleClockScale,
                                       ),
@@ -654,7 +672,9 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                                           : 'Dark theme',
                                       onPressed: () async {
                                         _onControlInteraction();
-                                        setState(() => _darkTheme = !_darkTheme);
+                                        setState(
+                                          () => _darkTheme = !_darkTheme,
+                                        );
                                         widget.onThemeChanged?.call(_darkTheme);
                                       },
                                       icon: Icon(
@@ -668,15 +688,16 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                                       tooltip: _dimBrightness
                                           ? 'Disable dim'
                                           : 'Dim brightness',
-                                      onPressed: () async {
+                                      onPressed: () {
                                         _onControlInteraction();
                                         setState(
-                                          () => _dimBrightness = !_dimBrightness,
+                                          () =>
+                                              _dimBrightness = !_dimBrightness,
                                         );
                                         widget.onDimBrightnessChanged?.call(
                                           _dimBrightness,
                                         );
-                                        await _applyBrightness();
+                                        _applyBrightness();
                                       },
                                       icon: Icon(
                                         _dimBrightness
@@ -689,19 +710,21 @@ class _FullscreenFocusViewState extends State<FullscreenFocusView> {
                                       tooltip: _forceLandscape
                                           ? 'Unlock Rotation'
                                           : 'Rotate Horizontal',
-                                      onPressed: () async {
+                                      onPressed: () {
                                         _onControlInteraction();
                                         setState(
-                                          () => _forceLandscape = !_forceLandscape,
+                                          () => _forceLandscape =
+                                              !_forceLandscape,
                                         );
                                         widget.onForceLandscapeChanged?.call(
                                           _forceLandscape,
                                         );
-                                        await _applyOrientation();
+                                        _applyOrientation();
                                       },
                                       icon: Icon(
                                         _forceLandscape
-                                            ? Icons.stay_current_landscape_rounded
+                                            ? Icons
+                                                  .stay_current_landscape_rounded
                                             : Icons.screen_rotation_alt_rounded,
                                         color: fg,
                                       ),

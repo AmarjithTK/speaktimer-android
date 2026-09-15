@@ -33,7 +33,7 @@ class SpeechControlsWidget : AppWidgetProvider() {
     companion object {
         private const val PREFS_NAME = "FlutterSharedPreferences"
         private const val KEY_SPEECH_MASTER = "flutter.widget_speech_master"
-        private const val KEY_ARMED_ACTION = "widget_armed_action"
+        private const val KEY_ARMED_ACTION = "flutter.widget_armed_action"
 
         fun updateAllWidgets(context: Context) {
             val mgr = AppWidgetManager.getInstance(context)
@@ -53,8 +53,8 @@ class SpeechControlsWidget : AppWidgetProvider() {
             val speechMasterOn = prefs.getBoolean(KEY_SPEECH_MASTER, true)
             val armedAction = prefs.getString(KEY_ARMED_ACTION, "") ?: ""
 
-            val audioArmed = armedAction == "audio_master"
-            val clockArmed = armedAction == "fullscreen_clock"
+            val audioArmed = armedAction == "toggle_speech_master"
+            val clockArmed = armedAction == "open_fullscreen_clock"
 
             val views = RemoteViews(context.packageName, R.layout.widget_speech_controls)
 

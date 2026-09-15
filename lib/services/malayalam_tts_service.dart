@@ -23,10 +23,10 @@ class MalayalamTtsService {
     final minute = now.minute;
 
     if (minute == 0) {
-      return 'സമയം $hour12 മണി.';
+      return '$hour12 മണി.';
     }
 
-    return 'സമയം $hour12 മണി $minute മിനിറ്റ്.';
+    return '$hour12 മണി $minute മിനിറ്റ്.';
   }
 
   String timerRemaining(int minutes) {

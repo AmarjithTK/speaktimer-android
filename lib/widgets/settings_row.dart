@@ -56,7 +56,7 @@ class SettingsRow extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (trailing != null) trailing!,
+                ?trailing,
                 if (trailing == null && value != null) ...[
                   Text(
                     value!,
@@ -135,10 +135,7 @@ class SettingsToggleRow extends StatelessWidget {
                   ),
                 ),
               ),
-              Switch(
-                value: value,
-                onChanged: onChanged,
-              ),
+              Switch(value: value, onChanged: onChanged),
             ],
           ),
         ),

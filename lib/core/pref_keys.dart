@@ -23,6 +23,7 @@ class PrefKeys {
   static const goalReminderIntervalMins = 'GoalReminderIntervalMins';
   static const goalReminderItems = 'GoalReminderItems';
   static const goalReminderNextIndex = 'GoalReminderNextIndex';
+  static const stopwatchSpeakOn = 'StopwatchSpeakOn';
   static const stopwatchShowMilliseconds = 'StopwatchShowMilliseconds';
   static const stopwatchSpeakDelaySeconds = 'StopwatchSpeakDelaySeconds';
   static const muteSpeechAfterMidnight = 'MuteSpeechAfterMidnight';

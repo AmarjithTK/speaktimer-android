@@ -38,8 +38,6 @@ class SettingsPanel extends ConsumerStatefulWidget {
   final ValueChanged<String?> onSpeechEngineModeChanged;
   final ValueChanged<String?> onFavoriteVoiceChanged;
   final VoidCallback onOpenHelp;
-  final VoidCallback? onOpenAccessibility;
-  final bool accessibilityEnabled;
   final VoidCallback? onBackupSettings;
   final VoidCallback? onRestoreSettings;
 
@@ -75,8 +73,6 @@ class SettingsPanel extends ConsumerStatefulWidget {
     required this.onSpeechEngineModeChanged,
     required this.onFavoriteVoiceChanged,
     required this.onOpenHelp,
-    this.onOpenAccessibility,
-    this.accessibilityEnabled = false,
     this.onBackupSettings,
     this.onRestoreSettings,
   });
@@ -121,11 +117,16 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
 
   String _speechEngineLabel(String value) {
     switch (value) {
-      case 'system_only': return 'System TTS only';
-      case 'sherpa_only': return 'Sherpa-ONNX only';
-      case 'auto': return 'Auto (System default)';
-      case 'com.google.android.tts': return 'Google Speech Services';
-      case 'com.samsung.SMT': return 'Samsung Text-to-Speech';
+      case 'system_only':
+        return 'System TTS only';
+      case 'sherpa_only':
+        return 'Sherpa-ONNX only';
+      case 'auto':
+        return 'Auto (System default)';
+      case 'com.google.android.tts':
+        return 'Google Speech Services';
+      case 'com.samsung.SMT':
+        return 'Samsung Text-to-Speech';
       default:
         if (value.startsWith('com.')) {
           final parts = value.split('.');
@@ -137,9 +138,12 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
 
   String _voiceListLabel(String value) {
     switch (value) {
-      case 'english': return 'English';
-      case 'malayalam': return 'Malayalam';
-      default: return 'Auto';
+      case 'english':
+        return 'English';
+      case 'malayalam':
+        return 'Malayalam';
+      default:
+        return 'Auto';
     }
   }
 
@@ -156,7 +160,9 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
 
   String _favoriteVoiceKey() {
     final s = ref.read(settingsProvider);
-    if (s.favoriteVoiceName == null || s.favoriteVoiceLocale == null) return '__auto__';
+    if (s.favoriteVoiceName == null || s.favoriteVoiceLocale == null) {
+      return '__auto__';
+    }
     return '${s.favoriteVoiceName}|${s.favoriteVoiceLocale}';
   }
 
@@ -164,18 +170,15 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final s = ref.watch(settingsProvider);
-    final notifier = ref.read(settingsProvider.notifier);
 
     final speechEngineOptions = <(String, String, String?)>[
       ('auto', 'Auto (System default)', 'Use device default speech engine'),
       ('system_only', 'System TTS only', 'Use the device speech engine'),
       for (final engine in widget.availableEngines)
-        if (engine != 'auto' && engine != 'system_only' && engine != 'sherpa_only')
-          (
-            engine,
-            _speechEngineLabel(engine),
-            engine,
-          ),
+        if (engine != 'auto' &&
+            engine != 'system_only' &&
+            engine != 'sherpa_only')
+          (engine, _speechEngineLabel(engine), engine),
       if (!kIsWeb)
         ('sherpa_only', 'Sherpa-ONNX only', 'Linux/Windows fallback voice'),
     ];
@@ -193,30 +196,45 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
     final List<Map<dynamic, dynamic>> languageVoices;
     if (currentLanguageMode == 'malayalam') {
       final ml = widget.voices.where((v) {
-        final loc = (v['locale']?.toString() ?? '').toLowerCase().replaceAll('_', '-');
+        final loc = (v['locale']?.toString() ?? '').toLowerCase().replaceAll(
+          '_',
+          '-',
+        );
         return loc.startsWith('ml');
       }).toList();
       languageVoices = ml.isNotEmpty
           ? ml
           : [
-              {'name': 'Standard Malayalam', 'locale': 'ml-IN'}
+              {'name': 'Standard Malayalam', 'locale': 'ml-IN'},
             ];
     } else if (currentLanguageMode == 'english') {
       languageVoices = widget.voices.where((v) {
-        final loc = (v['locale']?.toString() ?? '').toLowerCase().replaceAll('_', '-');
+        final loc = (v['locale']?.toString() ?? '').toLowerCase().replaceAll(
+          '_',
+          '-',
+        );
         return loc.startsWith('en');
       }).toList();
     } else {
       final ml = widget.voices.where((v) {
-        final loc = (v['locale']?.toString() ?? '').toLowerCase().replaceAll('_', '-');
+        final loc = (v['locale']?.toString() ?? '').toLowerCase().replaceAll(
+          '_',
+          '-',
+        );
         return loc.startsWith('ml');
       }).toList();
       final en = widget.voices.where((v) {
-        final loc = (v['locale']?.toString() ?? '').toLowerCase().replaceAll('_', '-');
+        final loc = (v['locale']?.toString() ?? '').toLowerCase().replaceAll(
+          '_',
+          '-',
+        );
         return loc.startsWith('en');
       }).toList();
       languageVoices = [
-        if (ml.isNotEmpty) ...ml else {'name': 'Standard Malayalam', 'locale': 'ml-IN'},
+        if (ml.isNotEmpty)
+          ...ml
+        else
+          {'name': 'Standard Malayalam', 'locale': 'ml-IN'},
         ...en,
       ];
     }
@@ -227,9 +245,9 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
         currentLanguageMode == 'malayalam'
             ? 'Best voice for Malayalam'
             : (currentLanguageMode == 'english'
-                ? 'Best voice for English'
-                : 'Best voice for selected language'),
-        null
+                  ? 'Best voice for English'
+                  : 'Best voice for selected language'),
+        null,
       ),
       ...languageVoices.map((voice) {
         final name = voice['name']?.toString() ?? 'Unknown';
@@ -240,22 +258,19 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
     ];
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Settings'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Settings'), centerTitle: true),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
           _settingsSwitch(
             context,
-            icon: s.speechMasterOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+            icon: s.speechMasterOn
+                ? Icons.volume_up_rounded
+                : Icons.volume_off_rounded,
             title: 'Master Audio',
             subtitle: s.speechMasterOn ? 'All audio on' : 'All audio off',
             value: s.speechMasterOn,
             onChanged: (val) {
-              final newVal = val ?? true;
-              notifier.updateSpeechMasterOn(newVal);
               widget.onSpeechMasterOnChanged(val);
             },
           ),
@@ -266,11 +281,13 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
             title: 'Background sound',
             value: _soundTitle(s.soundChosen),
             onTap: () => _showStringPicker(
-              context, title: 'Background sound',
+              context,
+              title: 'Background sound',
               currentValue: s.soundChosen,
-              options: widget.soundList.map((s) => (s.link, s.title, null)).toList(),
+              options: widget.soundList
+                  .map((s) => (s.link, s.title, null))
+                  .toList(),
               onChanged: (val) {
-                notifier.updateSound(val!);
                 widget.onSoundChanged(val);
               },
             ),
@@ -282,10 +299,10 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
             title: 'Noise volume',
             value: _getVolTitle(s.noiseVolume),
             onTap: () => _showDoublePicker(
-              context, title: 'Noise volume',
+              context,
+              title: 'Noise volume',
               currentValue: s.noiseVolume,
               onChanged: (val) {
-                notifier.updateNoiseVolume(val!);
                 widget.onNoiseVolumeChanged(val);
               },
             ),
@@ -297,10 +314,10 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
             title: 'Speech volume',
             value: _getVolTitle(s.speakVolume),
             onTap: () => _showDoublePicker(
-              context, title: 'Speech volume',
+              context,
+              title: 'Speech volume',
               currentValue: s.speakVolume,
               onChanged: (val) {
-                notifier.updateSpeakVolume(val!);
                 widget.onSpeakVolumeChanged(val);
               },
             ),
@@ -313,7 +330,6 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
             subtitle: 'Maximum volume for speech announcements only',
             value: s.maximumSpeechVolume,
             onChanged: (val) {
-              notifier.updateMaximumSpeechVolume(val ?? false);
               widget.onMaximumSpeechVolumeChanged(val);
             },
           ),
@@ -323,11 +339,11 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
             title: 'Speech engine',
             value: _speechEngineLabel(s.speechEngineMode),
             onTap: () => _showStringPicker(
-              context, title: 'Speech engine',
+              context,
+              title: 'Speech engine',
               currentValue: s.speechEngineMode,
               options: speechEngineOptions,
               onChanged: (val) {
-                notifier.updateSpeechEngineMode(val!);
                 widget.onSpeechEngineModeChanged(val);
               },
             ),
@@ -348,11 +364,11 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
             title: 'Language list',
             value: _voiceListLabel(s.voiceListMode),
             onTap: () => _showStringPicker(
-              context, title: 'Language list',
+              context,
+              title: 'Language list',
               currentValue: s.voiceListMode,
               options: voiceModeOptions,
               onChanged: (val) {
-                notifier.updateVoiceListMode(val!);
                 widget.onVoiceListModeChanged(val);
               },
             ),
@@ -364,18 +380,11 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
             title: 'Preferred voice',
             value: _favoriteVoiceLabel(),
             onTap: () => _showStringPicker(
-              context, title: 'Voice',
+              context,
+              title: 'Voice',
               currentValue: _favoriteVoiceKey(),
               options: voiceOptions,
               onChanged: (val) {
-                if (val == null || val == '__auto__') {
-                  notifier.updateFavoriteVoice(null, null);
-                } else {
-                  final parts = val.split('|');
-                  if (parts.length == 2) {
-                    notifier.updateFavoriteVoice(parts[0], parts[1]);
-                  }
-                }
                 widget.onFavoriteVoiceChanged(val);
               },
             ),
@@ -384,89 +393,135 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
             padding: const EdgeInsets.fromLTRB(52, 8, 14, 0),
             child: Row(
               children: [
-                Text('Font size',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
+                Text(
+                  'Font size',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: cs.onSurface,
+                  ),
+                ),
                 const Spacer(),
-                Text('${s.appFontSizeMultiplier.toStringAsFixed(1)}x',
-                  style: TextStyle(color: cs.primary, fontWeight: FontWeight.w700, fontSize: 13)),
+                Text(
+                  '${s.appFontSizeMultiplier.toStringAsFixed(1)}x',
+                  style: TextStyle(
+                    color: cs.primary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
               ],
             ),
           ),
           Slider(
-            value: s.appFontSizeMultiplier, min: 0.8, max: 1.5, divisions: 7,
+            value: s.appFontSizeMultiplier,
+            min: 0.8,
+            max: 1.5,
+            divisions: 7,
             label: '${s.appFontSizeMultiplier.toStringAsFixed(1)}x',
             onChanged: (val) {
-              notifier.updateAppFontSizeMultiplier(val);
               widget.onAppFontSizeMultiplierChanged(val);
             },
           ),
           _settingsDivider(context),
-          _settingsSwitch(context,
-            icon: Icons.dark_mode_rounded, title: 'Dark fullscreen',
+          _settingsSwitch(
+            context,
+            icon: Icons.dark_mode_rounded,
+            title: 'Dark fullscreen',
             value: s.fullscreenDarkTheme,
             onChanged: (val) {
-              notifier.updateFullscreenDarkTheme(val ?? true);
               widget.onFullscreenDarkThemeChanged(val);
-            }),
+            },
+          ),
           _settingsDivider(context),
-          _settingsSwitch(context,
-            icon: Icons.brightness_4_rounded, title: 'Dim brightness',
+          _settingsSwitch(
+            context,
+            icon: Icons.brightness_4_rounded,
+            title: 'Dim brightness',
             value: s.fullscreenDimBrightness,
             onChanged: (val) {
-              notifier.updateFullscreenDimBrightness(val ?? false);
               widget.onFullscreenDimBrightnessChanged(val);
-            }),
+            },
+          ),
           if (s.fullscreenDimBrightness) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  Icon(Icons.brightness_low_rounded, size: 18, color: Theme.of(context).colorScheme.onSurface.withAlpha(150)),
+                  Icon(
+                    Icons.brightness_low_rounded,
+                    size: 18,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withAlpha(150),
+                  ),
                   Expanded(
                     child: Slider(
                       value: s.fullscreenDimBrightnessLevel,
                       min: 0.01,
                       max: 0.5,
                       divisions: 49,
-                      label: '${(s.fullscreenDimBrightnessLevel * 100).round()}%',
+                      label:
+                          '${(s.fullscreenDimBrightnessLevel * 100).round()}%',
                       onChanged: (val) {
-                        notifier.updateFullscreenDimBrightnessLevel(val);
                         widget.onFullscreenDimBrightnessLevelChanged(val);
                       },
                     ),
                   ),
-                  Icon(Icons.brightness_high_rounded, size: 18, color: Theme.of(context).colorScheme.onSurface.withAlpha(150)),
+                  Icon(
+                    Icons.brightness_high_rounded,
+                    size: 18,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withAlpha(150),
+                  ),
                 ],
               ),
             ),
           ],
           _settingsDivider(context),
-          _settingsSwitch(context,
-            icon: Icons.screen_rotation_rounded, title: 'Start landscape',
+          _settingsSwitch(
+            context,
+            icon: Icons.screen_rotation_rounded,
+            title: 'Start landscape',
             value: s.fullscreenStartLandscape,
             onChanged: (val) {
-              notifier.updateFullscreenStartLandscape(val ?? false);
               widget.onFullscreenStartLandscapeChanged(val);
-            }),
+            },
+          ),
           _settingsDivider(context),
-          _settingsSwitch(context,
-            icon: Icons.access_time_rounded, title: 'Show clock in fullscreen',
+          _settingsSwitch(
+            context,
+            icon: Icons.access_time_rounded,
+            title: 'Show clock in fullscreen',
             subtitle: 'Display current time overlay in fullscreen focus',
             value: s.fullscreenShowClock,
             onChanged: (val) {
-              notifier.updateFullscreenShowClock(val ?? false);
               widget.onFullscreenShowClockChanged?.call(val);
-            }),
+            },
+          ),
           if (s.fullscreenShowClock) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(52, 8, 14, 0),
               child: Row(
                 children: [
-                  Text('Fullscreen clock size',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
+                  Text(
+                    'Fullscreen clock size',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: cs.onSurface,
+                    ),
+                  ),
                   const Spacer(),
-                  Text('${s.fullscreenClockScale.toStringAsFixed(1)}x',
-                    style: TextStyle(color: cs.primary, fontWeight: FontWeight.w700, fontSize: 13)),
+                  Text(
+                    '${s.fullscreenClockScale.toStringAsFixed(1)}x',
+                    style: TextStyle(
+                      color: cs.primary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -477,88 +532,147 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
               divisions: 6,
               label: '${s.fullscreenClockScale.toStringAsFixed(1)}x',
               onChanged: (val) {
-                notifier.updateFullscreenClockScale(val);
                 widget.onFullscreenClockScaleChanged?.call(val);
               },
             ),
           ],
           _settingsDivider(context),
-          _settingsSwitch(context,
-            icon: Icons.nightlight_round, title: 'Enable sleep mode',
+          _settingsSwitch(
+            context,
+            icon: Icons.nightlight_round,
+            title: 'Enable sleep mode',
             subtitle: 'Quiet hours for speech',
             value: s.muteSpeechAfterMidnight,
             onChanged: (val) {
-              notifier.updateMuteSpeechAfterMidnight(val ?? false);
               widget.onMuteSpeechAfterMidnightChanged(val);
-            }),
+            },
+          ),
           if (s.muteSpeechAfterMidnight) ...[
             _settingsDivider(context),
-            _settingsOption(context,
-              icon: Icons.bedtime_rounded, title: 'Mode',
+            _settingsOption(
+              context,
+              icon: Icons.bedtime_rounded,
+              title: 'Mode',
               value: s.nightMuteMode == 'automatic' ? 'Automatic' : 'Manual',
               onTap: () => _showStringPicker(
-                context, title: 'Sleep mode',
-                currentValue: s.nightMuteMode, options: nightModeOptions,
+                context,
+                title: 'Sleep mode',
+                currentValue: s.nightMuteMode,
+                options: nightModeOptions,
                 onChanged: (val) {
-                  notifier.updateNightMuteMode(val!);
                   widget.onNightMuteModeChanged(val);
-                })),
+                },
+              ),
+            ),
             _settingsDivider(context),
-            _settingsOption(context,
-              icon: Icons.schedule_rounded, title: 'Starts at',
-              value: widget.sleepStartLabel, onTap: widget.onPickSleepStart),
+            _settingsOption(
+              context,
+              icon: Icons.schedule_rounded,
+              title: 'Starts at',
+              value: widget.sleepStartLabel,
+              onTap: widget.onPickSleepStart,
+            ),
             _settingsDivider(context),
-            _settingsOption(context,
-              icon: Icons.alarm_rounded, title: 'Ends at',
-              value: widget.sleepEndLabel, onTap: widget.onPickSleepEnd),
+            _settingsOption(
+              context,
+              icon: Icons.alarm_rounded,
+              title: 'Ends at',
+              value: widget.sleepEndLabel,
+              onTap: widget.onPickSleepEnd,
+            ),
           ],
-          SwitchListTile(
-            value: widget.accessibilityEnabled,
-            onChanged: (_) => widget.onOpenAccessibility?.call(),
-            activeThumbColor: cs.onPrimary, activeTrackColor: cs.primary,
-            secondary: Icon(Icons.power_settings_new_rounded, color: cs.primary, size: 22),
-            title: Text('Auto-start on reboot',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
-            subtitle: Text(
-              widget.accessibilityEnabled ? 'Accessibility service is ON' : 'Tap to enable',
-              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
-          ),
-          _settingsDivider(context),
           ListTile(
             leading: Icon(Icons.backup_rounded, color: cs.primary, size: 22),
-            title: Text('Backup settings',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
-            subtitle: Text('Export all settings as JSON',
-              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
-            trailing: Icon(Icons.file_download_outlined, color: cs.onSurfaceVariant, size: 20),
+            title: Text(
+              'Backup settings',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: cs.onSurface,
+              ),
+            ),
+            subtitle: Text(
+              'Export all settings as JSON',
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+            ),
+            trailing: Icon(
+              Icons.file_download_outlined,
+              color: cs.onSurfaceVariant,
+              size: 20,
+            ),
             onTap: widget.onBackupSettings,
           ),
           _settingsDivider(context),
           ListTile(
             leading: Icon(Icons.restore_rounded, color: cs.primary, size: 22),
-            title: Text('Restore settings',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
-            subtitle: Text('Import settings from a JSON backup',
-              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
-            trailing: Icon(Icons.file_upload_outlined, color: cs.onSurfaceVariant, size: 20),
+            title: Text(
+              'Restore settings',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: cs.onSurface,
+              ),
+            ),
+            subtitle: Text(
+              'Import settings from a JSON backup',
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+            ),
+            trailing: Icon(
+              Icons.file_upload_outlined,
+              color: cs.onSurfaceVariant,
+              size: 20,
+            ),
             onTap: widget.onRestoreSettings,
           ),
           _settingsDivider(context),
           ListTile(
-            leading: Icon(Icons.help_outline_rounded, color: cs.primary, size: 22),
-            title: Text('Help / Working',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
-            trailing: Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant),
+            leading: Icon(
+              Icons.help_outline_rounded,
+              color: cs.primary,
+              size: 22,
+            ),
+            title: Text(
+              'Help / Working',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: cs.onSurface,
+              ),
+            ),
+            trailing: Icon(
+              Icons.chevron_right_rounded,
+              color: cs.onSurfaceVariant,
+            ),
             onTap: widget.onOpenHelp,
           ),
           _settingsDivider(context),
           ListTile(
-            leading: Icon(Icons.info_outline_rounded, color: cs.primary, size: 22),
-            title: Text('Built by Amarjith TK',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
-            subtitle: Text('Atherpulse Technologies',
-              style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12, color: cs.onSurfaceVariant)),
-            trailing: Icon(Icons.open_in_new_rounded, color: cs.onSurfaceVariant, size: 20),
+            leading: Icon(
+              Icons.info_outline_rounded,
+              color: cs.primary,
+              size: 22,
+            ),
+            title: Text(
+              'Built by Amarjith TK',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: cs.onSurface,
+              ),
+            ),
+            subtitle: Text(
+              'Atherpulse Technologies',
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: 12,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+            trailing: Icon(
+              Icons.open_in_new_rounded,
+              color: cs.onSurfaceVariant,
+              size: 20,
+            ),
             onTap: () async {
               final url = Uri.parse('https://atherpulse.in');
               await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -569,46 +683,79 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
     );
   }
 
-
-  Widget _settingsSwitch(BuildContext context, {
-    required IconData icon, required String title,
-    String? subtitle, required bool value,
+  Widget _settingsSwitch(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required bool value,
     required ValueChanged<bool?> onChanged,
   }) {
     final cs = Theme.of(context).colorScheme;
     return SwitchListTile(
-      value: value, onChanged: onChanged,
-      activeThumbColor: cs.onPrimary, activeTrackColor: cs.primary,
+      value: value,
+      onChanged: onChanged,
+      activeThumbColor: cs.onPrimary,
+      activeTrackColor: cs.primary,
       secondary: Icon(icon, color: cs.primary, size: 22),
-      title: Text(title,
-        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          color: cs.onSurface,
+        ),
+      ),
       subtitle: subtitle != null
-          ? Text(subtitle, style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12))
+          ? Text(
+              subtitle,
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+            )
           : null,
     );
   }
 
-  Widget _settingsOption(BuildContext context, {
-    required IconData icon, required String title,
-    required String value, required VoidCallback onTap,
+  Widget _settingsOption(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String value,
+    required VoidCallback onTap,
   }) {
     final cs = Theme.of(context).colorScheme;
     return ListTile(
       leading: Icon(icon, color: cs.primary, size: 22),
-      title: Text(title,
-        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          color: cs.onSurface,
+        ),
+      ),
       trailing: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 160),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Flexible(
-              child: Text(value,
-                maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13, fontWeight: FontWeight.w600)),
+              child: Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: cs.onSurfaceVariant,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
             const SizedBox(width: 4),
-            Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant, size: 20),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: cs.onSurfaceVariant,
+              size: 20,
+            ),
           ],
         ),
       ),
@@ -617,19 +764,26 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
   }
 
   Widget _settingsDivider(BuildContext context) {
-    return Divider(height: 1, indent: 52, endIndent: 16,
-      color: Theme.of(context).colorScheme.outlineVariant);
+    return Divider(
+      height: 1,
+      indent: 52,
+      endIndent: 16,
+      color: Theme.of(context).colorScheme.outlineVariant,
+    );
   }
 
   // ── Bottom sheet pickers ────────────────────────────────────
-  Future<void> _showStringPicker(BuildContext context, {
-    required String title, required String currentValue,
+  Future<void> _showStringPicker(
+    BuildContext context, {
+    required String title,
+    required String currentValue,
     required List<(String, String, String?)> options,
     required ValueChanged<String?> onChanged,
   }) async {
     final cs = Theme.of(context).colorScheme;
     await showModalBottomSheet<void>(
-      context: context, showDragHandle: true,
+      context: context,
+      showDragHandle: true,
       backgroundColor: cs.surfaceContainerLow,
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -638,8 +792,14 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
-                style: TextStyle(color: cs.onSurface, fontSize: 18, fontWeight: FontWeight.w900)),
+              Text(
+                title,
+                style: TextStyle(
+                  color: cs.onSurface,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
               const SizedBox(height: 8),
               Flexible(
                 child: ListView.builder(
@@ -651,14 +811,31 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
                     return ListTile(
                       selected: selected,
                       selectedTileColor: cs.primaryContainer.withAlpha(80),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                       leading: Icon(
-                        selected ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
-                        color: selected ? cs.primary : cs.onSurfaceVariant),
-                      title: Text(o.$2, maxLines: 2, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                        selected
+                            ? Icons.radio_button_checked_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        color: selected ? cs.primary : cs.onSurfaceVariant,
+                      ),
+                      title: Text(
+                        o.$2,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                       subtitle: o.$3 != null
-                          ? Text(o.$3!, style: const TextStyle(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis)
+                          ? Text(
+                              o.$3!,
+                              style: const TextStyle(fontSize: 12),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            )
                           : null,
                       onTap: () {
                         onChanged(o.$1);
@@ -675,35 +852,58 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
     );
   }
 
-  Future<void> _showDoublePicker(BuildContext context, {
-    required String title, required double currentValue,
+  Future<void> _showDoublePicker(
+    BuildContext context, {
+    required String title,
+    required double currentValue,
     required ValueChanged<double?> onChanged,
   }) async {
     final cs = Theme.of(context).colorScheme;
     await showModalBottomSheet<void>(
-      context: context, showDragHandle: true,
+      context: context,
+      showDragHandle: true,
       backgroundColor: cs.surfaceContainerLow,
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
           child: Column(
-            mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
-                style: TextStyle(color: cs.onSurface, fontSize: 18, fontWeight: FontWeight.w900)),
+              Text(
+                title,
+                style: TextStyle(
+                  color: cs.onSurface,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
               const SizedBox(height: 8),
               ...widget.volumeLists.map((volume) {
                 final selected = volume == currentValue;
                 return ListTile(
-                  selected: selected, selectedTileColor: cs.primaryContainer.withAlpha(80),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  selected: selected,
+                  selectedTileColor: cs.primaryContainer.withAlpha(80),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                   leading: Icon(
-                    selected ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
-                    color: selected ? cs.primary : cs.onSurfaceVariant),
-                  title: Text(_getVolTitle(volume),
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
-                  subtitle: Text('${(volume * 100).round()}%',
-                    style: const TextStyle(fontSize: 12)),
+                    selected
+                        ? Icons.radio_button_checked_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    color: selected ? cs.primary : cs.onSurfaceVariant,
+                  ),
+                  title: Text(
+                    _getVolTitle(volume),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '${(volume * 100).round()}%',
+                    style: const TextStyle(fontSize: 12),
+                  ),
                   onTap: () {
                     onChanged(volume);
                     Navigator.of(ctx).pop();

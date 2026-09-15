@@ -49,9 +49,9 @@ class PresetGrid extends StatelessWidget {
             const double spacing = 8;
 
             // Max columns that fit, at least 2
-            int columns = ((constraints.maxWidth + spacing) /
-                    (minChipWidth + spacing))
-                .floor();
+            int columns =
+                ((constraints.maxWidth + spacing) / (minChipWidth + spacing))
+                    .floor();
             if (columns < 2) columns = 2;
 
             final rows = (itemCount / columns).ceil();
@@ -128,7 +128,6 @@ class _PresetChip extends StatelessWidget {
   final bool armed;
   final ColorTokens colors;
   final VoidCallback onTap;
-  final IconData? icon;
   final bool iconOnly;
 
   const _PresetChip({
@@ -137,7 +136,6 @@ class _PresetChip extends StatelessWidget {
     required this.armed,
     required this.colors,
     required this.onTap,
-    this.icon,
     this.iconOnly = false,
   });
 
@@ -173,20 +171,12 @@ class _PresetChip extends StatelessWidget {
         ),
         child: iconOnly
             ? Center(
-                child: Icon(
-                  icon ?? Icons.edit_rounded,
-                  size: 16,
-                  color: textColor,
-                ),
+                child: Icon(Icons.edit_rounded, size: 16, color: textColor),
               )
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (icon != null) ...[
-                    Icon(icon, size: 14, color: textColor),
-                    const SizedBox(width: 4),
-                  ],
                   Text(
                     label,
                     style: GoogleFonts.inter(

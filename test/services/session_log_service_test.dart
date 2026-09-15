@@ -47,9 +47,24 @@ void main() {
     test('summarize groups study and non-study', () {
       final now = DateTime.now();
       final sessions = [
-        SessionLog(startTime: now, endTime: now, durationSeconds: 3600, tag: 'study'),
-        SessionLog(startTime: now, endTime: now, durationSeconds: 1800, tag: 'non-study'),
-        SessionLog(startTime: now, endTime: now, durationSeconds: 900, tag: 'study'),
+        SessionLog(
+          startTime: now,
+          endTime: now,
+          durationSeconds: 3600,
+          tag: 'study',
+        ),
+        SessionLog(
+          startTime: now,
+          endTime: now,
+          durationSeconds: 1800,
+          tag: 'non-study',
+        ),
+        SessionLog(
+          startTime: now,
+          endTime: now,
+          durationSeconds: 900,
+          tag: 'study',
+        ),
       ];
       final summary = SessionLog.summarize(sessions);
       expect(summary.studySeconds, 4500); // 1h 15m
@@ -92,43 +107,72 @@ void main() {
 
     test('getDailySummary aggregates correctly', () async {
       final base = DateTime(2026, 7, 28, 10, 0);
-      await service.logSession(SessionLog(
-        startTime: base,
-        endTime: base.add(const Duration(hours: 2)),
-        durationSeconds: 7200,
-        tag: 'study',
-      ));
-      await service.logSession(SessionLog(
-        startTime: base.add(const Duration(hours: 3)),
-        endTime: base.add(const Duration(hours: 4)),
-        durationSeconds: 3600,
-        tag: 'non-study',
-      ));
+      await service.logSession(
+        SessionLog(
+          startTime: base,
+          endTime: base.add(const Duration(hours: 2)),
+          durationSeconds: 7200,
+          tag: 'study',
+        ),
+      );
+      await service.logSession(
+        SessionLog(
+          startTime: base.add(const Duration(hours: 3)),
+          endTime: base.add(const Duration(hours: 4)),
+          durationSeconds: 3600,
+          tag: 'non-study',
+        ),
+      );
 
       final summary = await service.getDailySummary(DateTime(2026, 7, 28));
       expect(summary.studySeconds, 7200);
       expect(summary.nonStudySeconds, 3600);
     });
 
+    test('clips a cross-midnight session into each daily summary', () async {
+      final start = DateTime(2026, 7, 28, 23, 30);
+      await service.logSession(
+        SessionLog(
+          startTime: start,
+          endTime: start.add(const Duration(hours: 1)),
+          durationSeconds: 3600,
+          tag: 'study',
+        ),
+      );
+
+      final firstDay = await service.getDailySummary(DateTime(2026, 7, 28));
+      final secondDay = await service.getDailySummary(DateTime(2026, 7, 29));
+      expect(firstDay.studySeconds, 1800);
+      expect(secondDay.studySeconds, 1800);
+    });
+
     test('getSessionsForDate filters by day', () async {
       final day1 = DateTime(2026, 7, 28, 10, 0);
       final day2 = DateTime(2026, 7, 29, 10, 0);
 
-      await service.logSession(SessionLog(
-        startTime: day1,
-        endTime: day1.add(const Duration(hours: 1)),
-        durationSeconds: 3600,
-        tag: 'study',
-      ));
-      await service.logSession(SessionLog(
-        startTime: day2,
-        endTime: day2.add(const Duration(hours: 1)),
-        durationSeconds: 3600,
-        tag: 'non-study',
-      ));
+      await service.logSession(
+        SessionLog(
+          startTime: day1,
+          endTime: day1.add(const Duration(hours: 1)),
+          durationSeconds: 3600,
+          tag: 'study',
+        ),
+      );
+      await service.logSession(
+        SessionLog(
+          startTime: day2,
+          endTime: day2.add(const Duration(hours: 1)),
+          durationSeconds: 3600,
+          tag: 'non-study',
+        ),
+      );
 
-      final day1Sessions = await service.getSessionsForDate(DateTime(2026, 7, 28));
-      final day2Sessions = await service.getSessionsForDate(DateTime(2026, 7, 29));
+      final day1Sessions = await service.getSessionsForDate(
+        DateTime(2026, 7, 28),
+      );
+      final day2Sessions = await service.getSessionsForDate(
+        DateTime(2026, 7, 29),
+      );
 
       expect(day1Sessions.length, 1);
       expect(day1Sessions.first.tag, 'study');
@@ -141,19 +185,23 @@ void main() {
       final today = DateTime(now.year, now.month, now.day, 10, 0);
       final twoDaysAgo = DateTime(now.year, now.month, now.day - 2, 10, 0);
 
-      await service.logSession(SessionLog(
-        startTime: today,
-        endTime: today.add(const Duration(hours: 1)),
-        durationSeconds: 3600,
-        tag: 'study',
-      ));
+      await service.logSession(
+        SessionLog(
+          startTime: today,
+          endTime: today.add(const Duration(hours: 1)),
+          durationSeconds: 3600,
+          tag: 'study',
+        ),
+      );
       // No session on yesterday (day - 1)
-      await service.logSession(SessionLog(
-        startTime: twoDaysAgo,
-        endTime: twoDaysAgo.add(const Duration(hours: 1)),
-        durationSeconds: 3600,
-        tag: 'non-study',
-      ));
+      await service.logSession(
+        SessionLog(
+          startTime: twoDaysAgo,
+          endTime: twoDaysAgo.add(const Duration(hours: 1)),
+          durationSeconds: 3600,
+          tag: 'non-study',
+        ),
+      );
 
       final summaries = await service.getRecentSummaries(days: 7);
       // Should have 2 entries (today and 2 days ago), not yesterday
@@ -162,18 +210,22 @@ void main() {
 
     test('prune removes old entries', () async {
       final old = DateTime.now().subtract(const Duration(days: 100));
-      await service.logSession(SessionLog(
-        startTime: old,
-        endTime: old.add(const Duration(hours: 1)),
-        durationSeconds: 3600,
-        tag: 'study',
-      ));
-      await service.logSession(SessionLog(
-        startTime: DateTime.now().subtract(const Duration(days: 1)),
-        endTime: DateTime.now(),
-        durationSeconds: 3600,
-        tag: 'non-study',
-      ));
+      await service.logSession(
+        SessionLog(
+          startTime: old,
+          endTime: old.add(const Duration(hours: 1)),
+          durationSeconds: 3600,
+          tag: 'study',
+        ),
+      );
+      await service.logSession(
+        SessionLog(
+          startTime: DateTime.now().subtract(const Duration(days: 1)),
+          endTime: DateTime.now(),
+          durationSeconds: 3600,
+          tag: 'non-study',
+        ),
+      );
 
       await service.prune();
       final all = await service.getSessionsForDate(

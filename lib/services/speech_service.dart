@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter/services.dart';
 
@@ -27,14 +28,15 @@ class SpeechService {
   }
 
   String normalizeSpeechEngineMode(String mode) {
-    final normalized = mode.trim().toLowerCase();
+    final trimmed = mode.trim();
+    final normalized = trimmed.toLowerCase();
     switch (normalized) {
       case 'auto':
       case 'system_only':
       case 'sherpa_only':
         return normalized;
       default:
-        return 'auto';
+        return trimmed.contains('.') ? trimmed : 'auto';
     }
   }
 
@@ -45,8 +47,10 @@ class SpeechService {
   Future<void> _setMediaVolumeToMax() async {
     try {
       await _audioChannel.invokeMethod<void>('setMediaVolumeToMax');
-    } catch (_) {
-      // Best effort only; audio playback should still continue.
+    } on PlatformException catch (error) {
+      debugPrint('Unable to maximize media volume: $error');
+    } on MissingPluginException catch (error) {
+      debugPrint('Audio channel unavailable: $error');
     }
   }
 
@@ -63,7 +67,9 @@ class SpeechService {
   }
 
   String _normalizeSep(String value) {
-    return value.replaceAll('\\\\', Platform.pathSeparator).replaceAll('/', Platform.pathSeparator);
+    return value
+        .replaceAll('\\\\', Platform.pathSeparator)
+        .replaceAll('/', Platform.pathSeparator);
   }
 
   String _joinPath(String base, String relative) {
@@ -102,7 +108,10 @@ class SpeechService {
 
   bool _dirExists(String path) => Directory(path).existsSync();
 
-  Future<File> _downloadToFile({required String url, required String outPath}) async {
+  Future<File> _downloadToFile({
+    required String url,
+    required String outPath,
+  }) async {
     final client = HttpClient();
     try {
       final req = await client.getUrl(Uri.parse(url));
@@ -127,7 +136,10 @@ class SpeechService {
     if (!srcDir.existsSync()) return;
     final dstDir = Directory(dst);
     await dstDir.create(recursive: true);
-    await for (final entity in srcDir.list(recursive: true, followLinks: false)) {
+    await for (final entity in srcDir.list(
+      recursive: true,
+      followLinks: false,
+    )) {
       final rel = entity.path.substring(srcDir.path.length + 1);
       final targetPath = '$dst${Platform.pathSeparator}$rel';
       if (entity is Directory) {
@@ -140,7 +152,12 @@ class SpeechService {
   }
 
   Future<void> _extractTarBz2(String archivePath, String outputDir) async {
-    final result = await Process.run('tar', ['-xjf', archivePath, '-C', outputDir]);
+    final result = await Process.run('tar', [
+      '-xjf',
+      archivePath,
+      '-C',
+      outputDir,
+    ]);
     if (result.exitCode != 0) {
       throw Exception('tar extract failed: ${result.stderr}');
     }
@@ -151,8 +168,10 @@ class SpeechService {
     _linuxRuntimeBootstrapAttempted = true;
 
     final runtimeBase = _linuxRuntimeBaseDir();
-    final binBase = '$runtimeBase${Platform.pathSeparator}assets${Platform.pathSeparator}tts${Platform.pathSeparator}bin${Platform.pathSeparator}linux-x64';
-    final modelsBase = '$runtimeBase${Platform.pathSeparator}assets${Platform.pathSeparator}tts${Platform.pathSeparator}models';
+    final binBase =
+        '$runtimeBase${Platform.pathSeparator}assets${Platform.pathSeparator}tts${Platform.pathSeparator}bin${Platform.pathSeparator}linux-x64';
+    final modelsBase =
+        '$runtimeBase${Platform.pathSeparator}assets${Platform.pathSeparator}tts${Platform.pathSeparator}models';
 
     final mustHave = <String>[
       '$binBase${Platform.pathSeparator}sherpa-onnx-offline-tts-play',
@@ -165,13 +184,15 @@ class SpeechService {
     final alreadyReady = mustHave.every(_fileExists);
     if (alreadyReady) return;
 
-    final tmpRoot = '${Directory.systemTemp.path}${Platform.pathSeparator}solasflow_sherpa_bootstrap';
+    final tmpRoot =
+        '${Directory.systemTemp.path}${Platform.pathSeparator}solasflow_sherpa_bootstrap';
     await Directory(tmpRoot).create(recursive: true);
 
     Future<String> downloadArchive(String name) async {
       final out = '$tmpRoot${Platform.pathSeparator}$name';
       if (_fileExists(out)) return out;
-      final url = 'https://github.com/k2-fsa/sherpa-onnx/releases/download/$_sherpaReleaseTag/$name';
+      final url =
+          'https://github.com/k2-fsa/sherpa-onnx/releases/download/$_sherpaReleaseTag/$name';
       await _downloadToFile(url: url, outPath: out);
       return out;
     }
@@ -191,23 +212,31 @@ class SpeechService {
       await extractPath.create(recursive: true);
       await _extractTarBz2(arc, extractDir);
 
-      final topDirs = Directory(extractDir)
-          .listSync()
-          .whereType<Directory>()
-          .toList();
-      if (topDirs.isEmpty) throw Exception('No model directory in $archiveName');
+      final topDirs = Directory(
+        extractDir,
+      ).listSync().whereType<Directory>().toList();
+      if (topDirs.isEmpty) {
+        throw Exception('No model directory in $archiveName');
+      }
       final src = topDirs.first.path;
 
-      final dstDir = '$modelsBase${Platform.pathSeparator}$language${Platform.pathSeparator}$tier';
+      final dstDir =
+          '$modelsBase${Platform.pathSeparator}$language${Platform.pathSeparator}$tier';
       await Directory(dstDir).create(recursive: true);
-      await File('$src${Platform.pathSeparator}$onnxName')
-          .copy('$dstDir${Platform.pathSeparator}model.onnx');
-      await File('$src${Platform.pathSeparator}tokens.txt')
-          .copy('$dstDir${Platform.pathSeparator}tokens.txt');
+      await File(
+        '$src${Platform.pathSeparator}$onnxName',
+      ).copy('$dstDir${Platform.pathSeparator}model.onnx');
+      await File(
+        '$src${Platform.pathSeparator}tokens.txt',
+      ).copy('$dstDir${Platform.pathSeparator}tokens.txt');
 
-      final sharedDataDir = '$modelsBase${Platform.pathSeparator}espeak-ng-data';
+      final sharedDataDir =
+          '$modelsBase${Platform.pathSeparator}espeak-ng-data';
       if (!_dirExists(sharedDataDir)) {
-        await _copyDir('$src${Platform.pathSeparator}espeak-ng-data', sharedDataDir);
+        await _copyDir(
+          '$src${Platform.pathSeparator}espeak-ng-data',
+          sharedDataDir,
+        );
       }
     }
 
@@ -267,7 +296,10 @@ class SpeechService {
         tier: 'backup',
       );
 
-      _setEngineStatus('sherpa_ready', 'Downloaded Linux Sherpa runtime/assets');
+      _setEngineStatus(
+        'sherpa_ready',
+        'Downloaded Linux Sherpa runtime/assets',
+      );
     } catch (e) {
       _setEngineStatus('sherpa_download_failed', 'Auto-download failed: $e');
     }
@@ -282,13 +314,20 @@ class SpeechService {
     }
 
     final candidates = <String>{};
-    if (Platform.isLinux && normalized.startsWith('assets${Platform.pathSeparator}tts${Platform.pathSeparator}')) {
+    if (Platform.isLinux &&
+        normalized.startsWith(
+          'assets${Platform.pathSeparator}tts${Platform.pathSeparator}',
+        )) {
       candidates.add(_joinPath(_linuxRuntimeBaseDir(), normalized));
     }
     for (final base in _desktopBaseDirs()) {
       candidates.add(_joinPath(base, normalized));
-      candidates.add(_joinPath(base, 'assets${Platform.pathSeparator}$normalized'));
-      candidates.add(_joinPath(base, 'flutter_assets${Platform.pathSeparator}$normalized'));
+      candidates.add(
+        _joinPath(base, 'assets${Platform.pathSeparator}$normalized'),
+      );
+      candidates.add(
+        _joinPath(base, 'flutter_assets${Platform.pathSeparator}$normalized'),
+      );
       candidates.add(
         _joinPath(
           base,
@@ -314,10 +353,7 @@ class SpeechService {
     }
   }
 
-  Future<bool> _runExternal(
-    String executable,
-    List<String> args,
-  ) async {
+  Future<bool> _runExternal(String executable, List<String> args) async {
     try {
       final result = await Process.run(executable, args);
       return result.exitCode == 0;
@@ -367,7 +403,9 @@ class SpeechService {
   Future<Map<String, dynamic>?> _loadSherpaManifest() async {
     if (_sherpaManifestCache != null) return _sherpaManifestCache;
     try {
-      final raw = await rootBundle.loadString('assets/tts/models_manifest.json');
+      final raw = await rootBundle.loadString(
+        'assets/tts/models_manifest.json',
+      );
       final decoded = jsonDecode(raw);
       if (decoded is Map<String, dynamic>) {
         _sherpaManifestCache = decoded;
@@ -388,7 +426,9 @@ class SpeechService {
     return models
         .whereType<Map>()
         .map((m) => m.map((k, v) => MapEntry(k.toString(), v)))
-        .where((m) => (m['language']?.toString().toLowerCase() ?? '') == language)
+        .where(
+          (m) => (m['language']?.toString().toLowerCase() ?? '') == language,
+        )
         .toList();
   }
 
@@ -400,7 +440,11 @@ class SpeechService {
     final platformEntry = commands[key];
     if (platformEntry is! List) return const [];
 
-    return platformEntry.whereType<String>().map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    return platformEntry
+        .whereType<String>()
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
   }
 
   Future<List<String>> _commandCandidatesForModel(
@@ -422,10 +466,7 @@ class SpeechService {
         'sherpa-onnx-tts-play.exe',
       ]);
     } else {
-      names.addAll([
-        'sherpa-onnx-offline-tts-play',
-        'sherpa-onnx-tts-play',
-      ]);
+      names.addAll(['sherpa-onnx-offline-tts-play', 'sherpa-onnx-tts-play']);
     }
 
     final ordered = <String>[];
@@ -436,7 +477,8 @@ class SpeechService {
 
     final resolved = <String>[];
     for (final candidate in ordered) {
-      final hasSeparator = candidate.contains('/') || candidate.contains('\\\\');
+      final hasSeparator =
+          candidate.contains('/') || candidate.contains('\\\\');
       final resolvedPath = hasSeparator || _looksAbsolutePath(candidate)
           ? _resolveDesktopPath(candidate)
           : null;
@@ -608,13 +650,16 @@ class SpeechService {
               'sherpa',
               'Sherpa custom args model ${model['id'] ?? language}',
             );
-          return true;
+            return true;
           }
         }
       }
     }
 
-    _setEngineStatus('sherpa_unavailable', 'Sherpa command or model not available');
+    _setEngineStatus(
+      'sherpa_unavailable',
+      'Sherpa command or model not available',
+    );
     return false;
   }
 
@@ -673,9 +718,7 @@ class SpeechService {
     return score;
   }
 
-  List<Map<dynamic, dynamic>> _sortByQuality(
-    List<Map<dynamic, dynamic>> list,
-  ) {
+  List<Map<dynamic, dynamic>> _sortByQuality(List<Map<dynamic, dynamic>> list) {
     final ranked = List<Map<dynamic, dynamic>>.from(list);
     ranked.sort((a, b) {
       final scoreCompare = _voiceScore(b).compareTo(_voiceScore(a));
@@ -711,14 +754,14 @@ class SpeechService {
     if (mode == 'malayalam') {
       if (malayalam.isNotEmpty) return _sortByQuality(malayalam);
       return [
-        {'name': 'Standard Malayalam', 'locale': 'ml-IN'}
+        {'name': 'Standard Malayalam', 'locale': 'ml-IN'},
       ];
     }
 
     final effectiveMalayalam = malayalam.isNotEmpty
         ? malayalam
         : [
-            {'name': 'Standard Malayalam', 'locale': 'ml-IN'}
+            {'name': 'Standard Malayalam', 'locale': 'ml-IN'},
           ];
     final mixed = [
       ..._sortByQuality(effectiveMalayalam),
@@ -727,6 +770,7 @@ class SpeechService {
     if (mixed.isNotEmpty) return mixed;
     return _sortByQuality(voices);
   }
+
   Map<dynamic, dynamic>? preferredVoice({
     required List<Map<dynamic, dynamic>> voices,
     required String voiceListMode,
@@ -781,7 +825,10 @@ class SpeechService {
 
     if (mode == 'sherpa_only') {
       // Strict mode requested Sherpa but it was unavailable.
-      _setEngineStatus('sherpa_only_silent', 'Sherpa-only selected; no fallback');
+      _setEngineStatus(
+        'sherpa_only_silent',
+        'Sherpa-only selected; no fallback',
+      );
       return;
     }
 
@@ -793,9 +840,11 @@ class SpeechService {
       if (fallbackOk) return;
     }
 
-    final isFavMalayalam = preferredVoice != null &&
+    final isFavMalayalam =
+        preferredVoice != null &&
         isMalayalamLocale(preferredVoice['locale']?.toString());
-    final isFavEnglish = preferredVoice != null &&
+    final isFavEnglish =
+        preferredVoice != null &&
         isEnglishLocale(preferredVoice['locale']?.toString());
 
     if (useMalayalamNuance) {
@@ -825,8 +874,8 @@ class SpeechService {
     }
 
     final ttsVolume = maximumSpeechVolume
-      ? (speakVolume + 0.40).clamp(0.0, 1.0)
-      : speakVolume.clamp(0.0, 1.0);
+        ? (speakVolume + 0.40).clamp(0.0, 1.0)
+        : speakVolume.clamp(0.0, 1.0);
 
     await flutterTts.setVolume(ttsVolume);
 
@@ -836,7 +885,10 @@ class SpeechService {
 
     await flutterTts.speak(item.text);
 
-    _setEngineStatus('system', 'System TTS (${useMalayalamNuance ? 'ml-IN' : 'en-IN'})');
+    _setEngineStatus(
+      'system',
+      'System TTS (${useMalayalamNuance ? 'ml-IN' : 'en-IN'})',
+    );
   }
 
   Future<List<String>> getInstalledEngines(FlutterTts flutterTts) async {

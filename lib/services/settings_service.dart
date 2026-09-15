@@ -1,397 +1,272 @@
-// ============================================================================
-// SettingsService - Persistent user preferences management
-// ============================================================================
-//
-// Responsibilities:
-// - Load all user preferences from SharedPreferences at startup
-// - Apply data migrations for backward compatibility across app versions
-// - Save updated preferences back to persistent storage
-// - Handle defaults for missing or corrupted preference values
-// - Export/import full settings snapshot as JSON (backup & restore)
-//
-// Architecture Pattern:
-// - Uses AppSettings data class for type-safe preference snapshots
-// - Migrations run automatically on load() before reading preferences
-// - Schema versioning enables safe evolution of preference structure
-// - All preference keys centralized in lib/core/pref_keys.dart
-//
-// Migration Example:
-// If app v2.x stored sound paths as "assets/rain.mp3" but v3.x expects
-// "rain.mp3", load() automatically fixes this via _runMigrations().
-
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/pref_keys.dart';
 import '../models/app_settings.dart';
 
+/// Stores one validated, versioned settings document.
+///
+/// Legacy keys are read only for the one-time migration. All writes are
+/// serialized and replace one JSON value, so a crash cannot leave a mixture of
+/// two settings revisions.
 class SettingsService {
-  /// Current schema version: increment when preference structure changes
-  /// Used to detect and run migrations for old stored data
-  static const int _currentSchemaVersion = 8;
+  static const int currentSchemaVersion = 9;
+  static const String snapshotKey = 'SettingsSnapshotV9';
+  static const String speechMasterOverrideKey = 'SpeechMasterTaskOverride';
 
-  String _normalizeVoiceLanguageMode(String? mode) {
-    final normalized = mode?.trim().toLowerCase() ?? '';
-    switch (normalized) {
-      case 'auto':
-      case 'english':
-      case 'malayalam':
-        return normalized;
-      case 'pleasant':
-      case 'all':
-        return 'english';
-      default:
-        return 'auto';
-    }
-  }
+  static Future<void> _writeTail = Future<void>.value();
 
-  String _normalizeSpeechEngineMode(String? mode) {
-    final normalized = mode?.trim().toLowerCase() ?? '';
-    switch (normalized) {
-      case 'auto':
-      case 'system_only':
-      case 'sherpa_only':
-        return normalized;
-      default:
-        return 'auto';
-    }
-  }
-
-  /// Load all settings from persistent storage
-  /// Automatically runs migrations if stored version differs from current
-  /// Returns AppSettings with all user preferences and defaults
   Future<AppSettings> load({required String defaultSound}) async {
+    await flush();
     final prefs = await SharedPreferences.getInstance();
-    await _runMigrations(prefs);
+    await _runLegacyMigrations(prefs);
 
+    AppSettings settings;
+    final encoded = prefs.getString(snapshotKey);
+    if (encoded != null) {
+      try {
+        final decoded = jsonDecode(encoded);
+        settings = decoded is Map<String, dynamic>
+            ? AppSettings.fromJson(decoded)
+            : AppSettings.defaults(defaultSound: defaultSound);
+      } catch (error) {
+        debugPrint('Ignoring corrupt settings snapshot: $error');
+        settings = _loadLegacy(prefs, defaultSound: defaultSound);
+      }
+    } else {
+      settings = _loadLegacy(prefs, defaultSound: defaultSound);
+    }
+
+    final taskOverride = prefs.getBool(speechMasterOverrideKey);
+    if (taskOverride != null) {
+      settings = settings.copyWith(speechMasterOn: taskOverride).normalized();
+      await prefs.remove(speechMasterOverrideKey);
+    }
+
+    await save(settings);
+    return settings;
+  }
+
+  Future<void> save(AppSettings settings) {
+    final stable = AppSettings.fromJson(settings.normalized().toJson());
+    final encoded = jsonEncode(stable.toJson());
+    _writeTail = _writeTail
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('Previous settings write failed: $error');
+        })
+        .then((_) async {
+          final prefs = await SharedPreferences.getInstance();
+          final written = await prefs.setString(snapshotKey, encoded);
+          if (!written) {
+            throw StateError(
+              'SharedPreferences rejected settings snapshot write',
+            );
+          }
+          final versionWritten = await prefs.setInt(
+            PrefKeys.settingsSchemaVersion,
+            currentSchemaVersion,
+          );
+          if (!versionWritten) {
+            throw StateError(
+              'SharedPreferences rejected settings schema write',
+            );
+          }
+          await prefs.remove(speechMasterOverrideKey);
+        });
+    return _writeTail;
+  }
+
+  Future<void> flush() => _writeTail;
+
+  AppSettings _loadLegacy(
+    SharedPreferences prefs, {
+    required String defaultSound,
+  }) {
     String sound = prefs.getString(PrefKeys.soundChosen) ?? defaultSound;
     if (sound.startsWith('assets/')) {
       sound = sound.replaceFirst('assets/', '');
     }
-
+    final defaults = AppSettings.defaults(defaultSound: defaultSound);
     return AppSettings(
       soundChosen: sound,
-      noiseVolume: prefs.getDouble(PrefKeys.noiseVolume) ?? 1.0,
-      speakVolume: prefs.getDouble(PrefKeys.speakVolume) ?? 1.0,
+      noiseVolume:
+          prefs.getDouble(PrefKeys.noiseVolume) ?? defaults.noiseVolume,
+      speakVolume:
+          prefs.getDouble(PrefKeys.speakVolume) ?? defaults.speakVolume,
       maximumSpeechVolume:
-          prefs.getBool(PrefKeys.maximumSpeechVolume) ?? false,
-      clockOn: prefs.getBool(PrefKeys.clockOn) ?? false,
-      clockIntervalMins: prefs.getInt(PrefKeys.clockIntervalMins) ?? 30,
-        clockShowMilliseconds:
-          prefs.getBool(PrefKeys.clockShowMilliseconds) ?? true,
-        clockShowSeconds:
-          prefs.getBool(PrefKeys.clockShowSeconds) ?? true,
-      clockSpeakTime: prefs.getBool(PrefKeys.clockSpeakTime) ?? true,
-        clockSpeakRepeatCount:
-          (prefs.getInt(PrefKeys.clockSpeakRepeatCount) ?? 1).clamp(1, 3),
-      clockNoiseOn: prefs.getBool(PrefKeys.clockNoiseOn) ?? false,
-      motivationOn: prefs.getBool(PrefKeys.motivationOn) ?? true,
+          prefs.getBool(PrefKeys.maximumSpeechVolume) ??
+          defaults.maximumSpeechVolume,
+      clockOn: prefs.getBool(PrefKeys.clockOn) ?? defaults.clockOn,
+      clockIntervalMins:
+          prefs.getInt(PrefKeys.clockIntervalMins) ??
+          defaults.clockIntervalMins,
+      clockShowMilliseconds:
+          prefs.getBool(PrefKeys.clockShowMilliseconds) ??
+          defaults.clockShowMilliseconds,
+      clockShowSeconds:
+          prefs.getBool(PrefKeys.clockShowSeconds) ?? defaults.clockShowSeconds,
+      clockSpeakTime:
+          prefs.getBool(PrefKeys.clockSpeakTime) ?? defaults.clockSpeakTime,
+      clockSpeakRepeatCount:
+          prefs.getInt(PrefKeys.clockSpeakRepeatCount) ??
+          defaults.clockSpeakRepeatCount,
+      clockNoiseOn:
+          prefs.getBool(PrefKeys.clockNoiseOn) ?? defaults.clockNoiseOn,
+      motivationOn:
+          prefs.getBool(PrefKeys.motivationOn) ?? defaults.motivationOn,
       motivationCategory:
-          prefs.getString(PrefKeys.motivationCategory) ?? 'General',
+          prefs.getString(PrefKeys.motivationCategory) ??
+          defaults.motivationCategory,
       motivationDelaySeconds:
-          prefs.getInt(PrefKeys.motivationDelaySeconds) ?? 10,
-      timerSpeakOn: prefs.getBool(PrefKeys.timerSpeakOn) ?? true,
-      timerAnnounceEvery: prefs.getInt(PrefKeys.timerAnnounceEvery) ?? 1,
+          prefs.getInt(PrefKeys.motivationDelaySeconds) ??
+          defaults.motivationDelaySeconds,
+      timerSpeakOn:
+          prefs.getBool(PrefKeys.timerSpeakOn) ?? defaults.timerSpeakOn,
+      timerAnnounceEvery:
+          prefs.getInt(PrefKeys.timerAnnounceEvery) ??
+          defaults.timerAnnounceEvery,
       timerShowMilliseconds:
-          prefs.getBool(PrefKeys.timerShowMilliseconds) ?? false,
-      timerNoiseOn: prefs.getBool(PrefKeys.timerNoiseOn) ?? true,
-      goalReminderOn: prefs.getBool(PrefKeys.goalReminderOn) ?? false,
+          prefs.getBool(PrefKeys.timerShowMilliseconds) ??
+          defaults.timerShowMilliseconds,
+      timerNoiseOn:
+          prefs.getBool(PrefKeys.timerNoiseOn) ?? defaults.timerNoiseOn,
+      goalReminderOn:
+          prefs.getBool(PrefKeys.goalReminderOn) ?? defaults.goalReminderOn,
       goalReminderIntervalMins:
-          prefs.getInt(PrefKeys.goalReminderIntervalMins) ?? 60,
+          prefs.getInt(PrefKeys.goalReminderIntervalMins) ??
+          defaults.goalReminderIntervalMins,
       goalReminderItems:
-          (prefs.getStringList(PrefKeys.goalReminderItems) ?? const [])
-              .map((item) => item.trim())
-              .where((item) => item.isNotEmpty)
-              .toList(),
-      goalReminderNextIndex: prefs.getInt(PrefKeys.goalReminderNextIndex) ?? 0,
+          prefs.getStringList(PrefKeys.goalReminderItems) ?? const [],
+      goalReminderNextIndex:
+          prefs.getInt(PrefKeys.goalReminderNextIndex) ??
+          defaults.goalReminderNextIndex,
+      stopwatchSpeakOn:
+          prefs.getBool(PrefKeys.stopwatchSpeakOn) ?? defaults.stopwatchSpeakOn,
       stopwatchShowMilliseconds:
-          prefs.getBool(PrefKeys.stopwatchShowMilliseconds) ?? false,
+          prefs.getBool(PrefKeys.stopwatchShowMilliseconds) ??
+          defaults.stopwatchShowMilliseconds,
       stopwatchSpeakDelaySeconds:
-          prefs.getInt(PrefKeys.stopwatchSpeakDelaySeconds) ?? 60,
+          prefs.getInt(PrefKeys.stopwatchSpeakDelaySeconds) ??
+          defaults.stopwatchSpeakDelaySeconds,
       muteSpeechAfterMidnight:
-          prefs.getBool(PrefKeys.muteSpeechAfterMidnight) ?? false,
-      nightMuteMode: prefs.getString(PrefKeys.nightMuteMode) ?? 'manual',
-      sleepStartMinutes: prefs.getInt(PrefKeys.sleepStartMinutes) ?? 0,
-      sleepEndMinutes: prefs.getInt(PrefKeys.sleepEndMinutes) ?? 360,
-      appDarkTheme: prefs.getBool(PrefKeys.appDarkTheme) ?? false,
-      fullscreenDarkTheme: prefs.getBool(PrefKeys.fullscreenDarkTheme) ?? true,
+          prefs.getBool(PrefKeys.muteSpeechAfterMidnight) ??
+          defaults.muteSpeechAfterMidnight,
+      nightMuteMode:
+          prefs.getString(PrefKeys.nightMuteMode) ?? defaults.nightMuteMode,
+      sleepStartMinutes:
+          prefs.getInt(PrefKeys.sleepStartMinutes) ??
+          defaults.sleepStartMinutes,
+      sleepEndMinutes:
+          prefs.getInt(PrefKeys.sleepEndMinutes) ?? defaults.sleepEndMinutes,
+      appDarkTheme:
+          prefs.getBool(PrefKeys.appDarkTheme) ?? defaults.appDarkTheme,
+      fullscreenDarkTheme:
+          prefs.getBool(PrefKeys.fullscreenDarkTheme) ??
+          defaults.fullscreenDarkTheme,
       fullscreenDimBrightness:
-          prefs.getBool(PrefKeys.fullscreenDimBrightness) ?? false,
+          prefs.getBool(PrefKeys.fullscreenDimBrightness) ??
+          defaults.fullscreenDimBrightness,
       fullscreenStartLandscape:
-          prefs.getBool(PrefKeys.fullscreenStartLandscape) ?? false,
+          prefs.getBool(PrefKeys.fullscreenStartLandscape) ??
+          defaults.fullscreenStartLandscape,
       fullscreenShowClock:
-          prefs.getBool(PrefKeys.fullscreenShowClock) ?? false,
+          prefs.getBool(PrefKeys.fullscreenShowClock) ??
+          defaults.fullscreenShowClock,
       fullscreenClockScale:
-          prefs.getDouble(PrefKeys.fullscreenClockScale) ?? 1.0,
-      voiceListMode: _normalizeVoiceLanguageMode(
-        prefs.getString(PrefKeys.voiceListMode),
-      ),
-      speechEngineMode: _normalizeSpeechEngineMode(
-        prefs.getString(PrefKeys.speechEngineMode),
-      ),
+          prefs.getDouble(PrefKeys.fullscreenClockScale) ??
+          defaults.fullscreenClockScale,
+      voiceListMode:
+          prefs.getString(PrefKeys.voiceListMode) ?? defaults.voiceListMode,
+      speechEngineMode:
+          prefs.getString(PrefKeys.speechEngineMode) ??
+          defaults.speechEngineMode,
       favoriteVoiceName: prefs.getString(PrefKeys.favoriteVoiceName),
       favoriteVoiceLocale: prefs.getString(PrefKeys.favoriteVoiceLocale),
-      speechMasterOn: prefs.getBool(PrefKeys.speechMasterOn) ?? true,
-      appFontSizeMultiplier: prefs.getDouble(PrefKeys.appFontSizeMultiplier) ?? 1.0,
-      backgroundPersistenceOn: prefs.getBool(PrefKeys.backgroundPersistenceOn) ?? false,
-      fullscreenDimBrightnessLevel: prefs.getDouble(PrefKeys.fullscreenDimBrightnessLevel) ?? 0.08,
-      taggingOn: prefs.getBool(PrefKeys.taggingOn) ?? false,
-      sessionTag: prefs.getString(PrefKeys.sessionTag) ?? 'study',
-    );
+      speechMasterOn:
+          prefs.getBool(PrefKeys.speechMasterOn) ?? defaults.speechMasterOn,
+      appFontSizeMultiplier:
+          prefs.getDouble(PrefKeys.appFontSizeMultiplier) ??
+          defaults.appFontSizeMultiplier,
+      backgroundPersistenceOn:
+          prefs.getBool(PrefKeys.backgroundPersistenceOn) ??
+          defaults.backgroundPersistenceOn,
+      fullscreenDimBrightnessLevel:
+          prefs.getDouble(PrefKeys.fullscreenDimBrightnessLevel) ??
+          defaults.fullscreenDimBrightnessLevel,
+      taggingOn: prefs.getBool(PrefKeys.taggingOn) ?? defaults.taggingOn,
+      sessionTag: prefs.getString(PrefKeys.sessionTag) ?? defaults.sessionTag,
+    ).normalized();
   }
 
-  Future<void> save(AppSettings settings) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    await prefs.setString(PrefKeys.soundChosen, settings.soundChosen);
-    await prefs.setDouble(PrefKeys.noiseVolume, settings.noiseVolume);
-    await prefs.setDouble(PrefKeys.speakVolume, settings.speakVolume);
-    await prefs.setBool(
-      PrefKeys.maximumSpeechVolume,
-      settings.maximumSpeechVolume,
-    );
-    await prefs.setBool(PrefKeys.clockOn, settings.clockOn);
-    await prefs.setInt(PrefKeys.clockIntervalMins, settings.clockIntervalMins);
-    await prefs.setBool(
-      PrefKeys.clockShowMilliseconds,
-      settings.clockShowMilliseconds,
-    );
-    await prefs.setBool(
-      PrefKeys.clockShowSeconds,
-      settings.clockShowSeconds,
-    );
-    await prefs.setBool(PrefKeys.clockSpeakTime, settings.clockSpeakTime);
-    await prefs.setInt(
-      PrefKeys.clockSpeakRepeatCount,
-      settings.clockSpeakRepeatCount,
-    );
-    await prefs.setBool(PrefKeys.clockNoiseOn, settings.clockNoiseOn);
-    await prefs.setBool(PrefKeys.motivationOn, settings.motivationOn);
-    await prefs.setString(
-      PrefKeys.motivationCategory,
-      settings.motivationCategory,
-    );
-    await prefs.setInt(
-      PrefKeys.motivationDelaySeconds,
-      settings.motivationDelaySeconds,
-    );
-    await prefs.setBool(PrefKeys.timerSpeakOn, settings.timerSpeakOn);
-    await prefs.setInt(
-      PrefKeys.timerAnnounceEvery,
-      settings.timerAnnounceEvery,
-    );
-    await prefs.setBool(
-      PrefKeys.timerShowMilliseconds,
-      settings.timerShowMilliseconds,
-    );
-    await prefs.setBool(PrefKeys.timerNoiseOn, settings.timerNoiseOn);
-    await prefs.setBool(
-      PrefKeys.stopwatchShowMilliseconds,
-      settings.stopwatchShowMilliseconds,
-    );
-    await prefs.setInt(
-      PrefKeys.stopwatchSpeakDelaySeconds,
-      settings.stopwatchSpeakDelaySeconds,
-    );
-    await prefs.setBool(
-      PrefKeys.muteSpeechAfterMidnight,
-      settings.muteSpeechAfterMidnight,
-    );
-    await prefs.setString(PrefKeys.nightMuteMode, settings.nightMuteMode);
-    await prefs.setInt(PrefKeys.sleepStartMinutes, settings.sleepStartMinutes);
-    await prefs.setInt(PrefKeys.sleepEndMinutes, settings.sleepEndMinutes);
-    await prefs.setBool(PrefKeys.appDarkTheme, settings.appDarkTheme);
-    await prefs.setBool(
-      PrefKeys.fullscreenDarkTheme,
-      settings.fullscreenDarkTheme,
-    );
-    await prefs.setBool(
-      PrefKeys.fullscreenDimBrightness,
-      settings.fullscreenDimBrightness,
-    );
-    await prefs.setBool(
-      PrefKeys.fullscreenStartLandscape,
-      settings.fullscreenStartLandscape,
-    );
-    await prefs.setBool(
-      PrefKeys.fullscreenShowClock,
-      settings.fullscreenShowClock,
-    );
-    await prefs.setDouble(
-      PrefKeys.fullscreenClockScale,
-      settings.fullscreenClockScale,
-    );
-    await prefs.setString(PrefKeys.voiceListMode, settings.voiceListMode);
-    await prefs.setString(PrefKeys.speechEngineMode, settings.speechEngineMode);
-    await prefs.setBool(PrefKeys.goalReminderOn, settings.goalReminderOn);
-    await prefs.setInt(
-      PrefKeys.goalReminderIntervalMins,
-      settings.goalReminderIntervalMins,
-    );
-    await prefs.setStringList(
-      PrefKeys.goalReminderItems,
-      settings.goalReminderItems,
-    );
-    await prefs.setInt(
-      PrefKeys.goalReminderNextIndex,
-      settings.goalReminderNextIndex,
-    );
-
-    if (settings.favoriteVoiceName != null) {
+  Future<void> _runLegacyMigrations(SharedPreferences prefs) async {
+    final sound = prefs.getString(PrefKeys.soundChosen);
+    if (sound != null && sound.startsWith('assets/')) {
       await prefs.setString(
-        PrefKeys.favoriteVoiceName,
-        settings.favoriteVoiceName!,
-      );
-    } else {
-      await prefs.remove(PrefKeys.favoriteVoiceName);
-    }
-
-    if (settings.favoriteVoiceLocale != null) {
-      await prefs.setString(
-        PrefKeys.favoriteVoiceLocale,
-        settings.favoriteVoiceLocale!,
-      );
-    } else {
-      await prefs.remove(PrefKeys.favoriteVoiceLocale);
-    }
-
-    await prefs.setBool(PrefKeys.speechMasterOn, settings.speechMasterOn);
-    await prefs.setDouble(PrefKeys.appFontSizeMultiplier, settings.appFontSizeMultiplier);
-    await prefs.setBool(PrefKeys.backgroundPersistenceOn, settings.backgroundPersistenceOn);
-    await prefs.setDouble(PrefKeys.fullscreenDimBrightnessLevel, settings.fullscreenDimBrightnessLevel);
-    await prefs.setBool(PrefKeys.taggingOn, settings.taggingOn);
-    await prefs.setString(PrefKeys.sessionTag, settings.sessionTag);
-  }
-
-  Future<void> _runMigrations(SharedPreferences prefs) async {
-    final currentVersion = prefs.getInt(PrefKeys.settingsSchemaVersion) ?? 0;
-    if (currentVersion >= _currentSchemaVersion) return;
-
-    if (currentVersion < 1) {
-      final sound = prefs.getString(PrefKeys.soundChosen);
-      if (sound != null && sound.startsWith('assets/')) {
-        await prefs.setString(
-          PrefKeys.soundChosen,
-          sound.replaceFirst('assets/', ''),
-        );
-      }
-    }
-
-    if (currentVersion < 2) {
-      final goalItems = prefs.getStringList(PrefKeys.goalReminderItems);
-      if (goalItems != null) {
-        await prefs.setStringList(
-          PrefKeys.goalReminderItems,
-          goalItems
-              .map((item) => item.trim())
-              .where((item) => item.isNotEmpty)
-              .toList(),
-        );
-      }
-    }
-
-    if (currentVersion < 3) {
-      await prefs.setString(
-        PrefKeys.voiceListMode,
-        _normalizeVoiceLanguageMode(prefs.getString(PrefKeys.voiceListMode)),
+        PrefKeys.soundChosen,
+        sound.replaceFirst('assets/', ''),
       );
     }
-
-    if (currentVersion < 4) {
-      await prefs.setString(
-        PrefKeys.speechEngineMode,
-        _normalizeSpeechEngineMode(prefs.getString(PrefKeys.speechEngineMode)),
-      );
-    }
-
-    if (currentVersion < 6) {
-      if (!prefs.containsKey('TtsMaxVolumeLockEnabled')) {
-        await prefs.setBool('TtsMaxVolumeLockEnabled', false);
-      }
-    }
-
-    if (currentVersion < 7) {
-      if (!prefs.containsKey(PrefKeys.clockSpeakRepeatCount)) {
-        await prefs.setInt(PrefKeys.clockSpeakRepeatCount, 1);
-      }
-    }
-
-    if (currentVersion < 8) {
+    if (!prefs.containsKey(PrefKeys.maximumSpeechVolume)) {
       final oldBoost = prefs.getBool('TtsVolumeBoostEnabled') ?? false;
       final oldLock = prefs.getBool('TtsMaxVolumeLockEnabled') ?? false;
-      final combined = oldBoost || oldLock;
-      if (!prefs.containsKey(PrefKeys.maximumSpeechVolume)) {
-        await prefs.setBool(PrefKeys.maximumSpeechVolume, combined);
-      }
+      await prefs.setBool(PrefKeys.maximumSpeechVolume, oldBoost || oldLock);
     }
-
-    await prefs.setInt(PrefKeys.settingsSchemaVersion, _currentSchemaVersion);
   }
 
-  // ── Backup / Restore ──────────────────────────────────────────
-
-  /// Serialize all current settings to a formatted JSON string.
   Future<String> exportToJson({required String defaultSound}) async {
+    await flush();
     final settings = await load(defaultSound: defaultSound);
     return const JsonEncoder.withIndent('  ').convert(settings.toJson());
   }
 
-  /// Deserialize settings from a JSON string.
-  /// Returns [AppSettings] on success, or `null` if parsing fails.
-  AppSettings? importFromJson(String jsonStr) {
+  AppSettings? importFromJson(String jsonString) {
     try {
-      final json = const JsonDecoder().convert(jsonStr) as Map<String, dynamic>;
-      return AppSettings.fromJson(json);
-    } catch (e) {
-      debugPrint('Settings import failed: $e');
+      final decoded = const JsonDecoder().convert(jsonString);
+      if (decoded is! Map<String, dynamic>) return null;
+      return AppSettings.fromJson(decoded);
+    } catch (error) {
+      debugPrint('Settings import failed: $error');
       return null;
     }
   }
 
-  /// Export settings to a user-chosen directory with a descriptive filename.
-  /// Returns the file path, or `null` if the user cancels or on failure.
   Future<String?> exportToUserFolder({required String defaultSound}) async {
     try {
-      final dirPath = await FilePicker.platform.getDirectoryPath(
+      final directory = await FilePicker.platform.getDirectoryPath(
         dialogTitle: 'Choose backup folder',
       );
-      if (dirPath == null) return null; // User cancelled
-
-      final jsonStr = await exportToJson(defaultSound: defaultSound);
+      if (directory == null) return null;
+      final contents = await exportToJson(defaultSound: defaultSound);
       final now = DateTime.now();
-      final datePart =
+      final date =
           '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-      final timePart =
+      final time =
           '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
-      final filename = 'SolasFlow_Settings_${datePart}_$timePart.json';
-      final file = File('$dirPath/$filename');
-      await file.writeAsString(jsonStr);
+      final file = File('$directory/SolasFlow_Settings_${date}_$time.json');
+      await file.writeAsString(contents, flush: true);
       return file.path;
-    } catch (e) {
-      debugPrint('Settings export failed: $e');
+    } catch (error) {
+      debugPrint('Settings export failed: $error');
       return null;
     }
   }
 
-  /// Import settings from a user-selected JSON file.
-  /// Returns the imported [AppSettings] on success, or `null` on failure/cancel.
   Future<AppSettings?> importFromFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['json'],
+      allowedExtensions: const ['json'],
     );
     if (result == null || result.files.isEmpty) return null;
-
+    final path = result.files.single.path;
+    if (path == null) return null;
     try {
-      final file = File(result.files.single.path!);
-      final jsonStr = await file.readAsString();
-      return importFromJson(jsonStr);
-    } catch (e) {
-      debugPrint('Settings import failed: $e');
+      return importFromJson(await File(path).readAsString());
+    } catch (error) {
+      debugPrint('Settings import failed: $error');
       return null;
     }
   }

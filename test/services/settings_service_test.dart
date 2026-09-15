@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:solasflow/core/pref_keys.dart';
 import 'package:solasflow/models/app_settings.dart';
@@ -18,7 +20,10 @@ void main() {
 
       expect(loaded.soundChosen, 'audio/rain.mp3');
       expect(prefs.getString(PrefKeys.soundChosen), 'audio/rain.mp3');
-      expect(prefs.getInt(PrefKeys.settingsSchemaVersion), 8);
+      expect(
+        prefs.getInt(PrefKeys.settingsSchemaVersion),
+        SettingsService.currentSchemaVersion,
+      );
     });
   });
 
@@ -53,6 +58,7 @@ void main() {
         goalReminderNextIndex: 1,
         stopwatchShowMilliseconds: true,
         stopwatchSpeakDelaySeconds: 120,
+        stopwatchSpeakOn: false,
         muteSpeechAfterMidnight: true,
         nightMuteMode: 'automatic',
         sleepStartMinutes: 1320,
@@ -82,6 +88,39 @@ void main() {
       expect(loaded.nightMuteMode, input.nightMuteMode);
       expect(loaded.favoriteVoiceName, input.favoriteVoiceName);
       expect(loaded.favoriteVoiceLocale, input.favoriteVoiceLocale);
+      expect(loaded.stopwatchSpeakOn, isFalse);
+    });
+
+    test('normalizes malformed imported values and preserves engine ids', () {
+      final settings = AppSettings.fromJson({
+        'noiseVolume': 4,
+        'clockIntervalMins': 0,
+        'goalReminderItems': 'not-a-list',
+        'speechEngineMode': 'com.google.android.tts',
+      });
+
+      expect(settings.noiseVolume, 1);
+      expect(settings.clockIntervalMins, 1);
+      expect(settings.goalReminderItems, isEmpty);
+      expect(settings.speechEngineMode, 'com.google.android.tts');
+    });
+
+    test('merges and clears a durable notification master override', () async {
+      final baseline = AppSettings.defaults().copyWith(speechMasterOn: true);
+      SharedPreferences.setMockInitialValues({
+        SettingsService.snapshotKey: jsonEncode(baseline.toJson()),
+        SettingsService.speechMasterOverrideKey: false,
+      });
+
+      final service = SettingsService();
+      final loaded = await service.load(defaultSound: 'audio/rain.mp3');
+      final prefs = await SharedPreferences.getInstance();
+
+      expect(loaded.speechMasterOn, isFalse);
+      expect(
+        prefs.containsKey(SettingsService.speechMasterOverrideKey),
+        isFalse,
+      );
     });
   });
 }

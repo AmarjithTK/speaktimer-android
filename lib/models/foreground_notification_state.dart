@@ -33,10 +33,10 @@ class ForegroundNotificationState {
   }
 
   String get text {
-    if (isTimerFinished) {
-      return 'Timer finished! Tap to set next timer.';
-    }
     final audioStatus = speechMasterOn ? 'Audio ON' : 'Audio OFF';
+    if (isTimerFinished) {
+      return '$audioStatus  |  Timer finished! Tap to set next timer.';
+    }
     if (isTimerRunning) {
       return '$audioStatus  |  Time remaining: $timerValue';
     }
@@ -48,21 +48,20 @@ class ForegroundNotificationState {
   }
 
   List<NotificationButton> get buttons {
+    final audioButton = NotificationButton(
+      id: speechMasterOn ? 'audio:set:off' : 'audio:set:on',
+      text: speechMasterOn ? 'Audio ON' : 'Audio OFF',
+    );
     if (isTimerFinished) {
-      return [
-        const NotificationButton(id: 'btn_timer_repeat', text: 'Repeat'),
-        const NotificationButton(id: 'btn_timer_dismiss', text: 'Dismiss'),
-        NotificationButton(
-          id: 'btn_speech_master',
-          text: speechMasterOn ? 'Audio ON' : 'Audio OFF',
-        ),
+      return const [
+        NotificationButton(id: 'btn_timer_repeat', text: 'Repeat'),
+        NotificationButton(id: 'btn_timer_dismiss', text: 'Dismiss'),
+        NotificationButton(id: 'open_app', text: 'Open'),
       ];
     }
     return [
-      NotificationButton(
-        id: 'btn_speech_master',
-        text: speechMasterOn ? 'Audio ON' : 'Audio OFF',
-      ),
+      audioButton,
+      const NotificationButton(id: 'open_app', text: 'Open'),
       const NotificationButton(id: 'btn_exit', text: 'Exit'),
     ];
   }

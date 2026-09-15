@@ -1,27 +1,99 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
-import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
 import '../models/foreground_notification_state.dart';
 
+/// Single owner for foreground-service start, update, and stop transitions.
 class ForegroundNotificationService {
   final String notificationIconMetaDataName;
-  String? _lastTitle;
-  String? _lastText;
-  int _lastButtonsCount = -1;
 
-  ForegroundNotificationService({
-    required this.notificationIconMetaDataName,
-  });
+  Future<void> _operationTail = Future<void>.value();
+  String? _lastSignature;
+  Object? _lastError;
 
-  bool get _supportsForegroundTask {
-    if (kIsWeb) return false;
-    return defaultTargetPlatform == TargetPlatform.android ||
-        defaultTargetPlatform == TargetPlatform.iOS;
+  ForegroundNotificationService({required this.notificationIconMetaDataName});
+
+  Object? get lastError => _lastError;
+
+  bool get _supportsForegroundTask =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  Future<bool> reconcile({
+    required bool shouldRun,
+    required ForegroundNotificationState state,
+    required Function callback,
+    bool force = false,
+  }) {
+    final completer = Completer<bool>();
+    _operationTail = _operationTail
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('Foreground predecessor failed: $error');
+        })
+        .then((_) async {
+          try {
+            completer.complete(
+              await _reconcileNow(
+                shouldRun: shouldRun,
+                state: state,
+                callback: callback,
+                force: force,
+              ),
+            );
+          } catch (error, stackTrace) {
+            _lastError = error;
+            debugPrint('Foreground reconciliation failed: $error\n$stackTrace');
+            completer.complete(false);
+          }
+        });
+    return completer.future;
   }
 
-  Future<bool> _isServiceRunningSafe() async {
-    if (!_supportsForegroundTask) return false;
+  Future<bool> _reconcileNow({
+    required bool shouldRun,
+    required ForegroundNotificationState state,
+    required Function callback,
+    required bool force,
+  }) async {
+    if (!_supportsForegroundTask) return !shouldRun;
+
+    final running = await _isServiceRunning();
+    if (!shouldRun) {
+      if (!running) {
+        _lastSignature = null;
+        _lastError = null;
+        return true;
+      }
+      final result = await FlutterForegroundTask.stopService();
+      return _acceptResult(result, onSuccess: () => _lastSignature = null);
+    }
+
+    final signature = _signature(state);
+    if (!running) {
+      final result = await FlutterForegroundTask.startService(
+        notificationTitle: state.title,
+        notificationText: state.text,
+        notificationIcon: NotificationIcon(
+          metaDataName: notificationIconMetaDataName,
+        ),
+        notificationButtons: state.buttons,
+        callback: callback,
+      );
+      return _acceptResult(result, onSuccess: () => _lastSignature = signature);
+    }
+
+    if (!force && signature == _lastSignature) return true;
+    final result = await FlutterForegroundTask.updateService(
+      notificationTitle: state.title,
+      notificationText: state.text,
+      notificationButtons: state.buttons,
+    );
+    return _acceptResult(result, onSuccess: () => _lastSignature = signature);
+  }
+
+  Future<bool> _isServiceRunning() async {
     try {
       return await FlutterForegroundTask.isRunningService;
     } on MissingPluginException {
@@ -31,77 +103,25 @@ class ForegroundNotificationService {
     }
   }
 
-  Future<void> _updateServiceSafe(ForegroundNotificationState state) async {
-    if (state.title == _lastTitle &&
-        state.text == _lastText &&
-        state.buttons.length == _lastButtonsCount) {
-      return;
+  bool _acceptResult(
+    ServiceRequestResult result, {
+    required VoidCallback onSuccess,
+  }) {
+    if (result is ServiceRequestSuccess) {
+      _lastError = null;
+      onSuccess();
+      return true;
     }
-    try {
-      await FlutterForegroundTask.updateService(
-        notificationTitle: state.title,
-        notificationText: state.text,
-        notificationButtons: state.buttons,
-      );
-      _lastTitle = state.title;
-      _lastText = state.text;
-      _lastButtonsCount = state.buttons.length;
-    } on MissingPluginException {
-      // Plugin is unavailable on this runtime; ignore foreground update.
-    } on PlatformException {
-      // Platform rejected the update; ignore and keep app functional.
-    }
+    final error = (result as ServiceRequestFailure).error;
+    _lastError = error;
+    debugPrint('Foreground service request rejected: $error');
+    return false;
   }
 
-  void resetCache() {
-    _lastTitle = null;
-    _lastText = null;
-    _lastButtonsCount = -1;
-  }
-
-  Future<int> sync({
-    required ForegroundNotificationState state,
-    required int lastSyncMs,
-    bool force = false,
-    int minIntervalMs = 100,
-  }) async {
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    if (!force && nowMs - lastSyncMs < minIntervalMs) {
-      return lastSyncMs;
-    }
-
-    if (await _isServiceRunningSafe()) {
-      await _updateServiceSafe(state);
-      return nowMs;
-    }
-
-    return lastSyncMs;
-  }
-
-  Future<void> ensureRunning({
-    required ForegroundNotificationState state,
-    required Function callback,
-  }) async {
-    if (!await _isServiceRunningSafe()) {
-      if (!_supportsForegroundTask) return;
-      try {
-        await FlutterForegroundTask.startService(
-          notificationTitle: state.title,
-          notificationText: state.text,
-          notificationIcon: NotificationIcon(
-            metaDataName: notificationIconMetaDataName,
-          ),
-          notificationButtons: state.buttons,
-          callback: callback,
-        );
-      } on MissingPluginException {
-        return;
-      } on PlatformException {
-        return;
-      }
-      return;
-    }
-
-    await _updateServiceSafe(state);
+  String _signature(ForegroundNotificationState state) {
+    final buttons = state.buttons
+        .map((button) => '${button.id}:${button.text}')
+        .join('|');
+    return '${state.title}\u0000${state.text}\u0000$buttons';
   }
 }
