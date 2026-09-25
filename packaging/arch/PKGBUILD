@@ -1,0 +1,56 @@
+pkgname=solasflow-git
+pkgver=0
+pkgrel=1
+pkgdesc='Solas Flow focus timer with offline English and Malayalam speech'
+arch=('x86_64')
+url='https://github.com/AmarjithTK/speaktimer-android'
+license=('unknown')
+depends=('alsa-lib' 'gcc-libs' 'glibc' 'gstreamer' 'gst-plugins-base-libs' 'gst-plugins-good' 'gtk3' 'libepoxy')
+makedepends=('clang' 'cmake' 'flutter' 'git' 'ninja' 'pkgconf')
+provides=('solasflow')
+conflicts=('solasflow')
+options=('!strip')
+source=("$pkgname::git+https://github.com/AmarjithTK/speaktimer-android.git#branch=master")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$srcdir/$pkgname"
+  local app_version commit_count short_commit
+  app_version=$(sed -nE 's/^version: ([0-9]+\.[0-9]+\.[0-9]+)\+.*/\1/p' pubspec.yaml)
+  commit_count=$(git rev-list --count HEAD)
+  short_commit=$(git rev-parse --short=7 HEAD)
+  printf '%s.r%s.g%s' "$app_version" "$commit_count" "$short_commit"
+}
+
+prepare() {
+  cd "$srcdir/$pkgname"
+  flutter pub get
+}
+
+build() {
+  cd "$srcdir/$pkgname"
+  flutter build linux --release
+}
+
+package() {
+  local bundle="$srcdir/$pkgname/build/linux/x64/release/bundle"
+  local desktop="$pkgdir/usr/share/applications/com.atherpulse.solasflow.desktop"
+
+  install -d "$pkgdir/opt/solasflow"
+  cp -a "$bundle/assets" "$bundle/data" "$bundle/lib" "$pkgdir/opt/solasflow/"
+  install -Dm755 "$bundle/solasflow" "$pkgdir/opt/solasflow/solasflow"
+
+  for size in 48 128 256 512; do
+    install -Dm644 \
+      "$bundle/share/icons/hicolor/${size}x${size}/apps/solasflow-${size}.png" \
+      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/solasflow.png"
+  done
+
+  install -Dm644 \
+    "$bundle/share/applications/com.atherpulse.solasflow.desktop" \
+    "$desktop"
+  sed -i \
+    -e 's|^Exec=solasflow$|Exec=/opt/solasflow/solasflow|' \
+    -e 's|^TryExec=solasflow$|TryExec=/opt/solasflow/solasflow|' \
+    "$desktop"
+}

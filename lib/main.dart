@@ -1266,7 +1266,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
             if (val == null) return;
             _voiceSessionManager.resetSession();
             speechQueue.clear();
-            unawaited(flutterTts.stop());
+            unawaited(_stopTts());
             setState(() {
               final normalized = _speechService.normalizeVoiceLanguageMode(val);
               debugPrint('[SettingsPanel] normalized language=$normalized');
@@ -1562,7 +1562,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
       _cancelPendingSpeech();
       await _timerRuntimeStore.save(TimerRuntime.idle());
       await _timerRuntimeStore.saveStopwatch(StopwatchRuntime.idle());
-      await flutterTts.stop();
+      await _stopTts();
       await _audioService.stopBackground();
       await _audioService.stopNotification();
       await _stopForegroundService();
@@ -1657,7 +1657,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
     setState(() => speechMasterOn = enabled);
     if (!enabled) {
       _cancelPendingSpeech();
-      await flutterTts.stop();
+      await _stopTts();
       await _audioService.stopBackground();
       FlutterRingtonePlayer().stop();
     } else {
@@ -2132,7 +2132,17 @@ class _MainScreenState extends ConsumerState<MainScreen>
     _speakGoalReminderMessage('Goal reminder: $goal');
   }
 
+  Future<void> _stopTts() async {
+    if (Platform.isLinux) return;
+    await flutterTts.stop();
+  }
+
   Future<bool> _initTts({bool forceRebind = false}) async {
+    if (Platform.isLinux) {
+      _ttsReady = true;
+      return true;
+    }
+
     final existing = _ttsInitInFlight;
     if (existing != null) {
       await existing;
@@ -2324,7 +2334,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
     if (isSpeechActive && mounted) {
       setState(() => isSpeechActive = false);
     }
-    unawaited(flutterTts.stop());
+    unawaited(_stopTts());
   }
 
   void speak(String text) {
@@ -3798,7 +3808,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
     stopwatchInterval?.cancel();
     stopwatchInterval = null;
     displayTick?.cancel();
-    unawaited(flutterTts.stop());
+    unawaited(_stopTts());
     unawaited(_settingsService.flush());
     unawaited(_audioService.dispose());
     // Remove callback to avoid memory leaks

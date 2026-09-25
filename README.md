@@ -1,6 +1,6 @@
-# lifer
+# Solas Flow
 
-`lifer` is a Flutter focus app that combines a speaking clock, a configurable timer, and an immersive fullscreen focus mode.
+`Solas Flow` is a Flutter focus app that combines a speaking clock, a configurable timer, and an immersive fullscreen focus mode.
 
 ## What it does
 
@@ -108,6 +108,22 @@ flutter pub get
 flutter run
 ```
 
+### Linux desktop release
+```bash
+flutter build linux --release
+./build/linux/x64/release/bundle/install-linux.sh
+```
+
+The release bundle includes offline Sherpa-ONNX voices for English and Malayalam, plus a desktop launcher and icon.
+
+### Arch Linux
+```bash
+cd packaging/arch
+makepkg -si
+```
+
+The VCS package tracks `master` and builds the Linux release from source.
+
 ### Test
 ```bash
 flutter test
@@ -115,6 +131,6 @@ flutter test
 
 ## Notes
 
-- App display name is `lifer`.
+- App display name is `Solas Flow`.
 - Android package namespace and notification metadata still use `com.example.speakertimer` in platform config for compatibility.
 - Audio assets are local (`assets/audio/`) to support offline/background behavior.

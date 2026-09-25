@@ -182,6 +182,22 @@ class SpeechService {
       '$modelsBase${Platform.pathSeparator}espeak-ng-data${Platform.pathSeparator}ml_dict',
     ];
     final alreadyReady = mustHave.every(_fileExists);
+    // Linux release builds ship Sherpa, both voice models, and eSpeak data in
+    // Flutter's asset bundle. Prefer these offline assets so normal speech
+    // never blocks on a first-run network download.
+    final bundledPaths = <String>[
+      'assets/tts/bin/linux-x64/sherpa-onnx-offline-tts-play',
+      'assets/tts/models/en/primary/model.onnx',
+      'assets/tts/models/en/primary/tokens.txt',
+      'assets/tts/models/ml/primary/model.onnx',
+      'assets/tts/models/ml/primary/tokens.txt',
+      'assets/tts/models/espeak-ng-data/ml_dict',
+    ];
+    if (bundledPaths.every((path) => _resolveDesktopPath(path) != null)) {
+      _setEngineStatus('sherpa_ready', 'Using bundled Linux Sherpa assets');
+      return;
+    }
+
     if (alreadyReady) return;
 
     final tmpRoot =
@@ -547,40 +563,15 @@ class SpeechService {
       final commands = await _commandCandidatesForModel(manifest, model);
       List<String> baseVitsArgs() {
         final args = <String>[
-          '--vits-model',
-          modelPath,
-          '--vits-tokens',
-          tokensPath,
-          '--sid',
-          '0',
-          '--text',
-          text,
+          '--vits-model=$modelPath',
+          '--vits-tokens=$tokensPath',
+          '--sid=0',
         ];
-        if (dataDir != null) {
-          args.addAll(['--vits-data-dir', dataDir]);
-        }
-        if (lexiconPath != null) {
-          args.addAll(['--vits-lexicon', lexiconPath]);
-        }
-        if (ruleFstsPath != null) {
-          args.addAll(['--tts-rule-fsts', ruleFstsPath]);
-        }
+        if (dataDir != null) args.add('--vits-data-dir=$dataDir');
+        if (lexiconPath != null) args.add('--vits-lexicon=$lexiconPath');
+        if (ruleFstsPath != null) args.add('--tts-rule-fsts=$ruleFstsPath');
         return args;
       }
-
-      final attempts = <List<String>>[
-        baseVitsArgs(),
-        [
-          '--model',
-          modelPath,
-          '--tokens',
-          tokensPath,
-          '--sid',
-          '0',
-          '--text',
-          text,
-        ],
-      ];
 
       for (final command in commands) {
         final lowerCommand = command.toLowerCase();
@@ -589,26 +580,10 @@ class SpeechService {
           final outFile =
               '${Directory.systemTemp.path}${Platform.pathSeparator}sherpa_tts_${DateTime.now().microsecondsSinceEpoch}.wav';
           final args = <String>[
-            '--vits-model',
-            modelPath,
-            '--vits-tokens',
-            tokensPath,
-            '--sid',
-            '0',
-            '--output-filename',
-            outFile,
+            ...baseVitsArgs(),
+            '--output-filename=$outFile',
             text,
           ];
-          if (dataDir != null) {
-            args.addAll(['--vits-data-dir', dataDir]);
-          }
-          if (lexiconPath != null) {
-            args.addAll(['--vits-lexicon', lexiconPath]);
-          }
-          if (ruleFstsPath != null) {
-            args.addAll(['--tts-rule-fsts', ruleFstsPath]);
-          }
-
           final generated = await _runExternal(command, args);
           if (generated && await File(outFile).exists()) {
             final played = await _playWaveFile(outFile);
@@ -625,15 +600,13 @@ class SpeechService {
           }
         }
 
-        for (final args in attempts) {
-          final ok = await _runExternal(command, args);
-          if (ok) {
-            _setEngineStatus(
-              'sherpa',
-              'Sherpa model ${model['id'] ?? language} via $command',
-            );
-            return true;
-          }
+        final ok = await _runExternal(command, [...baseVitsArgs(), text]);
+        if (ok) {
+          _setEngineStatus(
+            'sherpa',
+            'Sherpa model ${model['id'] ?? language} via $command',
+          );
+          return true;
         }
       }
 
@@ -839,6 +812,10 @@ class SpeechService {
       );
       if (fallbackOk) return;
     }
+    if (Platform.isLinux) {
+      _setEngineStatus('failed', 'No Linux speech backend is available');
+      return;
+    }
 
     final isFavMalayalam =
         preferredVoice != null &&
@@ -864,6 +841,7 @@ class SpeechService {
       }
       await flutterTts.setLanguage('en-IN');
     }
+
 
     if (useMalayalamNuance) {
       await flutterTts.setPitch(0.98);
