@@ -1,9 +1,11 @@
-import 'dart:io';
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 import '../models/speech_item.dart';
 
@@ -18,6 +20,16 @@ class SpeechService {
   bool _linuxRuntimeBootstrapAttempted = false;
 
   static const String _sherpaReleaseTag = 'v1.12.34';
+  static const String _sherpaModelsReleaseTag = 'tts-models';
+  static const String _kokoroArchiveName =
+      'kokoro-int8-multi-lang-v1_1.tar.bz2';
+  static const String _kokoroArchiveSha256 =
+      'a1e94694776049035c4f2c6529f003aaece993c76aae9a78995831c3c4dcafc6';
+  static const int _kokoroArchiveSize = 147031220;
+
+  AudioPlayer? _desktopTtsPlayer;
+  int _desktopSpeechGeneration = 0;
+  Completer<void>? _desktopPlaybackCompleter;
 
   String get lastEngineUsed => _lastEngineUsed;
   String get lastEngineDetail => _lastEngineDetail;
@@ -111,24 +123,53 @@ class SpeechService {
   Future<File> _downloadToFile({
     required String url,
     required String outPath,
+    int? expectedSize,
+    String? expectedSha256,
   }) async {
-    final client = HttpClient();
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 15);
+    final outFile = File(outPath);
+    final partialFile = File('$outPath.part');
     try {
       final req = await client.getUrl(Uri.parse(url));
-      final res = await req.close();
+      final res = await req.close().timeout(const Duration(seconds: 30));
       if (res.statusCode < 200 || res.statusCode >= 300) {
         throw Exception('Download failed ($url): ${res.statusCode}');
       }
-      final outFile = File(outPath);
       await outFile.parent.create(recursive: true);
-      final sink = outFile.openWrite();
-      await res.pipe(sink);
-      await sink.flush();
-      await sink.close();
-      return outFile;
+      final sink = partialFile.openWrite();
+      try {
+        await sink.addStream(res.timeout(const Duration(seconds: 45)));
+      } finally {
+        await sink.close();
+      }
+
+      final actualSize = await partialFile.length();
+      if (expectedSize != null && actualSize != expectedSize) {
+        throw Exception('Download size mismatch: $actualSize bytes');
+      }
+      if (expectedSha256 != null) {
+        final actualSha256 = await _sha256OfFile(partialFile);
+        if (actualSha256 != expectedSha256) {
+          throw Exception('Download SHA-256 mismatch');
+        }
+      }
+      if (await outFile.exists()) await outFile.delete();
+      return await partialFile.rename(outPath);
+    } catch (_) {
+      if (await partialFile.exists()) await partialFile.delete();
+      rethrow;
     } finally {
       client.close(force: true);
     }
+  }
+
+  Future<String> _sha256OfFile(File file) async {
+    final result = await Process.run('sha256sum', [file.path]);
+    if (result.exitCode != 0) {
+      throw Exception('Unable to verify model archive SHA-256');
+    }
+    return result.stdout.toString().trim().split(RegExp(r'\s+')).first;
   }
 
   Future<void> _copyDir(String src, String dst) async {
@@ -182,9 +223,6 @@ class SpeechService {
       '$modelsBase${Platform.pathSeparator}espeak-ng-data${Platform.pathSeparator}ml_dict',
     ];
     final alreadyReady = mustHave.every(_fileExists);
-    // Linux release builds ship Sherpa, both voice models, and eSpeak data in
-    // Flutter's asset bundle. Prefer these offline assets so normal speech
-    // never blocks on a first-run network download.
     final bundledPaths = <String>[
       'assets/tts/bin/linux-x64/sherpa-onnx-offline-tts-play',
       'assets/tts/models/en/primary/model.onnx',
@@ -193,22 +231,24 @@ class SpeechService {
       'assets/tts/models/ml/primary/tokens.txt',
       'assets/tts/models/espeak-ng-data/ml_dict',
     ];
-    if (bundledPaths.every((path) => _resolveDesktopPath(path) != null)) {
-      _setEngineStatus('sherpa_ready', 'Using bundled Linux Sherpa assets');
+    if (bundledPaths.every((path) => _resolveDesktopPath(path) != null) ||
+        alreadyReady) {
+      await _ensureLinuxKokoroModel();
       return;
     }
-
-    if (alreadyReady) return;
 
     final tmpRoot =
         '${Directory.systemTemp.path}${Platform.pathSeparator}solasflow_sherpa_bootstrap';
     await Directory(tmpRoot).create(recursive: true);
 
-    Future<String> downloadArchive(String name) async {
+    Future<String> downloadArchive(
+      String name, {
+      String releaseTag = _sherpaReleaseTag,
+    }) async {
       final out = '$tmpRoot${Platform.pathSeparator}$name';
       if (_fileExists(out)) return out;
       final url =
-          'https://github.com/k2-fsa/sherpa-onnx/releases/download/$_sherpaReleaseTag/$name';
+          'https://github.com/k2-fsa/sherpa-onnx/releases/download/$releaseTag/$name';
       await _downloadToFile(url: url, outPath: out);
       return out;
     }
@@ -219,7 +259,10 @@ class SpeechService {
       required String language,
       required String tier,
     }) async {
-      final arc = await downloadArchive(archiveName);
+      final arc = await downloadArchive(
+        archiveName,
+        releaseTag: _sherpaModelsReleaseTag,
+      );
       final extractDir = '$tmpRoot${Platform.pathSeparator}${language}_$tier';
       final extractPath = Directory(extractDir);
       if (extractPath.existsSync()) {
@@ -235,7 +278,6 @@ class SpeechService {
         throw Exception('No model directory in $archiveName');
       }
       final src = topDirs.first.path;
-
       final dstDir =
           '$modelsBase${Platform.pathSeparator}$language${Platform.pathSeparator}$tier';
       await Directory(dstDir).create(recursive: true);
@@ -257,7 +299,6 @@ class SpeechService {
     }
 
     try {
-      // Binaries
       final binArchive = await downloadArchive(
         'sherpa-onnx-$_sherpaReleaseTag-linux-x64-static.tar.bz2',
       );
@@ -286,7 +327,6 @@ class SpeechService {
         await _ensureExecutableBitIfNeeded(dst);
       }
 
-      // Models
       await installModel(
         archiveName: 'vits-piper-en_US-lessac-medium.tar.bz2',
         onnxName: 'en_US-lessac-medium.onnx',
@@ -311,13 +351,106 @@ class SpeechService {
         language: 'ml',
         tier: 'backup',
       );
-
       _setEngineStatus(
         'sherpa_ready',
-        'Downloaded Linux Sherpa runtime/assets',
+        'Downloaded Linux Sherpa runtime and fallback voices',
       );
-    } catch (e) {
-      _setEngineStatus('sherpa_download_failed', 'Auto-download failed: $e');
+    } catch (error) {
+      _setEngineStatus(
+        'sherpa_download_failed',
+        'Runtime setup failed: $error',
+      );
+    }
+
+    await _ensureLinuxKokoroModel();
+  }
+
+  Future<void> _ensureLinuxKokoroModel() async {
+    final runtimeBase = _linuxRuntimeBaseDir();
+    final kokoroDir = _joinPath(
+      _joinPath(_joinPath(runtimeBase, 'assets/tts/models'), 'en'),
+      'kokoro',
+    );
+    final installedFiles = [
+      'model.int8.onnx',
+      'tokens.txt',
+      'voices.bin',
+      'lexicon-us-en.txt',
+    ];
+    if (installedFiles.every(
+      (name) => _fileExists(_joinPath(kokoroDir, name)),
+    )) {
+      return;
+    }
+
+    final tmpRoot =
+        '${Directory.systemTemp.path}${Platform.pathSeparator}solasflow_sherpa_bootstrap';
+    final archivePath = _joinPath(tmpRoot, _kokoroArchiveName);
+    final archiveFile = File(archivePath);
+    var archiveValid = false;
+    try {
+      if (archiveFile.existsSync()) {
+        archiveValid =
+            await archiveFile.length() == _kokoroArchiveSize &&
+            await _sha256OfFile(archiveFile) == _kokoroArchiveSha256;
+      }
+      if (!archiveValid) {
+        if (archiveFile.existsSync()) await archiveFile.delete();
+        _setEngineStatus(
+          'kokoro_downloading',
+          'Downloading Kokoro English voice (140 MB, first run only)',
+        );
+        await _downloadToFile(
+          url:
+              'https://github.com/k2-fsa/sherpa-onnx/releases/download/$_sherpaModelsReleaseTag/$_kokoroArchiveName',
+          outPath: archivePath,
+          expectedSize: _kokoroArchiveSize,
+          expectedSha256: _kokoroArchiveSha256,
+        );
+      }
+
+      final extractDir = _joinPath(tmpRoot, 'kokoro_extract');
+      final extractPath = Directory(extractDir);
+      if (extractPath.existsSync()) {
+        await extractPath.delete(recursive: true);
+      }
+      await extractPath.create(recursive: true);
+      await _extractTarBz2(archivePath, extractDir);
+
+      final sourceDir = _joinPath(extractDir, 'kokoro-int8-multi-lang-v1_1');
+      if (!installedFiles.every(
+        (name) => _fileExists(_joinPath(sourceDir, name)),
+      )) {
+        throw Exception('Kokoro archive is missing required model files');
+      }
+
+      final stagingDir = Directory('$kokoroDir.installing');
+      if (stagingDir.existsSync()) {
+        await stagingDir.delete(recursive: true);
+      }
+      await stagingDir.create(recursive: true);
+      for (final name in installedFiles) {
+        await File(
+          _joinPath(sourceDir, name),
+        ).copy(_joinPath(stagingDir.path, name));
+      }
+
+      final installedDir = Directory(kokoroDir);
+      if (installedDir.existsSync()) {
+        await installedDir.delete(recursive: true);
+      }
+      await stagingDir.rename(kokoroDir);
+      await extractPath.delete(recursive: true);
+      await archiveFile.delete();
+      _setEngineStatus(
+        'kokoro_ready',
+        'Kokoro v1.1 INT8 ready (US English, Maple)',
+      );
+    } catch (error) {
+      _setEngineStatus(
+        'kokoro_unavailable',
+        'Kokoro unavailable; using the bundled fallback voice: $error',
+      );
     }
   }
 
@@ -372,23 +505,70 @@ class SpeechService {
   Future<bool> _runExternal(String executable, List<String> args) async {
     try {
       final result = await Process.run(executable, args);
+      if (result.exitCode != 0) {
+        final stderr = result.stderr.toString().trim();
+        if (stderr.isNotEmpty) {
+          debugPrint('Speech command failed ($executable): $stderr');
+        }
+      }
       return result.exitCode == 0;
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Unable to run speech command ($executable): $error');
       return false;
     }
   }
 
-  Future<bool> _playWaveFile(String path) async {
-    final players = <({String exe, List<String> args})>[
-      (exe: 'paplay', args: [path]),
-      (exe: 'aplay', args: [path]),
-    ];
-
-    for (final p in players) {
-      final ok = await _runExternal(p.exe, p.args);
-      if (ok) return true;
+  Future<bool> _playWaveFile(
+    String path, {
+    required double volume,
+    required int generation,
+  }) async {
+    if (generation != _desktopSpeechGeneration) return true;
+    final player = _desktopTtsPlayer ??= AudioPlayer();
+    final completed = Completer<void>();
+    _desktopPlaybackCompleter = completed;
+    final subscription = player.onPlayerComplete.listen((_) {
+      if (!completed.isCompleted) completed.complete();
+    });
+    try {
+      await player.stop();
+      await player.play(
+        DeviceFileSource(path),
+        volume: volume.clamp(0.0, 1.0).toDouble(),
+      );
+      if (generation != _desktopSpeechGeneration) {
+        await player.stop();
+        if (!completed.isCompleted) completed.complete();
+      }
+      await completed.future.timeout(const Duration(minutes: 2));
+      return generation == _desktopSpeechGeneration;
+    } catch (error) {
+      debugPrint('Unable to play synthesized speech: $error');
+      return false;
+    } finally {
+      await subscription.cancel();
+      if (identical(_desktopPlaybackCompleter, completed)) {
+        _desktopPlaybackCompleter = null;
+      }
     }
-    return false;
+  }
+
+  Future<void> stopDesktopSpeech() async {
+    _desktopSpeechGeneration++;
+    final completed = _desktopPlaybackCompleter;
+    if (completed != null && !completed.isCompleted) completed.complete();
+    try {
+      await _desktopTtsPlayer?.stop();
+    } catch (error) {
+      debugPrint('Unable to stop desktop speech: $error');
+    }
+  }
+
+  Future<void> disposeDesktopSpeech() async {
+    await stopDesktopSpeech();
+    final player = _desktopTtsPlayer;
+    _desktopTtsPlayer = null;
+    if (player != null) await player.dispose();
   }
 
   Future<bool> _speakOnLinuxFallback({
@@ -445,6 +625,13 @@ class SpeechService {
         .where(
           (m) => (m['language']?.toString().toLowerCase() ?? '') == language,
         )
+        .where((m) {
+          final platforms = m['platforms'];
+          return platforms is! List ||
+              platforms
+                  .map((value) => value.toString())
+                  .contains(_platformKey());
+        })
         .toList();
   }
 
@@ -511,14 +698,15 @@ class SpeechService {
   Future<bool> _speakWithSherpaDesktop({
     required String text,
     required bool useMalayalamNuance,
+    required double volume,
   }) async {
-    if (!(Platform.isLinux || Platform.isWindows)) {
-      return false;
-    }
+    if (!(Platform.isLinux || Platform.isWindows)) return false;
 
+    final generation = _desktopSpeechGeneration;
     if (Platform.isLinux) {
       await _ensureLinuxRuntimeAssets();
     }
+    if (generation != _desktopSpeechGeneration) return true;
 
     final manifest = await _loadSherpaManifest();
     if (manifest == null) return false;
@@ -529,12 +717,10 @@ class SpeechService {
 
     final sorted = [...models]
       ..sort((a, b) {
-        final tierA = a['tier']?.toString() ?? '';
-        final tierB = b['tier']?.toString() ?? '';
-        if (tierA == tierB) return 0;
-        if (tierA == 'primary') return -1;
-        if (tierB == 'primary') return 1;
-        return tierA.compareTo(tierB);
+        final tierRank = {'primary': 0, 'secondary': 1, 'backup': 2};
+        final rankA = tierRank[a['tier']?.toString()] ?? 3;
+        final rankB = tierRank[b['tier']?.toString()] ?? 3;
+        return rankA.compareTo(rankB);
       });
 
     for (final model in sorted) {
@@ -544,14 +730,12 @@ class SpeechService {
 
       final modelPath = _resolveDesktopPath(modelPathRaw);
       final tokensPath = _resolveDesktopPath(tokensPathRaw);
-      if (modelPath == null || tokensPath == null) {
-        _setEngineStatus(
-          'sherpa_unavailable',
-          'Missing model files for ${model['id'] ?? language}',
-        );
-        continue;
-      }
+      if (modelPath == null || tokensPath == null) continue;
 
+      final modelType = model['modelType']?.toString() ?? 'vits';
+      final voicesPath = modelType == 'kokoro'
+          ? _resolveDesktopPath(model['voicesPath']?.toString() ?? '')
+          : null;
       final dataDir = _resolveDesktopPath(model['dataDir']?.toString() ?? '');
       final lexiconPath = _resolveDesktopPath(
         model['lexiconPath']?.toString() ?? '',
@@ -559,9 +743,23 @@ class SpeechService {
       final ruleFstsPath = _resolveDesktopPath(
         model['ruleFstsPath']?.toString() ?? '',
       );
+      if (modelType == 'kokoro' &&
+          (voicesPath == null || dataDir == null || lexiconPath == null)) {
+        continue;
+      }
 
       final commands = await _commandCandidatesForModel(manifest, model);
-      List<String> baseVitsArgs() {
+      List<String> baseModelArgs() {
+        if (modelType == 'kokoro') {
+          return [
+            '--kokoro-model=$modelPath',
+            '--kokoro-voices=$voicesPath',
+            '--kokoro-tokens=$tokensPath',
+            '--kokoro-data-dir=$dataDir',
+            '--kokoro-lexicon=$lexiconPath',
+            '--sid=${model['speakerId'] ?? 0}',
+          ];
+        }
         final args = <String>[
           '--vits-model=$modelPath',
           '--vits-tokens=$tokensPath',
@@ -575,44 +773,58 @@ class SpeechService {
 
       for (final command in commands) {
         final lowerCommand = command.toLowerCase();
-        if (lowerCommand.endsWith('offline-tts') ||
-            lowerCommand.endsWith('offline-tts.exe')) {
+        final isFileGenerator =
+            lowerCommand.endsWith('offline-tts') ||
+            lowerCommand.endsWith('offline-tts.exe');
+        if (Platform.isLinux && !isFileGenerator) continue;
+
+        if (isFileGenerator) {
           final outFile =
               '${Directory.systemTemp.path}${Platform.pathSeparator}sherpa_tts_${DateTime.now().microsecondsSinceEpoch}.wav';
-          final args = <String>[
-            ...baseVitsArgs(),
+          final generated = await _runExternal(command, [
+            ...baseModelArgs(),
             '--output-filename=$outFile',
             text,
-          ];
-          final generated = await _runExternal(command, args);
+          ]);
           if (generated && await File(outFile).exists()) {
-            final played = await _playWaveFile(outFile);
+            if (generation != _desktopSpeechGeneration) {
+              await File(outFile).delete();
+              return true;
+            }
+            final played = await _playWaveFile(
+              outFile,
+              volume: volume,
+              generation: generation,
+            );
             try {
               await File(outFile).delete();
             } catch (_) {}
-            if (played) {
+            if (played && generation == _desktopSpeechGeneration) {
               _setEngineStatus(
                 'sherpa',
-                'Sherpa model ${model['id'] ?? language} via $command',
+                model['description']?.toString() ??
+                    'Sherpa ${model['id'] ?? language}',
               );
               return true;
             }
+            if (generation != _desktopSpeechGeneration) return true;
           }
+          if (Platform.isLinux) continue;
         }
 
-        final ok = await _runExternal(command, [...baseVitsArgs(), text]);
+        final ok = await _runExternal(command, [...baseModelArgs(), text]);
         if (ok) {
           _setEngineStatus(
             'sherpa',
-            'Sherpa model ${model['id'] ?? language} via $command',
+            model['description']?.toString() ??
+                'Sherpa ${model['id'] ?? language}',
           );
           return true;
         }
       }
 
-      // Last attempt: optional model-specific args from manifest.
       final extraArgs = model['commandArgs'];
-      if (extraArgs is List && extraArgs.isNotEmpty) {
+      if (extraArgs is List && extraArgs.isNotEmpty && !Platform.isLinux) {
         for (final command in commands) {
           final ok = await _runExternal(
             command,
@@ -629,10 +841,7 @@ class SpeechService {
       }
     }
 
-    _setEngineStatus(
-      'sherpa_unavailable',
-      'Sherpa command or model not available',
-    );
+    _setEngineStatus('sherpa_unavailable', 'No compatible Sherpa model found');
     return false;
   }
 
@@ -785,12 +994,16 @@ class SpeechService {
     required String speechEngineMode,
   }) async {
     final mode = normalizeSpeechEngineMode(speechEngineMode);
+    final ttsVolume = maximumSpeechVolume
+        ? (speakVolume + 0.40).clamp(0.0, 1.0).toDouble()
+        : speakVolume.clamp(0.0, 1.0).toDouble();
 
     if (Platform.isLinux || Platform.isWindows) {
       if (mode == 'sherpa_only' || mode == 'auto') {
         final sherpaOk = await _speakWithSherpaDesktop(
           text: item.text,
           useMalayalamNuance: useMalayalamNuance,
+          volume: ttsVolume,
         );
         if (sherpaOk) return;
       }
@@ -842,7 +1055,6 @@ class SpeechService {
       await flutterTts.setLanguage('en-IN');
     }
 
-
     if (useMalayalamNuance) {
       await flutterTts.setPitch(0.98);
       await flutterTts.setSpeechRate(item.isQuote ? 0.40 : 0.44);
@@ -850,10 +1062,6 @@ class SpeechService {
       await flutterTts.setPitch(1.0);
       await flutterTts.setSpeechRate(item.isQuote ? 0.45 : 0.5);
     }
-
-    final ttsVolume = maximumSpeechVolume
-        ? (speakVolume + 0.40).clamp(0.0, 1.0)
-        : speakVolume.clamp(0.0, 1.0);
 
     await flutterTts.setVolume(ttsVolume);
 

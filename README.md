@@ -94,41 +94,89 @@
 ## Getting started
 
 ### Prerequisites
-- Flutter SDK installed
-- Dart SDK compatible with this project (`sdk: ^3.11.3`)
-- Android Studio / Xcode (for mobile builds)
 
-### Install dependencies
+- Flutter stable with Dart `3.11.3` or newer (see `environment.sdk` in `pubspec.yaml`).
+- Android Studio / Android SDK for Android builds.
+- Xcode on macOS for iOS builds.
+
+### Linux build prerequisites
+
+Flutter's Linux desktop target needs GTK 3 development files. The Linux audio plugin also needs GStreamer development libraries when building and its base/good/ALSA plugins at runtime; install those with the compiler/build tools.
+
+**Arch Linux**
+```bash
+sudo pacman -S --needed base-devel clang cmake flutter git \
+  gstreamer gst-plugins-base-libs gst-plugins-good gtk3 libepoxy \
+  ninja pkgconf alsa-lib
+```
+
+**Debian / Ubuntu**
+```bash
+sudo apt update
+sudo apt install clang cmake ninja-build pkg-config libgtk-3-dev \
+  liblzma-dev libstdc++-12-dev libgstreamer1.0-dev \
+  libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base \
+  gstreamer1.0-plugins-good gstreamer1.0-alsa libasound2
+```
+
+**Fedora**
+```bash
+sudo dnf install clang cmake ninja-build pkgconf-pkg-config gtk3-devel \
+  xz-devel gstreamer1-devel gstreamer1-plugins-base-devel \
+  gstreamer1-plugins-base gstreamer1-plugins-good alsa-lib
+```
+
+Install Flutter from your distribution or from the [official Flutter Linux installation guide](https://docs.flutter.dev/get-started/install/linux/desktop). Confirm that `flutter doctor -v` reports Linux desktop support and GTK development dependencies before building. The distro package names above cover the native dependencies; Flutter itself may need to be installed separately on Debian, Ubuntu, and Fedora.
+
+### Resolve dependencies and run from source
 ```bash
 flutter pub get
+flutter run -d linux
 ```
 
-### Run
-```bash
-flutter run
-```
-
-### Linux desktop release
+### Build and install the Linux release bundle
 ```bash
 flutter build linux --release
 ./build/linux/x64/release/bundle/install-linux.sh
 ```
 
-The release bundle includes offline Sherpa-ONNX voices for English and Malayalam, plus a desktop launcher and icon.
+The installer copies the relocatable bundle to `~/.local/opt/solasflow` and adds a desktop launcher under `~/.local/share/applications`. Launch `Solas Flow` from the desktop menu or run:
+```bash
+~/.local/opt/solasflow/solasflow
+```
 
-### Arch Linux
+Keep the entire generated `build/linux/x64/release/bundle` directory together when distributing the application; the executable needs its adjacent `data/` and `lib/` directories. GTK 3 and GStreamer runtime packages must be present on the target distro.
+
+### Linux speech models
+
+Linux bundles offline Sherpa-ONNX, Piper voices for English and Malayalam, and eSpeak-NG language data. The first English speech request attempts to download the 140 MiB INT8 Kokoro v1.1 voice from the [official Sherpa-ONNX release](https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models); the downloaded archive is SHA-256 checked and cached below `~/.local/share/solasflow_runtime/assets/tts/models/en/kokoro`. An internet connection is needed for that optional first-run download. If it fails or the machine is offline, Linux falls back to the bundled Piper voice. Linux-generated WAV audio is played through the app's GStreamer-backed audio player, rather than relying on `paplay` or `aplay`.
+
+Kokoro v1.1 currently supplies natural-sounding US English (`af_maple`) on Linux; it does not speak Malayalam. Malayalam remains offline through the bundled Piper `ml_IN-meera-medium` voice. Quality differs by language and voice; use **Settings → Test voice** to check the selected language and installed audio output. The upstream [Kokoro model](https://huggingface.co/hexgrad/Kokoro-82M) is Apache-2.0. See `assets/tts/models_manifest.json` for runtime model selection.
+
+### Arch Linux package
 ```bash
 cd packaging/arch
 makepkg -si
 ```
 
-The VCS package tracks `master` and builds the Linux release from source.
+The `solasflow-git` package builds the Linux release from the current `master` branch and declares its GTK/GStreamer runtime dependencies. `makepkg` installs the package with pacman when `-i` is supplied.
+
+### Debian, Ubuntu, Fedora, and other distributions
+
+Install the Linux build prerequisites above, then build and install with the bundle commands. For a prebuilt release bundle, extract it without changing its directory structure, install the target distro's GTK 3 and GStreamer runtime packages, and run `./install-linux.sh` from inside the extracted bundle. The installer creates a per-user launcher and does not register distro package dependencies. Do not copy only the `solasflow` executable.
+
+### Other platforms
+```bash
+flutter pub get
+flutter run
+```
+
+Build Android or iOS from the corresponding Flutter target. Desktop Kokoro bootstrap is Linux-only; existing platform speech engines remain in use elsewhere.
 
 ### Test
 ```bash
 flutter test
 ```
-
 ## Notes
 
 - App display name is `Solas Flow`.

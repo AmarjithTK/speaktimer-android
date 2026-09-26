@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "notes": "Desktop Sherpa-ONNX model manifest for Linux/Windows. Place models under assets/tts/models and binaries under assets/tts/bin or install sherpa in PATH.",
+  "notes": "Desktop Sherpa-ONNX model manifest. Piper voices are bundled under assets/tts/models; Linux Kokoro is checksum-pinned and cached under ~/.local/share/solasflow_runtime/assets/tts/models.",
   "commands": {
     "linux": [
       "assets/tts/bin/linux-x64/sherpa-onnx-offline-tts-play",
@@ -19,13 +19,28 @@
   },
   "models": [
     {
-      "id": "en_primary",
+      "id": "kokoro_v1_1_af_maple",
       "language": "en",
       "tier": "primary",
+      "modelType": "kokoro",
+      "platforms": ["linux"],
+      "modelPath": "assets/tts/models/en/kokoro/model.int8.onnx",
+      "tokensPath": "assets/tts/models/en/kokoro/tokens.txt",
+      "voicesPath": "assets/tts/models/en/kokoro/voices.bin",
+      "dataDir": "assets/tts/models/espeak-ng-data",
+      "lexiconPath": "assets/tts/models/en/kokoro/lexicon-us-en.txt",
+      "speakerId": 0,
+      "voiceName": "af_maple",
+      "description": "Kokoro v1.1 INT8 natural US English (af_maple)"
+    },
+    {
+      "id": "en_primary",
+      "language": "en",
+      "tier": "secondary",
       "modelPath": "assets/tts/models/en/primary/model.onnx",
       "tokensPath": "assets/tts/models/en/primary/tokens.txt",
       "dataDir": "assets/tts/models/espeak-ng-data",
-      "description": "English smooth primary"
+      "description": "Piper English fallback"
     },
     {
       "id": "en_backup",
@@ -34,7 +49,7 @@
       "modelPath": "assets/tts/models/en/backup/model.onnx",
       "tokensPath": "assets/tts/models/en/backup/tokens.txt",
       "dataDir": "assets/tts/models/espeak-ng-data",
-      "description": "English backup"
+      "description": "Piper English backup"
     },
     {
       "id": "ml_primary",
@@ -43,7 +58,7 @@
       "modelPath": "assets/tts/models/ml/primary/model.onnx",
       "tokensPath": "assets/tts/models/ml/primary/tokens.txt",
       "dataDir": "assets/tts/models/espeak-ng-data",
-      "description": "Malayalam smooth primary"
+      "description": "Piper Malayalam Meera"
     },
     {
       "id": "ml_backup",
@@ -52,7 +67,7 @@
       "modelPath": "assets/tts/models/ml/backup/model.onnx",
       "tokensPath": "assets/tts/models/ml/backup/tokens.txt",
       "dataDir": "assets/tts/models/espeak-ng-data",
-      "description": "Malayalam backup"
+      "description": "Piper Malayalam Arjun backup"
     }
   ]
 }

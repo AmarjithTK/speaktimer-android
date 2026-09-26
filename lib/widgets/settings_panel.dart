@@ -37,6 +37,7 @@ class SettingsPanel extends ConsumerStatefulWidget {
   final ValueChanged<String?> onVoiceListModeChanged;
   final ValueChanged<String?> onSpeechEngineModeChanged;
   final ValueChanged<String?> onFavoriteVoiceChanged;
+  final VoidCallback onTestSpeech;
   final VoidCallback onOpenHelp;
   final VoidCallback? onBackupSettings;
   final VoidCallback? onRestoreSettings;
@@ -73,6 +74,7 @@ class SettingsPanel extends ConsumerStatefulWidget {
     required this.onSpeechEngineModeChanged,
     required this.onFavoriteVoiceChanged,
     required this.onOpenHelp,
+    required this.onTestSpeech,
     this.onBackupSettings,
     this.onRestoreSettings,
   });
@@ -122,7 +124,7 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
       case 'sherpa_only':
         return 'Sherpa-ONNX only';
       case 'auto':
-        return 'Auto (System default)';
+        return 'Auto (best available)';
       case 'com.google.android.tts':
         return 'Google Speech Services';
       case 'com.samsung.SMT':
@@ -357,6 +359,13 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
                 maxLines: 2,
               ),
             ),
+          _settingsOption(
+            context,
+            icon: Icons.play_circle_outline_rounded,
+            title: 'Test voice',
+            value: 'Play sample',
+            onTap: widget.onTestSpeech,
+          ),
           _settingsDivider(context),
           _settingsOption(
             context,

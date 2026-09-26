@@ -1174,6 +1174,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
           speechQueueLength: speechQueue.length,
           speechEngineRuntime: _speechService.lastEngineUsed,
           speechEngineRuntimeDetail: _speechService.lastEngineDetail,
+          onTestSpeech: _testSpeech,
           voices: settingsVoices,
           availableEngines: _installedEngines,
           onSoundChanged: (val) {
@@ -2132,7 +2133,19 @@ class _MainScreenState extends ConsumerState<MainScreen>
     _speakGoalReminderMessage('Goal reminder: $goal');
   }
 
+  void _testSpeech() {
+    final preferredVoice = getPreferredVoice();
+    if (_isMalayalamActive(preferredVoice)) {
+      speak('ഇത് ശബ്ദ പരിശോധനയാണ്. നിങ്ങളുടെ ടൈമർ ആരംഭിക്കാൻ തയ്യാറാണ്.');
+    } else {
+      speak('This is a voice test. Your focus timer is ready.');
+    }
+  }
+
   Future<void> _stopTts() async {
+    if (Platform.isLinux || Platform.isWindows) {
+      await _speechService.stopDesktopSpeech();
+    }
     if (Platform.isLinux) return;
     await flutterTts.stop();
   }
@@ -3808,7 +3821,12 @@ class _MainScreenState extends ConsumerState<MainScreen>
     stopwatchInterval?.cancel();
     stopwatchInterval = null;
     displayTick?.cancel();
-    unawaited(_stopTts());
+    if (Platform.isLinux || Platform.isWindows) {
+      unawaited(_speechService.disposeDesktopSpeech());
+      if (Platform.isWindows) unawaited(flutterTts.stop());
+    } else {
+      unawaited(_stopTts());
+    }
     unawaited(_settingsService.flush());
     unawaited(_audioService.dispose());
     // Remove callback to avoid memory leaks
