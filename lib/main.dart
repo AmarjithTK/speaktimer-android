@@ -73,11 +73,13 @@ import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'core/pref_keys.dart';
 import 'providers/app_state.dart';
 import 'theme/app_theme.dart';
 
 import 'l10n/app_localizations.dart';
 import 'models/app_settings.dart';
+import 'models/speech_model_download_status.dart';
 import 'models/foreground_notification_state.dart';
 import 'models/timer_runtime.dart';
 import 'models/speech_item.dart';
@@ -103,6 +105,7 @@ import 'services/speech_language_service.dart';
 import 'services/session_log_service.dart';
 import 'models/session_log.dart';
 import 'widgets/dashboard_screen.dart';
+import 'widgets/kokoro_download_consent_dialog.dart';
 
 @pragma('vm:entry-point')
 void startCallback() {
@@ -1176,8 +1179,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
           speechEngineRuntimeDetail: _speechService.lastEngineDetail,
           showEnglishVoiceDownload: Platform.isLinux,
           speechModelDownloadStatus: _speechService.kokoroDownloadStatus,
-          onDownloadEnglishVoice: () =>
-              unawaited(_speechService.downloadKokoroVoice()),
+          onDownloadEnglishVoice: _downloadKokoroVoiceFromSettings,
           onCancelEnglishVoiceDownload: () =>
               unawaited(_speechService.cancelKokoroVoiceDownload()),
           onTestSpeech: _testSpeech,
@@ -1697,6 +1699,9 @@ class _MainScreenState extends ConsumerState<MainScreen>
     _initQuickActions();
     FlutterForegroundTask.addTaskDataCallback(_onReceiveTaskData);
     unawaited(_bootstrap());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_maybePromptForKokoroDownload());
+    });
 
     displayTick = Timer.periodic(const Duration(milliseconds: 250), (_) {
       if (!mounted) return;
@@ -1754,6 +1759,49 @@ class _MainScreenState extends ConsumerState<MainScreen>
     }
     await _drainWidgetActions();
     await _writeWidgetState();
+  }
+
+  Future<void> _maybePromptForKokoroDownload() async {
+    if (!Platform.isLinux ||
+        _speechService.kokoroDownloadStatus.value.phase ==
+            SpeechModelDownloadPhase.ready) {
+      return;
+    }
+
+    final preferences = await SharedPreferences.getInstance();
+    if ((preferences.getBool(PrefKeys.linuxKokoroConsentPromptSeen) ?? false) ||
+        (preferences.getBool(PrefKeys.linuxKokoroConsentAccepted) ?? false)) {
+      return;
+    }
+    if (!mounted) return;
+
+    final accepted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => KokoroDownloadConsentDialog(
+        onAccept: () => Navigator.of(dialogContext).pop(true),
+        onDecline: () => Navigator.of(dialogContext).pop(false),
+      ),
+    );
+    await preferences.setBool(PrefKeys.linuxKokoroConsentPromptSeen, true);
+    await preferences.setBool(
+      PrefKeys.linuxKokoroConsentAccepted,
+      accepted == true,
+    );
+    if (accepted != true || !mounted) return;
+    unawaited(_speechService.downloadKokoroVoice());
+  }
+
+  void _downloadKokoroVoiceFromSettings() {
+    unawaited(_recordKokoroDownloadConsentAndStart());
+  }
+
+  Future<void> _recordKokoroDownloadConsentAndStart() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(PrefKeys.linuxKokoroConsentPromptSeen, true);
+    await preferences.setBool(PrefKeys.linuxKokoroConsentAccepted, true);
+    if (!mounted) return;
+    await _speechService.downloadKokoroVoice();
   }
 
   AppSettings _currentSettingsSnapshot() => _settings;

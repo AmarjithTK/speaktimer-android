@@ -45,4 +45,6 @@ class PrefKeys {
   static const fullscreenDimBrightnessLevel = 'FullscreenDimBrightnessLevel';
   static const taggingOn = 'TaggingOn';
   static const sessionTag = 'SessionTag';
+  static const linuxKokoroConsentPromptSeen = 'LinuxKokoroConsentPromptSeen';
+  static const linuxKokoroConsentAccepted = 'LinuxKokoroConsentAccepted';
 }
