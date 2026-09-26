@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/sound_option.dart';
 import '../providers/app_state.dart';
+import '../models/speech_model_download_status.dart';
 
 class SettingsPanel extends ConsumerStatefulWidget {
   // ── Side-effect callbacks only (audio, TTS, foreground service) ──
@@ -16,6 +17,8 @@ class SettingsPanel extends ConsumerStatefulWidget {
   final List<String> availableEngines;
   final String speechEngineRuntime;
   final String speechEngineRuntimeDetail;
+  final bool showEnglishVoiceDownload;
+  final ValueListenable<SpeechModelDownloadStatus> speechModelDownloadStatus;
   final String sleepStartLabel;
   final String sleepEndLabel;
   final ValueChanged<String?> onSoundChanged;
@@ -38,6 +41,8 @@ class SettingsPanel extends ConsumerStatefulWidget {
   final ValueChanged<String?> onSpeechEngineModeChanged;
   final ValueChanged<String?> onFavoriteVoiceChanged;
   final VoidCallback onTestSpeech;
+  final VoidCallback onDownloadEnglishVoice;
+  final VoidCallback onCancelEnglishVoiceDownload;
   final VoidCallback onOpenHelp;
   final VoidCallback? onBackupSettings;
   final VoidCallback? onRestoreSettings;
@@ -52,6 +57,8 @@ class SettingsPanel extends ConsumerStatefulWidget {
     this.availableEngines = const [],
     required this.speechEngineRuntime,
     required this.speechEngineRuntimeDetail,
+    required this.showEnglishVoiceDownload,
+    required this.speechModelDownloadStatus,
     required this.sleepStartLabel,
     required this.sleepEndLabel,
     required this.onSoundChanged,
@@ -75,6 +82,8 @@ class SettingsPanel extends ConsumerStatefulWidget {
     required this.onFavoriteVoiceChanged,
     required this.onOpenHelp,
     required this.onTestSpeech,
+    required this.onDownloadEnglishVoice,
+    required this.onCancelEnglishVoiceDownload,
     this.onBackupSettings,
     this.onRestoreSettings,
   });
@@ -90,6 +99,80 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
     if (v == 0.6) return 'Medium';
     if (v == 0.8) return 'High';
     return 'Very High';
+  }
+
+  Widget _speechModelDownloadCard(
+    BuildContext context,
+    SpeechModelDownloadStatus status,
+  ) {
+    final cs = Theme.of(context).colorScheme;
+    final canStart =
+        status.phase == SpeechModelDownloadPhase.notDownloaded ||
+        status.canRetry;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.cloud_download_outlined, color: cs.primary, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Kokoro English voice',
+                  style: TextStyle(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            status.message,
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (status.isBusy) ...[
+            const SizedBox(height: 10),
+            LinearProgressIndicator(
+              value: status.progress,
+              minHeight: 4,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ],
+          if (canStart || status.phase == SpeechModelDownloadPhase.downloading)
+            Align(
+              alignment: Alignment.centerRight,
+              child: canStart
+                  ? FilledButton.tonalIcon(
+                      onPressed: widget.onDownloadEnglishVoice,
+                      icon: Icon(
+                        status.canRetry
+                            ? Icons.refresh_rounded
+                            : Icons.download_rounded,
+                      ),
+                      label: Text(status.canRetry ? 'Retry' : 'Download'),
+                    )
+                  : TextButton.icon(
+                      onPressed: widget.onCancelEnglishVoiceDownload,
+                      icon: const Icon(Icons.close_rounded),
+                      label: const Text('Cancel'),
+                    ),
+            ),
+        ],
+      ),
+    );
   }
 
   String _soundTitle(String link) {
@@ -357,6 +440,15 @@ class _SettingsPanelState extends ConsumerState<SettingsPanel> {
                 '${widget.speechEngineRuntime} — ${widget.speechEngineRuntimeDetail}',
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
                 maxLines: 2,
+              ),
+            ),
+          if (widget.showEnglishVoiceDownload)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
+              child: ValueListenableBuilder<SpeechModelDownloadStatus>(
+                valueListenable: widget.speechModelDownloadStatus,
+                builder: (context, status, _) =>
+                    _speechModelDownloadCard(context, status),
               ),
             ),
           _settingsOption(

@@ -1174,6 +1174,12 @@ class _MainScreenState extends ConsumerState<MainScreen>
           speechQueueLength: speechQueue.length,
           speechEngineRuntime: _speechService.lastEngineUsed,
           speechEngineRuntimeDetail: _speechService.lastEngineDetail,
+          showEnglishVoiceDownload: Platform.isLinux,
+          speechModelDownloadStatus: _speechService.kokoroDownloadStatus,
+          onDownloadEnglishVoice: () =>
+              unawaited(_speechService.downloadKokoroVoice()),
+          onCancelEnglishVoiceDownload: () =>
+              unawaited(_speechService.cancelKokoroVoiceDownload()),
           onTestSpeech: _testSpeech,
           voices: settingsVoices,
           availableEngines: _installedEngines,

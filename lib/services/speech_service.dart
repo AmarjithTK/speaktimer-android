@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 import '../models/speech_item.dart';
+import '../models/speech_model_download_status.dart';
 
 class SpeechService {
   static const MethodChannel _audioChannel = MethodChannel(
@@ -26,6 +27,19 @@ class SpeechService {
   static const String _kokoroArchiveSha256 =
       'a1e94694776049035c4f2c6529f003aaece993c76aae9a78995831c3c4dcafc6';
   static const int _kokoroArchiveSize = 147031220;
+  late final ValueNotifier<SpeechModelDownloadStatus> kokoroDownloadStatus =
+      ValueNotifier(
+        SpeechModelDownloadStatus(
+          phase: Platform.isLinux && _kokoroModelInstalled()
+              ? SpeechModelDownloadPhase.ready
+              : SpeechModelDownloadPhase.notDownloaded,
+        ),
+      );
+  HttpClient? _kokoroDownloadClient;
+  Future<void>? _kokoroDownloadFuture;
+  bool _kokoroCancelRequested = false;
+  int _lastKokoroProgressBytes = 0;
+  DateTime _lastKokoroProgressUpdate = DateTime.fromMillisecondsSinceEpoch(0);
 
   AudioPlayer? _desktopTtsPlayer;
   int _desktopSpeechGeneration = 0;
@@ -125,21 +139,33 @@ class SpeechService {
     required String outPath,
     int? expectedSize,
     String? expectedSha256,
+    void Function(HttpClient client)? onClientCreated,
+    void Function(int receivedBytes, int? totalBytes)? onProgress,
   }) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 15);
+    onClientCreated?.call(client);
     final outFile = File(outPath);
     final partialFile = File('$outPath.part');
     try {
       final req = await client.getUrl(Uri.parse(url));
       final res = await req.close().timeout(const Duration(seconds: 30));
       if (res.statusCode < 200 || res.statusCode >= 300) {
-        throw Exception('Download failed ($url): ${res.statusCode}');
+        throw Exception('Download failed (${res.statusCode})');
       }
       await outFile.parent.create(recursive: true);
       final sink = partialFile.openWrite();
       try {
-        await sink.addStream(res.timeout(const Duration(seconds: 45)));
+        var receivedBytes = 0;
+        final totalBytes =
+            expectedSize ?? (res.contentLength > 0 ? res.contentLength : null);
+        await sink.addStream(
+          res.timeout(const Duration(seconds: 45)).map((chunk) {
+            receivedBytes += chunk.length;
+            onProgress?.call(receivedBytes, totalBytes);
+            return chunk;
+          }),
+        );
       } finally {
         await sink.close();
       }
@@ -233,7 +259,6 @@ class SpeechService {
     ];
     if (bundledPaths.every((path) => _resolveDesktopPath(path) != null) ||
         alreadyReady) {
-      await _ensureLinuxKokoroModel();
       return;
     }
 
@@ -361,28 +386,74 @@ class SpeechService {
         'Runtime setup failed: $error',
       );
     }
-
-    await _ensureLinuxKokoroModel();
   }
 
-  Future<void> _ensureLinuxKokoroModel() async {
-    final runtimeBase = _linuxRuntimeBaseDir();
-    final kokoroDir = _joinPath(
-      _joinPath(_joinPath(runtimeBase, 'assets/tts/models'), 'en'),
+  String _kokoroModelDirectory() {
+    return _joinPath(
+      _joinPath(_joinPath(_linuxRuntimeBaseDir(), 'assets/tts/models'), 'en'),
       'kokoro',
     );
-    final installedFiles = [
+  }
+
+  bool _kokoroModelInstalled() {
+    return [
+      'model.int8.onnx',
+      'tokens.txt',
+      'voices.bin',
+      'lexicon-us-en.txt',
+    ].every((name) => _fileExists(_joinPath(_kokoroModelDirectory(), name)));
+  }
+
+  Future<void> downloadKokoroVoice() async {
+    if (!Platform.isLinux) return;
+    final active = _kokoroDownloadFuture;
+    if (active != null) {
+      await active;
+      return;
+    }
+    if (_kokoroModelInstalled()) {
+      kokoroDownloadStatus.value = const SpeechModelDownloadStatus(
+        phase: SpeechModelDownloadPhase.ready,
+      );
+      return;
+    }
+
+    _kokoroCancelRequested = false;
+    _lastKokoroProgressBytes = 0;
+    _lastKokoroProgressUpdate = DateTime.now();
+    final task = _installKokoroVoice();
+    _kokoroDownloadFuture = task;
+    try {
+      await task;
+    } finally {
+      if (identical(_kokoroDownloadFuture, task)) {
+        _kokoroDownloadFuture = null;
+        _kokoroDownloadClient = null;
+        _kokoroCancelRequested = false;
+      }
+    }
+  }
+
+  Future<void> cancelKokoroVoiceDownload() async {
+    final active = _kokoroDownloadFuture;
+    if (active == null ||
+        kokoroDownloadStatus.value.phase !=
+            SpeechModelDownloadPhase.downloading) {
+      return;
+    }
+    _kokoroCancelRequested = true;
+    _kokoroDownloadClient?.close(force: true);
+    await active;
+  }
+
+  Future<void> _installKokoroVoice() async {
+    final kokoroDir = _kokoroModelDirectory();
+    const installedFiles = [
       'model.int8.onnx',
       'tokens.txt',
       'voices.bin',
       'lexicon-us-en.txt',
     ];
-    if (installedFiles.every(
-      (name) => _fileExists(_joinPath(kokoroDir, name)),
-    )) {
-      return;
-    }
-
     final tmpRoot =
         '${Directory.systemTemp.path}${Platform.pathSeparator}solasflow_sherpa_bootstrap';
     final archivePath = _joinPath(tmpRoot, _kokoroArchiveName);
@@ -396,9 +467,13 @@ class SpeechService {
       }
       if (!archiveValid) {
         if (archiveFile.existsSync()) await archiveFile.delete();
+        kokoroDownloadStatus.value = const SpeechModelDownloadStatus(
+          phase: SpeechModelDownloadPhase.downloading,
+          totalBytes: _kokoroArchiveSize,
+        );
         _setEngineStatus(
           'kokoro_downloading',
-          'Downloading Kokoro English voice (140 MB, first run only)',
+          'Downloading Kokoro English voice (140 MiB)',
         );
         await _downloadToFile(
           url:
@@ -406,9 +481,19 @@ class SpeechService {
           outPath: archivePath,
           expectedSize: _kokoroArchiveSize,
           expectedSha256: _kokoroArchiveSha256,
+          onClientCreated: (client) {
+            _kokoroDownloadClient = client;
+            if (_kokoroCancelRequested) client.close(force: true);
+          },
+          onProgress: _reportKokoroProgress,
         );
       }
 
+      kokoroDownloadStatus.value = const SpeechModelDownloadStatus(
+        phase: SpeechModelDownloadPhase.verifying,
+        receivedBytes: _kokoroArchiveSize,
+        totalBytes: _kokoroArchiveSize,
+      );
       final extractDir = _joinPath(tmpRoot, 'kokoro_extract');
       final extractPath = Directory(extractDir);
       if (extractPath.existsSync()) {
@@ -424,6 +509,11 @@ class SpeechService {
         throw Exception('Kokoro archive is missing required model files');
       }
 
+      kokoroDownloadStatus.value = const SpeechModelDownloadStatus(
+        phase: SpeechModelDownloadPhase.installing,
+        receivedBytes: _kokoroArchiveSize,
+        totalBytes: _kokoroArchiveSize,
+      );
       final stagingDir = Directory('$kokoroDir.installing');
       if (stagingDir.existsSync()) {
         await stagingDir.delete(recursive: true);
@@ -442,16 +532,45 @@ class SpeechService {
       await stagingDir.rename(kokoroDir);
       await extractPath.delete(recursive: true);
       await archiveFile.delete();
+      kokoroDownloadStatus.value = const SpeechModelDownloadStatus(
+        phase: SpeechModelDownloadPhase.ready,
+      );
       _setEngineStatus(
         'kokoro_ready',
         'Kokoro v1.1 INT8 ready (US English, Maple)',
       );
     } catch (error) {
-      _setEngineStatus(
-        'kokoro_unavailable',
-        'Kokoro unavailable; using the bundled fallback voice: $error',
+      if (_kokoroCancelRequested) {
+        kokoroDownloadStatus.value = const SpeechModelDownloadStatus(
+          phase: SpeechModelDownloadPhase.cancelled,
+        );
+        _setEngineStatus('kokoro_cancelled', 'Kokoro download cancelled');
+        return;
+      }
+      final detail = error.toString().replaceFirst('Exception: ', '');
+      kokoroDownloadStatus.value = SpeechModelDownloadStatus(
+        phase: SpeechModelDownloadPhase.failed,
+        error: detail,
       );
+      _setEngineStatus('kokoro_unavailable', 'Kokoro download failed: $detail');
     }
+  }
+
+  void _reportKokoroProgress(int receivedBytes, int? totalBytes) {
+    final now = DateTime.now();
+    if (receivedBytes - _lastKokoroProgressBytes < 512 * 1024 &&
+        now.difference(_lastKokoroProgressUpdate) <
+            const Duration(milliseconds: 250) &&
+        receivedBytes < (totalBytes ?? 0)) {
+      return;
+    }
+    _lastKokoroProgressBytes = receivedBytes;
+    _lastKokoroProgressUpdate = now;
+    kokoroDownloadStatus.value = SpeechModelDownloadStatus(
+      phase: SpeechModelDownloadPhase.downloading,
+      receivedBytes: receivedBytes,
+      totalBytes: totalBytes ?? 0,
+    );
   }
 
   String? _resolveDesktopPath(String pathLike) {
@@ -565,6 +684,7 @@ class SpeechService {
   }
 
   Future<void> disposeDesktopSpeech() async {
+    await cancelKokoroVoiceDownload();
     await stopDesktopSpeech();
     final player = _desktopTtsPlayer;
     _desktopTtsPlayer = null;
